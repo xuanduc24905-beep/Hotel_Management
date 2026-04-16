@@ -2,8 +2,10 @@ package com.lotuslaverne.gui;
 
 import com.lotuslaverne.dao.KhachHangDAO;
 import com.lotuslaverne.entity.KhachHang;
+import com.lotuslaverne.util.UIFactory;
 
 import javax.swing.*;
+import javax.swing.border.EmptyBorder;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.util.List;
@@ -21,8 +23,8 @@ public class FrmKhachHang extends JPanel {
     }
 
     private void initUI() {
-        setLayout(new BorderLayout(10, 10));
-        setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
+        setLayout(new BorderLayout(20, 20));
+        UIFactory.styleMainPanel(this);
 
         JLabel lblTitle = new JLabel("CHĂM SÓC KHÁCH HÀNG & THÔNG TIN ĐỊNH DANH", SwingConstants.CENTER);
         lblTitle.setFont(new Font("Arial", Font.BOLD, 24));
@@ -30,8 +32,14 @@ public class FrmKhachHang extends JPanel {
         add(lblTitle, BorderLayout.NORTH);
 
         // FORM NHẬP
-        JPanel topPanel = new JPanel(new GridLayout(2, 4, 10, 10));
-        topPanel.setBorder(BorderFactory.createTitledBorder("Cập nhật Hồ sơ Khách hàng"));
+        JPanel topPanel = new JPanel(new GridLayout(2, 4, 15, 15));
+        UIFactory.styleFormPanel(topPanel);
+        
+        topPanel.setBorder(BorderFactory.createTitledBorder(
+                BorderFactory.createLineBorder(new Color(220, 220, 220)), 
+                "Cập nhật Hồ sơ Khách hàng", 
+                0, 0, new Font("Arial", Font.BOLD, 12), new Color(100, 100, 100)
+        ));
         
         txtMaKH = new JTextField();
         txtTenKH = new JTextField();
@@ -47,7 +55,7 @@ public class FrmKhachHang extends JPanel {
         String[] cols = {"Mã Khách Hàng", "Họ Tên", "SĐT", "Chứng Minh Thư"};
         tableModel = new DefaultTableModel(cols, 0);
         table = new JTable(tableModel);
-        table.setRowHeight(30);
+        UIFactory.styleTable(table);
 
         table.getSelectionModel().addListSelectionListener(e -> {
             int row = table.getSelectedRow();
@@ -60,16 +68,25 @@ public class FrmKhachHang extends JPanel {
             }
         });
 
-        JPanel pnCenter = new JPanel(new BorderLayout());
+        JPanel pnCenter = new JPanel(new BorderLayout(0, 20));
+        pnCenter.setBackground(new Color(245, 246, 250));
         pnCenter.add(topPanel, BorderLayout.NORTH);
-        pnCenter.add(new JScrollPane(table), BorderLayout.CENTER);
+        
+        JPanel pnlTableWrapper = new JPanel(new BorderLayout());
+        UIFactory.styleFormPanel(pnlTableWrapper);
+        pnlTableWrapper.setBorder(BorderFactory.createLineBorder(new Color(220, 220, 220)));
+        pnlTableWrapper.add(new JScrollPane(table), BorderLayout.CENTER);
+        
+        pnCenter.add(pnlTableWrapper, BorderLayout.CENTER);
         add(pnCenter, BorderLayout.CENTER);
 
         // BUTTONS
-        JPanel panelBottom = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 10));
-        JButton btnLamMoi = new JButton("Làm Trống");
-        JButton btnThem = new JButton("Đăng ký Thẻ Cứng");
-        JButton btnSua = new JButton("Sửa Căn Cước/SĐT");
+        JPanel panelBottom = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 10));
+        panelBottom.setBackground(new Color(245, 246, 250));
+        
+        JButton btnLamMoi = UIFactory.createActionButton("Làm Trống", new Color(240, 240, 240), Color.BLACK);
+        JButton btnThem = UIFactory.createActionButton("Đăng ký Thẻ Cứng", new Color(40, 167, 69), Color.WHITE);
+        JButton btnSua = UIFactory.createActionButton("Sửa Căn Cước/SĐT", new Color(24, 144, 255), Color.WHITE);
 
         btnLamMoi.addActionListener(e -> {
             txtMaKH.setText(""); txtMaKH.setEditable(true);
@@ -88,10 +105,16 @@ public class FrmKhachHang extends JPanel {
         });
 
         btnSua.addActionListener(e -> { // UC: CẬP NHẬT
+            if (txtMaKH.getText().isEmpty()) {
+                JOptionPane.showMessageDialog(this, "Vui lòng chọn khách hàng trên bảng để sửa!");
+                return;
+            }
             KhachHang kh = new KhachHang(txtMaKH.getText(), txtTenKH.getText(), txtSDT.getText(), txtCMND.getText());
             if (dao.suaKhachHang(kh)) {
                 JOptionPane.showMessageDialog(this, "Đã thay đổi thông tin định danh.");
                 loadDataToTable();
+            } else {
+                JOptionPane.showMessageDialog(this, "Sửa thất bại! Không tìm thấy khách hàng hoặc trùng lặp dữ liệu.");
             }
         });
 

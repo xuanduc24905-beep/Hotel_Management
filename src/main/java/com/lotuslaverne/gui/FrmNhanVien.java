@@ -2,8 +2,10 @@ package com.lotuslaverne.gui;
 
 import com.lotuslaverne.dao.NhanVienDAO;
 import com.lotuslaverne.entity.NhanVien;
+import com.lotuslaverne.util.UIFactory;
 
 import javax.swing.*;
+import javax.swing.border.EmptyBorder;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.util.List;
@@ -21,16 +23,21 @@ public class FrmNhanVien extends JPanel {
     }
 
     private void initUI() {
-        setLayout(new BorderLayout(10, 10));
-        setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
+        setLayout(new BorderLayout(20, 20));
+        UIFactory.styleMainPanel(this);
 
         JLabel lblTitle = new JLabel("HỆ THỐNG QUẢN LÝ NHÂN SỰ TOÀN DIỆN", SwingConstants.CENTER);
         lblTitle.setFont(new Font("Arial", Font.BOLD, 22));
         add(lblTitle, BorderLayout.NORTH);
 
         // FORM NHẬP LIỆU (TOP PANEL)
-        JPanel topPanel = new JPanel(new GridLayout(2, 4, 10, 10));
-        topPanel.setBorder(BorderFactory.createTitledBorder("Nhập liệu Hồ sơ"));
+        JPanel topPanel = new JPanel(new GridLayout(2, 4, 15, 15));
+        UIFactory.styleFormPanel(topPanel);
+        topPanel.setBorder(BorderFactory.createTitledBorder(
+                BorderFactory.createLineBorder(new Color(220, 220, 220)), 
+                "Nhập liệu Hồ sơ", 
+                0, 0, new Font("Arial", Font.BOLD, 12), new Color(100, 100, 100)
+        ));
         
         txtMaNV = new JTextField();
         txtTenNV = new JTextField();
@@ -46,7 +53,7 @@ public class FrmNhanVien extends JPanel {
         String[] cols = {"Mã Nhân Viên", "Tên Nhân Viên", "Số Điện Thoại", "Trạng Thái"};
         tableModel = new DefaultTableModel(cols, 0);
         table = new JTable(tableModel);
-        table.setRowHeight(30);
+        UIFactory.styleTable(table);
 
         // MAP EVENT CLICK TABLE
         table.getSelectionModel().addListSelectionListener(e -> {
@@ -60,17 +67,26 @@ public class FrmNhanVien extends JPanel {
             }
         });
 
-        JPanel pnCenter = new JPanel(new BorderLayout());
+        JPanel pnCenter = new JPanel(new BorderLayout(0, 20));
+        pnCenter.setBackground(new Color(245, 246, 250));
         pnCenter.add(topPanel, BorderLayout.NORTH);
-        pnCenter.add(new JScrollPane(table), BorderLayout.CENTER);
+        
+        JPanel pnlTableWrapper = new JPanel(new BorderLayout());
+        UIFactory.styleFormPanel(pnlTableWrapper);
+        pnlTableWrapper.setBorder(BorderFactory.createLineBorder(new Color(220, 220, 220)));
+        pnlTableWrapper.add(new JScrollPane(table), BorderLayout.CENTER);
+        
+        pnCenter.add(pnlTableWrapper, BorderLayout.CENTER);
         add(pnCenter, BorderLayout.CENTER);
 
         // BOTTOM BUTTONS & LOGIC UC
-        JPanel panelBottom = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 10));
-        JButton btnLamMoi = new JButton("Làm mới Tool");
-        JButton btnThem = new JButton("Thêm Mới");
-        JButton btnSua = new JButton("Cập Nhật");
-        JButton btnXoa = new JButton("Đuổi Việc (Xóa)");
+        JPanel panelBottom = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 10));
+        panelBottom.setBackground(new Color(245, 246, 250));
+        
+        JButton btnLamMoi = UIFactory.createActionButton("Làm mới Tool", new Color(240, 240, 240), Color.BLACK);
+        JButton btnThem = UIFactory.createActionButton("Thêm Mới", new Color(40, 167, 69), Color.WHITE);
+        JButton btnSua = UIFactory.createActionButton("Cập Nhật", new Color(24, 144, 255), Color.WHITE);
+        JButton btnXoa = UIFactory.createActionButton("Đuổi Việc (Xóa)", new Color(220, 53, 69), Color.WHITE);
 
         btnLamMoi.addActionListener(e -> {
             txtMaNV.setText(""); txtMaNV.setEditable(true);
@@ -89,17 +105,29 @@ public class FrmNhanVien extends JPanel {
         });
 
         btnSua.addActionListener(e -> { // UC: CẬP NHẬT
+            if (txtMaNV.getText().isEmpty()) {
+                JOptionPane.showMessageDialog(this, "Vui lòng chọn nhân viên cần sửa!");
+                return;
+            }
             NhanVien nv = new NhanVien(txtMaNV.getText(), txtTenNV.getText(), txtSDT.getText(), txtTrangThai.getText());
             if (dao.suaNhanVien(nv)) {
                 JOptionPane.showMessageDialog(this, "Đã cập nhật thông tin!");
                 loadDataToTable();
+            } else {
+                JOptionPane.showMessageDialog(this, "Không thể cập nhật nhân viên.");
             }
         });
 
         btnXoa.addActionListener(e -> { // UC: XÓA NHÂN VIÊN
+            if (txtMaNV.getText().isEmpty()) {
+                JOptionPane.showMessageDialog(this, "Vui lòng chọn nhân viên cần xóa!");
+                return;
+            }
             if (dao.xoaNhanVien(txtMaNV.getText())) {
                 JOptionPane.showMessageDialog(this, "Đã đưa trạng thái thẻ thành Nghỉ việc!");
                 loadDataToTable();
+            } else {
+                JOptionPane.showMessageDialog(this, "Không thể xóa nhân viên này.");
             }
         });
 

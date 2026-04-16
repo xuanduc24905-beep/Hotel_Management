@@ -1,8 +1,10 @@
 package com.lotuslaverne.gui;
 
 import com.lotuslaverne.dao.ThongKeDAO;
+import com.lotuslaverne.util.UIFactory;
 
 import javax.swing.*;
+import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.text.DecimalFormat;
 
@@ -16,12 +18,12 @@ public class FrmThongKe extends JPanel {
     }
 
     private void initUI() {
-        setLayout(new BorderLayout(15, 15));
-        setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
+        setLayout(new BorderLayout(20, 20));
+        UIFactory.styleMainPanel(this);
 
         JLabel lblTitle = new JLabel("BẢNG ĐIỀU KHIỂN & BÁO CÁO DOANH THU (LIVE-SYNC)", SwingConstants.CENTER);
         lblTitle.setFont(new Font("Arial", Font.BOLD, 26));
-        lblTitle.setForeground(new Color(211, 84, 0));
+        lblTitle.setForeground(new Color(44, 62, 80));
         add(lblTitle, BorderLayout.NORTH);
 
         // Fetch Live Data
@@ -41,15 +43,20 @@ public class FrmThongKe extends JPanel {
 
         // Khu vực dưới (Biểu đồ Data)
         JPanel chartArea = new JPanel(new BorderLayout());
-        chartArea.setBorder(BorderFactory.createTitledBorder("Mô phỏng Biểu Đồ Tăng Trưởng Doanh Thu Khách Sạn"));
+        UIFactory.styleFormPanel(chartArea);
+        chartArea.setBorder(BorderFactory.createTitledBorder(
+                BorderFactory.createLineBorder(new Color(220, 220, 220)), 
+                "Mô phỏng Biểu Đồ Tăng Trưởng Doanh Thu Khách Sạn",
+                0, 0, new Font("Arial", Font.BOLD, 12), new Color(100, 100, 100)
+        ));
         JLabel lblChartPlot = new JLabel("<html><center><h2>Hệ thống Thống kê SQL đã Live Data đếm tiền thành công!</h2><br><i>(Doanh thu và trạng thái phòng đã móc thẳng từ CSDL thực tế. Bạn có thể Test bằng cách Thêm phiếu Checkout, con số Doanh thu này sẽ nảy số tự động!)</i></center></html>", SwingConstants.CENTER);
         lblChartPlot.setOpaque(true);
         lblChartPlot.setBackground(new Color(236, 240, 241));
         chartArea.add(lblChartPlot, BorderLayout.CENTER);
 
         // Nút Reload nhanh
-        JButton btnReload = new JButton("Tải Lại Giỏ Thống Kê Mới Nhất");
-        btnReload.setFont(new Font("Arial", Font.BOLD, 18));
+        JButton btnReload = UIFactory.createActionButton("Tải Lại Giỏ Thống Kê Mới Nhất", new Color(24, 144, 255), Color.WHITE);
+        btnReload.setPreferredSize(new Dimension(300, 45));
         btnReload.addActionListener(e -> {
             removeAll();
             initUI();
@@ -65,19 +72,24 @@ public class FrmThongKe extends JPanel {
     }
 
     private JPanel createStatCard(String title, String data, Color color) {
-        JPanel panel = new JPanel(new GridLayout(2, 1));
+        JPanel panel = new JPanel();
+        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
         panel.setBackground(color);
-        panel.setBorder(BorderFactory.createEmptyBorder(20, 10, 20, 10));
+        panel.putClientProperty("FlatLaf.style", "arc: 15"); 
+        panel.setBorder(new EmptyBorder(25, 25, 25, 25));
         
         JLabel lblTitle = new JLabel(title, SwingConstants.CENTER);
         lblTitle.setForeground(Color.WHITE);
-        lblTitle.setFont(new Font("Arial", Font.BOLD, 16));
+        lblTitle.setFont(new Font("Arial", Font.PLAIN, 14));
+        lblTitle.setAlignmentX(Component.CENTER_ALIGNMENT);
         
         JLabel lblData = new JLabel(data, SwingConstants.CENTER);
         lblData.setForeground(Color.WHITE);
-        lblData.setFont(new Font("Arial", Font.BOLD, 24));
+        lblData.setFont(new Font("Arial", Font.BOLD, 32));
+        lblData.setAlignmentX(Component.CENTER_ALIGNMENT);
 
         panel.add(lblTitle);
+        panel.add(Box.createVerticalStrut(10));
         panel.add(lblData);
         return panel;
     }

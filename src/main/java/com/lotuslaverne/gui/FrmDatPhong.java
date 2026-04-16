@@ -1,10 +1,12 @@
 package com.lotuslaverne.gui;
 
-import com.lotuslaverne.dao.PhongDAO;
 import com.lotuslaverne.dao.PhieuDatPhongDAO;
+import com.lotuslaverne.dao.PhongDAO;
 import com.lotuslaverne.entity.PhieuDatPhong;
+import com.lotuslaverne.util.UIFactory;
 
 import javax.swing.*;
+import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.sql.Timestamp;
 import java.util.UUID;
@@ -22,18 +24,23 @@ public class FrmDatPhong extends JPanel {
     }
 
     private void initUI() {
-        setLayout(new BorderLayout());
-        setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
+        setLayout(new BorderLayout(20, 20));
+        UIFactory.styleMainPanel(this);
 
         JLabel lblTitle = new JLabel("HỆ THỐNG XỬ LÝ LỄ TÂN (ĐẶT PHÒNG)", SwingConstants.CENTER);
         lblTitle.setFont(new Font("Arial", Font.BOLD, 26));
-        lblTitle.setForeground(new Color(22, 160, 133));
+        lblTitle.setForeground(new Color(44, 62, 80));
         add(lblTitle, BorderLayout.NORTH);
+        
+        JPanel pnlCenter = new JPanel(new BorderLayout());
+        pnlCenter.setBackground(new Color(245, 246, 250));
 
-        JPanel panelForm = new JPanel(new GridLayout(6, 2, 10, 20));
-        panelForm.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createTitledBorder("Nhập thông tin Đặt phòng"),
-                BorderFactory.createEmptyBorder(10, 10, 10, 10)
+        JPanel panelForm = new JPanel(new GridLayout(6, 2, 15, 20));
+        UIFactory.styleFormPanel(panelForm);
+        panelForm.setBorder(BorderFactory.createTitledBorder(
+                BorderFactory.createLineBorder(new Color(220, 220, 220)),
+                "Nhập thông tin Đặt phòng",
+                0, 0, new Font("Arial", Font.BOLD, 12), new Color(100, 100, 100)
         ));
 
         panelForm.add(new JLabel("Mã Khách Hàng (Tạo tự động trên nền):"));
@@ -56,14 +63,14 @@ public class FrmDatPhong extends JPanel {
         cbLoaiHinh = new JComboBox<>(new String[]{"Trực tiếp ngay", "Qua điện thoại", "Online Booking"});
         panelForm.add(cbLoaiHinh);
 
-        add(panelForm, BorderLayout.CENTER);
+        pnlCenter.add(panelForm, BorderLayout.NORTH);
+        add(pnlCenter, BorderLayout.CENTER);
 
         JPanel panelBottom = new JPanel(new FlowLayout(FlowLayout.CENTER, 20, 10));
-        JButton btnLapPhieu = new JButton("GHI NHẬN ĐẶT PHÒNG");
-        btnLapPhieu.setPreferredSize(new Dimension(300, 50));
-        btnLapPhieu.setFont(new Font("Arial", Font.BOLD, 18));
-        btnLapPhieu.setBackground(new Color(41, 128, 185));
-        btnLapPhieu.setForeground(Color.WHITE);
+        panelBottom.setBackground(new Color(245, 246, 250));
+        JButton btnLapPhieu = UIFactory.createActionButton("GHI NHẬN ĐẶT PHÒNG", new Color(41, 128, 185), Color.WHITE);
+        btnLapPhieu.setPreferredSize(new Dimension(300, 45));
+        btnLapPhieu.setMaximumSize(new Dimension(300, 45));
 
         btnLapPhieu.addActionListener(e -> {
             String maPDP = "PDP" + UUID.randomUUID().toString().substring(0, 5).toUpperCase();

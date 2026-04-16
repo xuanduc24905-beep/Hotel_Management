@@ -34,6 +34,9 @@ public class KhachHangDAO {
     }
 
     public boolean themKhachHang(KhachHang kh) {
+        if (kh.getMaKH() == null || kh.getMaKH().trim().isEmpty()) {
+            kh.setMaKH("KH" + (System.currentTimeMillis() % 100000));
+        }
         Connection con = ConnectDB.getInstance().getConnection();
         try {
             String sql = "INSERT INTO KhachHang (maKH, hoTenKH, cccd, soDienThoai, gioiTinh) VALUES (?, ?, ?, ?, 1)";

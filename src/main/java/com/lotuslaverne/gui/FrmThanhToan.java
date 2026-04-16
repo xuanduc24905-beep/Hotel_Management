@@ -3,8 +3,10 @@ package com.lotuslaverne.gui;
 import com.lotuslaverne.dao.HoaDonDAO;
 import com.lotuslaverne.dao.PhongDAO;
 import com.lotuslaverne.entity.HoaDon;
+import com.lotuslaverne.util.UIFactory;
 
 import javax.swing.*;
+import javax.swing.border.EmptyBorder;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.sql.Timestamp;
@@ -21,19 +23,25 @@ public class FrmThanhToan extends JPanel {
     }
 
     private void initUI() {
-        setLayout(new BorderLayout(10, 10));
-        setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
+        setLayout(new BorderLayout(20, 20));
+        UIFactory.styleMainPanel(this);
 
         JLabel lblTitle = new JLabel("HỆ THỐNG THANH TOÁN (CHECK-OUT)", SwingConstants.CENTER);
         lblTitle.setFont(new Font("Arial", Font.BOLD, 26));
-        lblTitle.setForeground(new Color(41, 128, 185));
+        lblTitle.setForeground(new Color(44, 62, 80));
         add(lblTitle, BorderLayout.NORTH);
 
         JPanel mainPanel = new JPanel(new GridLayout(1, 2, 20, 0));
+        mainPanel.setBackground(new Color(245, 246, 250));
 
         // LEFT (Nhập liệu tính tiền)
         JPanel leftPanel = new JPanel(new GridLayout(8, 2, 10, 20));
-        leftPanel.setBorder(BorderFactory.createTitledBorder("Nhập thông tin tính xuất Bill"));
+        UIFactory.styleFormPanel(leftPanel);
+        leftPanel.setBorder(BorderFactory.createTitledBorder(
+                BorderFactory.createLineBorder(new Color(220, 220, 220)), 
+                "Nhập thông tin tính xuất Bill",
+                0, 0, new Font("Arial", Font.BOLD, 12), new Color(100, 100, 100)
+        ));
         
         leftPanel.add(new JLabel("Nhập Phòng cần trả:"));
         txtMaPhong = new JTextField("P101");
@@ -56,10 +64,17 @@ public class FrmThanhToan extends JPanel {
 
         // RIGHT panel
         JPanel rightPanel = new JPanel(new BorderLayout());
-        rightPanel.setBorder(BorderFactory.createTitledBorder("Dịch vụ phát sinh (Ăn uống)"));
+        UIFactory.styleFormPanel(rightPanel);
+        rightPanel.setBorder(BorderFactory.createTitledBorder(
+                BorderFactory.createLineBorder(new Color(220, 220, 220)), 
+                "Dịch vụ phát sinh (Ăn uống)",
+                0, 0, new Font("Arial", Font.BOLD, 12), new Color(100, 100, 100)
+        ));
+        
         String[] cols = {"Dịch vụ", "Số lượng", "Đơn giá", "Thành tiền"};
         JTable table = new JTable(new DefaultTableModel(cols, 4));
-        table.setRowHeight(30);
+        UIFactory.styleTable(table);
+        
         rightPanel.add(new JScrollPane(table), BorderLayout.CENTER);
         mainPanel.add(rightPanel);
 
@@ -67,11 +82,11 @@ public class FrmThanhToan extends JPanel {
 
         // BOTTOM
         JPanel bottomPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 20, 10));
-        JButton btnThanhToan = new JButton("XUẤT HÓA ĐƠN & CLEAN TRẢ PHÒNG");
-        btnThanhToan.setFont(new Font("Arial", Font.BOLD, 18));
-        btnThanhToan.setPreferredSize(new Dimension(450, 50));
-        btnThanhToan.setBackground(new Color(231, 76, 60));
-        btnThanhToan.setForeground(Color.WHITE);
+        bottomPanel.setBackground(new Color(245, 246, 250));
+        
+        JButton btnThanhToan = UIFactory.createActionButton("XUẤT HÓA ĐƠN & CLEAN TRẢ PHÒNG", new Color(231, 76, 60), Color.WHITE);
+        btnThanhToan.setPreferredSize(new Dimension(400, 45));
+        btnThanhToan.setMaximumSize(new Dimension(400, 45));
 
         btnThanhToan.addActionListener(e -> {
             String maHD = "HD" + UUID.randomUUID().toString().substring(0, 6).toUpperCase();

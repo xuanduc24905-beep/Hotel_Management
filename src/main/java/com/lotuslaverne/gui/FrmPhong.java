@@ -2,8 +2,10 @@ package com.lotuslaverne.gui;
 
 import com.lotuslaverne.dao.PhongDAO;
 import com.lotuslaverne.entity.Phong;
+import com.lotuslaverne.util.UIFactory;
 
 import javax.swing.*;
+import javax.swing.border.EmptyBorder;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.util.List;
@@ -22,16 +24,23 @@ public class FrmPhong extends JPanel {
     }
 
     private void initUI() {
-        setLayout(new BorderLayout(10, 10));
-        setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
+        setLayout(new BorderLayout(20, 20));
+        UIFactory.styleMainPanel(this);
 
         JLabel lblTitle = new JLabel("QUẢN LÝ DANH MỤC PHÒNG KHÁCH SẠN", SwingConstants.CENTER);
         lblTitle.setFont(new Font("Arial", Font.BOLD, 22));
         add(lblTitle, BorderLayout.NORTH);
 
         // FORM NHẬP
-        JPanel topPanel = new JPanel(new GridLayout(2, 4, 10, 10));
-        topPanel.setBorder(BorderFactory.createTitledBorder("Cấu hình Phòng"));
+        JPanel topPanel = new JPanel(new GridLayout(2, 4, 20, 15));
+        UIFactory.styleFormPanel(topPanel);
+        
+        // Thêm Title cho form nhập
+        topPanel.setBorder(BorderFactory.createTitledBorder(
+                BorderFactory.createLineBorder(new Color(220, 220, 220)), 
+                "Cấu hình Phòng", 
+                0, 0, new Font("Arial", Font.BOLD, 12), new Color(100, 100, 100)
+        ));
         
         txtMaPhong = new JTextField();
         txtTenPhong = new JTextField();
@@ -49,7 +58,7 @@ public class FrmPhong extends JPanel {
         String[] cols = {"Mã Phòng", "Tên Phòng", "Loại Phòng", "Trạng Thái Phòng"};
         tableModel = new DefaultTableModel(cols, 0);
         table = new JTable(tableModel);
-        table.setRowHeight(30);
+        UIFactory.styleTable(table);
 
         table.getSelectionModel().addListSelectionListener(e -> {
             int row = table.getSelectedRow();
@@ -62,17 +71,28 @@ public class FrmPhong extends JPanel {
             }
         });
 
-        JPanel pnCenter = new JPanel(new BorderLayout());
+        JPanel pnCenter = new JPanel(new BorderLayout(0, 20)); // Margin giữa topPanel và table
+        pnCenter.setBackground(new Color(245, 246, 250));
         pnCenter.add(topPanel, BorderLayout.NORTH);
-        pnCenter.add(new JScrollPane(table), BorderLayout.CENTER);
+        
+        // Wrap table inside a white card
+        JPanel pnlTableWrapper = new JPanel(new BorderLayout());
+        UIFactory.styleFormPanel(pnlTableWrapper);
+        // Xóa border do Titled trên này không cần
+        pnlTableWrapper.setBorder(BorderFactory.createLineBorder(new Color(220, 220, 220)));
+        pnlTableWrapper.add(new JScrollPane(table), BorderLayout.CENTER);
+        
+        pnCenter.add(pnlTableWrapper, BorderLayout.CENTER);
         add(pnCenter, BorderLayout.CENTER);
 
         // BUTTONS & LOGIC UC
-        JPanel panelBottom = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 10));
-        JButton btnLamMoi = new JButton("Bỏ chọn");
-        JButton btnThem = new JButton("Tạo Phòng Mới");
-        JButton btnSua = new JButton("Đổi Loại/Trạng Thái");
-        JButton btnXoa = new JButton("Xóa Phòng");
+        JPanel panelBottom = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 10));
+        panelBottom.setBackground(new Color(245, 246, 250));
+        
+        JButton btnLamMoi = UIFactory.createActionButton("Bỏ chọn", new Color(240, 240, 240), Color.BLACK);
+        JButton btnThem = UIFactory.createActionButton("Thiết lập Phòng", new Color(40, 167, 69), Color.WHITE);
+        JButton btnSua = UIFactory.createActionButton("Đổi Trạng Thái", new Color(24, 144, 255), Color.WHITE);
+        JButton btnXoa = UIFactory.createActionButton("Gỡ Phòng", new Color(220, 53, 69), Color.WHITE);
 
         btnLamMoi.addActionListener(e -> {
             txtMaPhong.setText(""); txtMaPhong.setEditable(true);
@@ -92,16 +112,28 @@ public class FrmPhong extends JPanel {
         });
 
         btnSua.addActionListener(e -> { // UC: CẬP NHẬT TRẠNG THÁI
+            if (txtMaPhong.getText().isEmpty()) {
+                JOptionPane.showMessageDialog(this, "Vui lòng chọn hoặc nhập Mã Phòng cần sửa!");
+                return;
+            }
             if (dao.capNhatTrangThai(txtMaPhong.getText(), cbTrangThai.getSelectedItem().toString())) {
                 JOptionPane.showMessageDialog(this, "Trạng thái phòng đã thay đổi.");
                 loadDataToTable();
+            } else {
+                JOptionPane.showMessageDialog(this, "Không thể cập nhật! Kiểm tra lại mã phòng.");
             }
         });
 
         btnXoa.addActionListener(e -> { // UC: XÓA PHÒNG
+            if (txtMaPhong.getText().isEmpty()) {
+                JOptionPane.showMessageDialog(this, "Vui lòng chọn Phòng cần xóa!");
+                return;
+            }
             if (dao.xoaPhong(txtMaPhong.getText())) {
                 JOptionPane.showMessageDialog(this, "Phòng đã bị gỡ.");
                 loadDataToTable();
+            } else {
+                JOptionPane.showMessageDialog(this, "Không thể xóa! Phòng này đang có lịch sử Đặt Phòng (ràng buộc khóa ngoại).");
             }
         });
 
