@@ -7,6 +7,7 @@ import com.lotuslaverne.util.UIFactory;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.table.DefaultTableModel;
+import javax.swing.table.TableRowSorter;
 import java.awt.*;
 import java.util.List;
 
@@ -15,6 +16,7 @@ public class FrmKhachHang extends JPanel {
     private final KhachHangDAO dao = new KhachHangDAO();
     private DefaultTableModel tableModel;
     private JTable table;
+    private TableRowSorter<DefaultTableModel> sorter;
     private JTextField txtMaKH, txtTenKH, txtSDT, txtCMND;
 
     public FrmKhachHang() {
@@ -56,21 +58,46 @@ public class FrmKhachHang extends JPanel {
         tableModel = new DefaultTableModel(cols, 0);
         table = new JTable(tableModel);
         UIFactory.styleTable(table);
+        sorter = new TableRowSorter<>(tableModel);
+        table.setRowSorter(sorter);
 
         table.getSelectionModel().addListSelectionListener(e -> {
             int row = table.getSelectedRow();
             if(row >= 0) {
-                txtMaKH.setText(tableModel.getValueAt(row, 0).toString());
+                int modelRow = table.convertRowIndexToModel(row);
+                txtMaKH.setText(tableModel.getValueAt(modelRow, 0).toString());
                 txtMaKH.setEditable(false);
-                txtTenKH.setText(tableModel.getValueAt(row, 1).toString());
-                txtSDT.setText(tableModel.getValueAt(row, 2).toString());
-                txtCMND.setText(tableModel.getValueAt(row, 3).toString());
+                txtTenKH.setText(tableModel.getValueAt(modelRow, 1).toString());
+                txtSDT.setText(tableModel.getValueAt(modelRow, 2).toString());
+                txtCMND.setText(tableModel.getValueAt(modelRow, 3).toString());
             }
         });
 
         JPanel pnCenter = new JPanel(new BorderLayout(0, 20));
         pnCenter.setBackground(new Color(245, 246, 250));
-        pnCenter.add(topPanel, BorderLayout.NORTH);
+        
+        // Cụm Search filter
+        JPanel pnlSearch = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 10));
+        pnlSearch.setBackground(new Color(245, 246, 250));
+        pnlSearch.add(new JLabel("Tìm hồ sơ theo Tên/SĐT:"));
+        JTextField txtSearch = new JTextField(20);
+        pnlSearch.add(txtSearch);
+        txtSearch.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
+            public void insertUpdate(javax.swing.event.DocumentEvent e) { filter(); }
+            public void removeUpdate(javax.swing.event.DocumentEvent e) { filter(); }
+            public void changedUpdate(javax.swing.event.DocumentEvent e) { filter(); }
+            private void filter() {
+                String text = txtSearch.getText();
+                if (text.trim().length() == 0) sorter.setRowFilter(null);
+                else sorter.setRowFilter(RowFilter.regexFilter("(?i)" + text));
+            }
+        });
+
+        JPanel pnlNorthCenter = new JPanel(new BorderLayout());
+        pnlNorthCenter.setBackground(new Color(245, 246, 250));
+        pnlNorthCenter.add(topPanel, BorderLayout.NORTH);
+        pnlNorthCenter.add(pnlSearch, BorderLayout.SOUTH);
+        pnCenter.add(pnlNorthCenter, BorderLayout.NORTH);
         
         JPanel pnlTableWrapper = new JPanel(new BorderLayout());
         UIFactory.styleFormPanel(pnlTableWrapper);
@@ -91,14 +118,17 @@ public class FrmKhachHang extends JPanel {
         btnLamMoi.addActionListener(e -> {
             txtMaKH.setText(""); txtMaKH.setEditable(true);
             txtTenKH.setText(""); txtSDT.setText(""); txtCMND.setText("");
-            loadDataToTable();
+            table.clearSelection();
         });
 
         btnThem.addActionListener(e -> { // UC: TẠO KHÁCH HÀNG
-            KhachHang kh = new KhachHang(txtMaKH.getText(), txtTenKH.getText(), txtSDT.getText(), txtCMND.getText());
+            String ma = txtMaKH.getText().trim();
+            if(ma.isEmpty()) ma = "KH" + (System.currentTimeMillis() % 100000);
+            KhachHang kh = new KhachHang(ma, txtTenKH.getText(), txtSDT.getText(), txtCMND.getText());
             if (dao.themKhachHang(kh)) {
                 JOptionPane.showMessageDialog(this, "Đã lưu hồ sơ VIP.");
                 loadDataToTable();
+                btnLamMoi.doClick();
             } else {
                 JOptionPane.showMessageDialog(this, "Trùng Mã hoặc SDT bị trống.");
             }

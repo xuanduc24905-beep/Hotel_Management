@@ -1,22 +1,27 @@
 package com.lotuslaverne.gui;
 
+import com.lotuslaverne.dao.LoaiPhongDAO;
 import com.lotuslaverne.dao.PhongDAO;
+import com.lotuslaverne.entity.LoaiPhong;
 import com.lotuslaverne.entity.Phong;
 import com.lotuslaverne.util.UIFactory;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.table.DefaultTableModel;
+import javax.swing.table.TableRowSorter;
 import java.awt.*;
 import java.util.List;
 
 public class FrmPhong extends JPanel {
 
     private final PhongDAO dao = new PhongDAO();
+    private final LoaiPhongDAO loaiPhongDAO = new LoaiPhongDAO();
     private DefaultTableModel tableModel;
     private JTable table;
-    private JTextField txtMaPhong, txtTenPhong, txtLoaiPhong;
-    private JComboBox<String> cbTrangThai;
+    private TableRowSorter<DefaultTableModel> sorter;
+    private JTextField txtMaPhong, txtTenPhong;
+    private JComboBox<String> cbTrangThai, cbLoaiPhong;
 
     public FrmPhong() {
         initUI();
@@ -44,14 +49,15 @@ public class FrmPhong extends JPanel {
         
         txtMaPhong = new JTextField();
         txtTenPhong = new JTextField();
-        txtLoaiPhong = new JTextField(); // Thực tế sẽ load từ LoaiPhongDAO vào Combo
+        cbLoaiPhong = new JComboBox<>(); 
+        loadLoaiPhong();
         
         String[] trangThaiList = {"Trống", "Đang Thuê", "Chưa Dọn"};
         cbTrangThai = new JComboBox<>(trangThaiList);
 
         topPanel.add(new JLabel("Mã Phòng (Số P):")); topPanel.add(txtMaPhong);
         topPanel.add(new JLabel("Tên Phòng:")); topPanel.add(txtTenPhong);
-        topPanel.add(new JLabel("Mã Loại:")); topPanel.add(txtLoaiPhong);
+        topPanel.add(new JLabel("Loại Phòng:")); topPanel.add(cbLoaiPhong);
         topPanel.add(new JLabel("Trạng Thái:")); topPanel.add(cbTrangThai);
         
         // TABLE
@@ -59,26 +65,57 @@ public class FrmPhong extends JPanel {
         tableModel = new DefaultTableModel(cols, 0);
         table = new JTable(tableModel);
         UIFactory.styleTable(table);
+        sorter = new TableRowSorter<>(tableModel);
+        table.setRowSorter(sorter);
 
         table.getSelectionModel().addListSelectionListener(e -> {
             int row = table.getSelectedRow();
             if(row >= 0) {
-                txtMaPhong.setText(tableModel.getValueAt(row, 0).toString());
+                int modelRow = table.convertRowIndexToModel(row);
+                txtMaPhong.setText(tableModel.getValueAt(modelRow, 0).toString());
                 txtMaPhong.setEditable(false);
-                txtTenPhong.setText(tableModel.getValueAt(row, 1).toString());
-                txtLoaiPhong.setText(tableModel.getValueAt(row, 2).toString());
-                cbTrangThai.setSelectedItem(tableModel.getValueAt(row, 3).toString());
+                txtTenPhong.setText(tableModel.getValueAt(modelRow, 1).toString());
+                
+                String maLoaiPhong = tableModel.getValueAt(modelRow, 2).toString();
+                for (int i = 0; i < cbLoaiPhong.getItemCount(); i++) {
+                    if (cbLoaiPhong.getItemAt(i).startsWith(maLoaiPhong)) {
+                        cbLoaiPhong.setSelectedIndex(i);
+                        break;
+                    }
+                }
+                cbTrangThai.setSelectedItem(tableModel.getValueAt(modelRow, 3).toString());
             }
         });
 
-        JPanel pnCenter = new JPanel(new BorderLayout(0, 20)); // Margin giữa topPanel và table
+        JPanel pnCenter = new JPanel(new BorderLayout(0, 20)); 
         pnCenter.setBackground(new Color(245, 246, 250));
-        pnCenter.add(topPanel, BorderLayout.NORTH);
+        
+        // Cụm Search filter
+        JPanel pnlSearch = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 10));
+        pnlSearch.setBackground(new Color(245, 246, 250));
+        pnlSearch.add(new JLabel("Tìm kiếm nhanh:"));
+        JTextField txtSearch = new JTextField(20);
+        pnlSearch.add(txtSearch);
+        txtSearch.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
+            public void insertUpdate(javax.swing.event.DocumentEvent e) { filter(); }
+            public void removeUpdate(javax.swing.event.DocumentEvent e) { filter(); }
+            public void changedUpdate(javax.swing.event.DocumentEvent e) { filter(); }
+            private void filter() {
+                String text = txtSearch.getText();
+                if (text.trim().length() == 0) sorter.setRowFilter(null);
+                else sorter.setRowFilter(RowFilter.regexFilter("(?i)" + text));
+            }
+        });
+
+        JPanel pnlNorthCenter = new JPanel(new BorderLayout());
+        pnlNorthCenter.setBackground(new Color(245, 246, 250));
+        pnlNorthCenter.add(topPanel, BorderLayout.NORTH);
+        pnlNorthCenter.add(pnlSearch, BorderLayout.SOUTH);
+        pnCenter.add(pnlNorthCenter, BorderLayout.NORTH);
         
         // Wrap table inside a white card
         JPanel pnlTableWrapper = new JPanel(new BorderLayout());
         UIFactory.styleFormPanel(pnlTableWrapper);
-        // Xóa border do Titled trên này không cần
         pnlTableWrapper.setBorder(BorderFactory.createLineBorder(new Color(220, 220, 220)));
         pnlTableWrapper.add(new JScrollPane(table), BorderLayout.CENTER);
         
@@ -96,18 +133,21 @@ public class FrmPhong extends JPanel {
 
         btnLamMoi.addActionListener(e -> {
             txtMaPhong.setText(""); txtMaPhong.setEditable(true);
-            txtTenPhong.setText(""); txtLoaiPhong.setText(""); 
+            txtTenPhong.setText(""); 
+            if(cbLoaiPhong.getItemCount() > 0) cbLoaiPhong.setSelectedIndex(0); 
             cbTrangThai.setSelectedIndex(0);
-            loadDataToTable();
+            table.clearSelection();
         });
 
         btnThem.addActionListener(e -> { // UC: TẠO PHÒNG
-            Phong p = new Phong(txtMaPhong.getText(), txtTenPhong.getText(), txtLoaiPhong.getText(), cbTrangThai.getSelectedItem().toString());
+            String selLP = (String) cbLoaiPhong.getSelectedItem();
+            String maLP = selLP != null ? selLP.split(" - ")[0] : "";
+            Phong p = new Phong(txtMaPhong.getText(), txtTenPhong.getText(), maLP, cbTrangThai.getSelectedItem().toString());
             if (dao.themPhong(p)) {
                 JOptionPane.showMessageDialog(this, "Đã thêm mới phòng.");
                 loadDataToTable();
             } else {
-                JOptionPane.showMessageDialog(this, "Phòng đã tồn tại hoặc mã loại phòng sai (ràng buộc khóa phụ).");
+                JOptionPane.showMessageDialog(this, "Phòng đã tồn tại hoặc mã lỗi bảo mật!");
             }
         });
 
@@ -140,6 +180,14 @@ public class FrmPhong extends JPanel {
         panelBottom.add(btnLamMoi); panelBottom.add(btnThem);
         panelBottom.add(btnSua); panelBottom.add(btnXoa);
         add(panelBottom, BorderLayout.SOUTH);
+    }
+
+    private void loadLoaiPhong() {
+        cbLoaiPhong.removeAllItems();
+        List<LoaiPhong> dslp = loaiPhongDAO.getAll();
+        for (LoaiPhong lp : dslp) {
+            cbLoaiPhong.addItem(lp.getMaLoaiPhong() + " - " + lp.getTenLoaiPhong());
+        }
     }
 
     private void loadDataToTable() {

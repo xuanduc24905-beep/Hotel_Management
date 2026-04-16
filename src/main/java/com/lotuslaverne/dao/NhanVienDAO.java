@@ -68,13 +68,12 @@ public class NhanVienDAO {
     public boolean xoaNhanVien(String maNhanVien) {
         Connection con = ConnectDB.getInstance().getConnection();
         try {
-            // Thay vì xóa sẽ cập nhật vaiTro là Nghỉ Việc
-            String sql = "UPDATE NhanVien SET vaiTro = 'NghiViec' WHERE maNhanVien = ?";
+            String sql = "DELETE FROM NhanVien WHERE maNhanVien = ?";
             PreparedStatement pst = con.prepareStatement(sql);
             pst.setString(1, maNhanVien);
             return pst.executeUpdate() > 0;
         } catch (Exception e) {
-            e.printStackTrace();
+            System.err.println("Không thể xóa do ràng buộc FK, hoặc lỗi DB: " + e.getMessage());
             return false;
         }
     }
