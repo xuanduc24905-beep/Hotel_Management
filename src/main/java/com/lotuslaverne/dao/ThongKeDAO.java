@@ -11,7 +11,7 @@ public class ThongKeDAO {
         Connection con = ConnectDB.getInstance().getConnection();
         if (con == null) return 0.0;
         try {
-            String sql = "SELECT SUM(tongTien) AS total FROM HoaDon WHERE CAST(ngayLap as DATE) = CAST(GETDATE() as DATE)";
+            String sql = "SELECT SUM(tienThanhToan) AS total FROM HoaDon WHERE CAST(ngayLap as DATE) = CAST(GETDATE() as DATE)";
             PreparedStatement pst = con.prepareStatement(sql);
             ResultSet rs = pst.executeQuery();
             if (rs.next()) {

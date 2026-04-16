@@ -21,10 +21,10 @@ public class KhachHangDAO {
             ResultSet rs = pst.executeQuery();
             while (rs.next()) {
                 list.add(new KhachHang(
-                    rs.getString("maKhachHang"),
-                    rs.getString("hoTenKhachHang"),
+                    rs.getString("maKH"),
+                    rs.getString("hoTenKH"),
                     rs.getString("soDienThoai"),
-                    rs.getString("soCMND_CCCD")
+                    rs.getString("cccd")
                 ));
             }
         } catch (Exception e) {
@@ -36,12 +36,12 @@ public class KhachHangDAO {
     public boolean themKhachHang(KhachHang kh) {
         Connection con = ConnectDB.getInstance().getConnection();
         try {
-            String sql = "INSERT INTO KhachHang (maKhachHang, hoTenKhachHang, soDienThoai, soCMND_CCCD) VALUES (?, ?, ?, ?)";
+            String sql = "INSERT INTO KhachHang (maKH, hoTenKH, cccd, soDienThoai, gioiTinh) VALUES (?, ?, ?, ?, 1)";
             PreparedStatement pst = con.prepareStatement(sql);
             pst.setString(1, kh.getMaKH());
             pst.setString(2, kh.getHoTenKH());
-            pst.setString(3, kh.getSoDienThoai());
-            pst.setString(4, kh.getCmnd());
+            pst.setString(3, kh.getCmnd());
+            pst.setString(4, kh.getSoDienThoai());
             return pst.executeUpdate() > 0;
         } catch (Exception e) {
             e.printStackTrace();
@@ -52,7 +52,7 @@ public class KhachHangDAO {
     public boolean suaKhachHang(KhachHang kh) {
         Connection con = ConnectDB.getInstance().getConnection();
         try {
-            String sql = "UPDATE KhachHang SET hoTenKhachHang = ?, soDienThoai = ?, soCMND_CCCD = ? WHERE maKhachHang = ?";
+            String sql = "UPDATE KhachHang SET hoTenKH = ?, soDienThoai = ?, cccd = ? WHERE maKH = ?";
             PreparedStatement pst = con.prepareStatement(sql);
             pst.setString(1, kh.getHoTenKH());
             pst.setString(2, kh.getSoDienThoai());

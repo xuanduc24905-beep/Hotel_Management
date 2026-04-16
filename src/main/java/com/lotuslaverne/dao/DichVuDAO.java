@@ -23,9 +23,9 @@ public class DichVuDAO {
                 list.add(new DichVu(
                     rs.getString("maDichVu"),
                     rs.getString("tenDichVu"),
-                    rs.getString("maLoaiDichVu"),
+                    rs.getString("loaiDichVu"),
                     rs.getDouble("donGia"),
-                    rs.getString("trangThai")
+                    String.valueOf(rs.getInt("soLuongTonKho"))
                 ));
             }
         } catch (Exception e) {
@@ -37,13 +37,13 @@ public class DichVuDAO {
     public boolean themDichVu(DichVu dv) {
         Connection con = ConnectDB.getInstance().getConnection();
         try {
-            String sql = "INSERT INTO DichVu (maDichVu, tenDichVu, maLoaiDichVu, donGia, trangThai) VALUES (?, ?, ?, ?, ?)";
+            String sql = "INSERT INTO DichVu (maDichVu, tenDichVu, loaiDichVu, donGia, soLuongTonKho) VALUES (?, ?, ?, ?, ?)";
             PreparedStatement pst = con.prepareStatement(sql);
             pst.setString(1, dv.getMaDichVu());
             pst.setString(2, dv.getTenDichVu());
-            pst.setString(3, dv.getMaLoaiDichVu()); // Phải tồn tại ở LoaiDichVu
+            pst.setString(3, dv.getMaLoaiDichVu()); 
             pst.setDouble(4, dv.getDonGia());
-            pst.setString(5, dv.getTrangThai());
+            pst.setInt(5, 100); // Mặc định số lượng
             return pst.executeUpdate() > 0;
         } catch (Exception e) {
             e.printStackTrace();
@@ -54,13 +54,12 @@ public class DichVuDAO {
     public boolean capNhatDichVu(DichVu dv) {
         Connection con = ConnectDB.getInstance().getConnection();
         try {
-            String sql = "UPDATE DichVu SET tenDichVu = ?, maLoaiDichVu = ?, donGia = ?, trangThai = ? WHERE maDichVu = ?";
+            String sql = "UPDATE DichVu SET tenDichVu = ?, loaiDichVu = ?, donGia = ? WHERE maDichVu = ?";
             PreparedStatement pst = con.prepareStatement(sql);
             pst.setString(1, dv.getTenDichVu());
             pst.setString(2, dv.getMaLoaiDichVu());
             pst.setDouble(3, dv.getDonGia());
-            pst.setString(4, dv.getTrangThai());
-            pst.setString(5, dv.getMaDichVu());
+            pst.setString(4, dv.getMaDichVu());
             return pst.executeUpdate() > 0;
         } catch (Exception e) {
             e.printStackTrace();
@@ -71,7 +70,7 @@ public class DichVuDAO {
     public boolean dungBanDichVu(String maDichVu) {
         Connection con = ConnectDB.getInstance().getConnection();
         try {
-            String sql = "UPDATE DichVu SET trangThai = 'NgungKinhDoanh' WHERE maDichVu = ?";
+            String sql = "UPDATE DichVu SET soLuongTonKho = 0 WHERE maDichVu = ?";
             PreparedStatement pst = con.prepareStatement(sql);
             pst.setString(1, maDichVu);
             return pst.executeUpdate() > 0;
