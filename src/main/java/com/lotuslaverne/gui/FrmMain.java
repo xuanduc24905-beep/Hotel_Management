@@ -1,10 +1,8 @@
 package com.lotuslaverne.gui;
 
 import com.lotuslaverne.entity.TaiKhoan;
-import com.formdev.flatlaf.FlatClientProperties;
 
 import javax.swing.*;
-import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 
@@ -27,56 +25,65 @@ public class FrmMain extends JFrame {
     private void initUI() {
         setLayout(new BorderLayout());
 
-        // --- Sidebar ---
+        // --- Sidebar (scrollable) ---
         sidebar = new JPanel();
         sidebar.setLayout(new BoxLayout(sidebar, BoxLayout.Y_AXIS));
-        sidebar.setPreferredSize(new Dimension(240, getHeight()));
-        sidebar.setBackground(new Color(11, 26, 44)); // Dark Navy background
-        
-        // Logo
+        sidebar.setBackground(new Color(11, 26, 44));
+
         JLabel lblLogo = new JLabel("<html><h1 style='color:#1890ff; font-family:Arial; font-size:26px; margin:0;'>Lotus<span style='color:#0dcaf0;'>Larverne</span></h1></html>");
         lblLogo.setAlignmentX(Component.CENTER_ALIGNMENT);
-        lblLogo.setBorder(BorderFactory.createEmptyBorder(20, 0, 30, 0));
+        lblLogo.setBorder(BorderFactory.createEmptyBorder(20, 0, 20, 0));
         sidebar.add(lblLogo);
 
-        // Buttons
-        JButton btnTrangChu = createMenuButton("Trang chủ", true);
-        currentActiveButton = btnTrangChu; // Mặc định chọn Trang chủ
-        
-        JButton btnPhong = createMenuButton("Quản lý Phòng", false);
-        JButton btnDatPhong = createMenuButton("Hệ thống Đặt Phòng", false);
-        JButton btnKhachHang = createMenuButton("Quản lý Khách Hàng", false);
-        JButton btnDichVu = createMenuButton("Quản lý Dịch Vụ", false);
-        JButton btnThanhToan = createMenuButton("Thanh toán (Check-out)", false);
-        JButton btnNhanVien = createMenuButton("Quản lý Nhân Viên", false);
-        JButton btnThongKe = createMenuButton("Báo Cáo Thống Kê", false);
-        JButton btnLogout = createMenuButton("Đăng xuất", false);
-
+        // Trang chủ (standalone)
+        JButton btnTrangChu = createMenuButton("🏠  Trang chủ", true);
+        currentActiveButton = btnTrangChu;
         sidebar.add(btnTrangChu);
-        sidebar.add(Box.createRigidArea(new Dimension(0, 5)));
-        sidebar.add(btnPhong);
-        sidebar.add(Box.createRigidArea(new Dimension(0, 5)));
-        sidebar.add(btnDatPhong);
-        sidebar.add(Box.createRigidArea(new Dimension(0, 5)));
-        sidebar.add(btnKhachHang);
-        sidebar.add(Box.createRigidArea(new Dimension(0, 5)));
-        sidebar.add(btnDichVu);
-        sidebar.add(Box.createRigidArea(new Dimension(0, 5)));
-        sidebar.add(btnThanhToan);
-        sidebar.add(Box.createRigidArea(new Dimension(0, 5)));
-        sidebar.add(btnNhanVien);
-        sidebar.add(Box.createRigidArea(new Dimension(0, 5)));
-        sidebar.add(btnThongKe);
+        sidebar.add(Box.createRigidArea(new Dimension(0, 4)));
+
+        // --- Nhóm dropdown ---
+        sidebar.add(createMenuGroup("📋  Quản lý Phòng",
+                new String[]{"   Danh sách Phòng", "   Bảng Giá Phòng", "   Quản lý Dịch Vụ"},
+                new String[]{"Phong", "BangGia", "DichVu"}));
+        sidebar.add(Box.createRigidArea(new Dimension(0, 4)));
+
+        sidebar.add(createMenuGroup("🛏  Lưu trú",
+                new String[]{"   Đặt Phòng", "   Check-in Khách", "   Đổi Phòng", "   Check-out / Thanh toán"},
+                new String[]{"DatPhong", "CheckIn", "DoiPhong", "ThanhToan"}));
+        sidebar.add(Box.createRigidArea(new Dimension(0, 4)));
+
+        sidebar.add(createMenuGroup("💰  Tài chính",
+                new String[]{"   Quản lý Hóa Đơn", "   Khuyến Mãi"},
+                new String[]{"HoaDon", "KhuyenMai"}));
+        sidebar.add(Box.createRigidArea(new Dimension(0, 4)));
+
+        sidebar.add(createMenuGroup("👥  Khách hàng & Nhân viên",
+                new String[]{"   Quản lý Khách Hàng", "   Quản lý Nhân Viên"},
+                new String[]{"KhachHang", "NhanVien"}));
+        sidebar.add(Box.createRigidArea(new Dimension(0, 4)));
+
+        sidebar.add(createMenuGroup("⚙  Hệ thống",
+                new String[]{"   Báo Cáo Thống Kê", "   Tài Khoản Hệ Thống"},
+                new String[]{"ThongKe", "TaiKhoan"}));
+
         sidebar.add(Box.createVerticalGlue());
+
+        JButton btnLogout = createMenuButton("🚪  Đăng xuất", false);
         sidebar.add(btnLogout);
+        sidebar.add(Box.createRigidArea(new Dimension(0, 12)));
 
-        add(sidebar, BorderLayout.WEST);
+        JScrollPane sidebarScroll = new JScrollPane(sidebar);
+        sidebarScroll.setPreferredSize(new Dimension(248, getHeight()));
+        sidebarScroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        sidebarScroll.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+        sidebarScroll.setBorder(null);
+        sidebarScroll.getVerticalScrollBar().setUnitIncrement(16);
+        add(sidebarScroll, BorderLayout.WEST);
 
-        // --- Main Area (Bên phải) ---
+        // --- Top Header ---
         JPanel rightWrapper = new JPanel(new BorderLayout());
         rightWrapper.setBackground(new Color(245, 246, 250));
 
-        // Top Header
         JPanel topHeader = new JPanel(new BorderLayout());
         topHeader.setBackground(Color.WHITE);
         topHeader.setPreferredSize(new Dimension(0, 60));
@@ -90,59 +97,85 @@ public class FrmMain extends JFrame {
 
         JPanel pnlUser = new JPanel(new FlowLayout(FlowLayout.RIGHT, 20, 15));
         pnlUser.setBackground(Color.WHITE);
-        
         JLabel lblPhone = new JLabel("📞 024 35 683727");
-        lblPhone.setForeground(new Color(220, 53, 69)); // Red color
+        lblPhone.setForeground(new Color(220, 53, 69));
         lblPhone.setFont(new Font("Arial", Font.BOLD, 14));
-        
         JLabel lblHelp = new JLabel("❓ Trợ giúp");
         lblHelp.setForeground(Color.GRAY);
         lblHelp.setFont(new Font("Arial", Font.PLAIN, 14));
-        
-        // Avatar + Name giả lập
         JLabel lblUser = new JLabel("👨 " + (tkActive != null ? tkActive.getTenDangNhap().toUpperCase() : "ADMIN"));
         lblUser.setFont(new Font("Arial", Font.BOLD, 14));
         lblUser.setForeground(new Color(44, 62, 80));
-
         pnlUser.add(lblPhone);
         pnlUser.add(lblHelp);
         pnlUser.add(lblUser);
         topHeader.add(pnlUser, BorderLayout.EAST);
-
         rightWrapper.add(topHeader, BorderLayout.NORTH);
 
-        // Content Area (CardLayout)
+        // --- Content Area (CardLayout) ---
         cardLayout = new CardLayout();
         mainContentPanel = new JPanel(cardLayout);
         mainContentPanel.setBackground(new Color(245, 246, 250));
 
-        // Chèn các form
         mainContentPanel.add(new FrmTrangChu(), "TrangChu");
         mainContentPanel.add(new FrmPhong(), "Phong");
-        try { mainContentPanel.add(new FrmDatPhong(), "DatPhong"); } catch(Exception e){}
+        try { mainContentPanel.add(new FrmDatPhong(), "DatPhong"); } catch (Exception e) {}
         mainContentPanel.add(new FrmKhachHang(), "KhachHang");
         mainContentPanel.add(new FrmDichVu(), "DichVu");
-        try { mainContentPanel.add(new FrmThanhToan(), "ThanhToan"); } catch(Exception e){}
-        try { mainContentPanel.add(new FrmNhanVien(), "NhanVien"); } catch(Exception e){}
-        try { mainContentPanel.add(new FrmThongKe(), "ThongKe"); } catch(Exception e){}
+        try { mainContentPanel.add(new FrmThanhToan(), "ThanhToan"); } catch (Exception e) {}
+        try { mainContentPanel.add(new FrmNhanVien(), "NhanVien"); } catch (Exception e) {}
+        try { mainContentPanel.add(new FrmThongKe(), "ThongKe"); } catch (Exception e) {}
+        try { mainContentPanel.add(new FrmCheckIn(), "CheckIn"); } catch (Exception e) {}
+        try { mainContentPanel.add(new FrmDoiPhong(), "DoiPhong"); } catch (Exception e) {}
+        try { mainContentPanel.add(new FrmHoaDon(), "HoaDon"); } catch (Exception e) {}
+        try { mainContentPanel.add(new FrmKhuyenMai(), "KhuyenMai"); } catch (Exception e) {}
+        try { mainContentPanel.add(new FrmBangGia(), "BangGia"); } catch (Exception e) {}
+        try { mainContentPanel.add(new FrmTaiKhoan(tkActive), "TaiKhoan"); } catch (Exception e) {}
 
         rightWrapper.add(mainContentPanel, BorderLayout.CENTER);
         add(rightWrapper, BorderLayout.CENTER);
 
-        // Xử lý sự kiện click menu
+        // Actions
         setupMenuAction(btnTrangChu, "TrangChu");
-        setupMenuAction(btnPhong, "Phong");
-        setupMenuAction(btnDatPhong, "DatPhong");
-        setupMenuAction(btnKhachHang, "KhachHang");
-        setupMenuAction(btnDichVu, "DichVu");
-        setupMenuAction(btnThanhToan, "ThanhToan");
-        setupMenuAction(btnNhanVien, "NhanVien");
-        setupMenuAction(btnThongKe, "ThongKe");
-
         btnLogout.addActionListener((ActionEvent e) -> {
             this.dispose();
             new FrmLogin().setVisible(true);
         });
+    }
+
+    /** Tạo panel nhóm accordion có thể mở/đóng */
+    private JPanel createMenuGroup(String headerTitle, String[] subTitles, String[] cardNames) {
+        JPanel groupPanel = new JPanel();
+        groupPanel.setLayout(new BoxLayout(groupPanel, BoxLayout.Y_AXIS));
+        groupPanel.setBackground(new Color(11, 26, 44));
+        groupPanel.setMaximumSize(new Dimension(240, Integer.MAX_VALUE));
+        groupPanel.setAlignmentX(Component.CENTER_ALIGNMENT);
+
+        JButton btnHeader = createMenuButton("▶  " + headerTitle, false);
+
+        JPanel subPanel = new JPanel();
+        subPanel.setLayout(new BoxLayout(subPanel, BoxLayout.Y_AXIS));
+        subPanel.setBackground(new Color(11, 26, 44));
+        subPanel.setVisible(false);
+
+        for (int i = 0; i < subTitles.length; i++) {
+            JButton btn = createSubMenuButton(subTitles[i]);
+            setupMenuAction(btn, cardNames[i]);
+            subPanel.add(btn);
+            subPanel.add(Box.createRigidArea(new Dimension(0, 3)));
+        }
+
+        btnHeader.addActionListener(e -> {
+            boolean wasOpen = subPanel.isVisible();
+            subPanel.setVisible(!wasOpen);
+            btnHeader.setText((wasOpen ? "▶  " : "▼  ") + headerTitle);
+            sidebar.revalidate();
+            sidebar.repaint();
+        });
+
+        groupPanel.add(btnHeader);
+        groupPanel.add(subPanel);
+        return groupPanel;
     }
 
     private JButton createMenuButton(String text, boolean isActive) {
@@ -151,11 +184,28 @@ public class FrmMain extends JFrame {
         btn.setPreferredSize(new Dimension(220, 45));
         btn.setHorizontalAlignment(SwingConstants.LEFT);
         btn.putClientProperty("JButton.buttonType", "roundRect");
-        btn.setFont(new Font("Arial", isActive ? Font.BOLD : Font.PLAIN, 15));
+        btn.setFont(new Font("Arial", isActive ? Font.BOLD : Font.PLAIN, 14));
         btn.setForeground(isActive ? Color.WHITE : new Color(180, 190, 200));
         btn.setBackground(isActive ? new Color(24, 144, 255) : new Color(11, 26, 44));
         btn.setFocusPainted(false);
-        btn.setBorder(BorderFactory.createEmptyBorder(0, 25, 0, 0));
+        btn.setBorder(BorderFactory.createEmptyBorder(0, 18, 0, 0));
+        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btn.setAlignmentX(Component.CENTER_ALIGNMENT);
+        return btn;
+    }
+
+    private JButton createSubMenuButton(String text) {
+        JButton btn = new JButton(text);
+        btn.setMaximumSize(new Dimension(220, 38));
+        btn.setPreferredSize(new Dimension(220, 38));
+        btn.setHorizontalAlignment(SwingConstants.LEFT);
+        btn.putClientProperty("JButton.buttonType", "roundRect");
+        btn.putClientProperty("subMenu", Boolean.TRUE);
+        btn.setFont(new Font("Arial", Font.PLAIN, 13));
+        btn.setForeground(new Color(150, 168, 185));
+        btn.setBackground(new Color(16, 34, 57));
+        btn.setFocusPainted(false);
+        btn.setBorder(BorderFactory.createEmptyBorder(0, 42, 0, 0));
         btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
         btn.setAlignmentX(Component.CENTER_ALIGNMENT);
         return btn;
@@ -163,20 +213,22 @@ public class FrmMain extends JFrame {
 
     private void setupMenuAction(JButton btn, String cardName) {
         btn.addActionListener(e -> {
-            // Đổi style nút dang active thành bình thường
-            if(currentActiveButton != null) {
-                currentActiveButton.setBackground(new Color(11, 26, 44));
-                currentActiveButton.setForeground(new Color(180, 190, 200));
-                currentActiveButton.setFont(new Font("Arial", Font.PLAIN, 15));
+            if (currentActiveButton != null) {
+                resetButtonStyle(currentActiveButton);
             }
-            // Đổi style nút được click thành active
             btn.setBackground(new Color(24, 144, 255));
             btn.setForeground(Color.WHITE);
-            btn.setFont(new Font("Arial", Font.BOLD, 15));
+            boolean isSub = Boolean.TRUE.equals(btn.getClientProperty("subMenu"));
+            btn.setFont(new Font("Arial", Font.BOLD, isSub ? 13 : 14));
             currentActiveButton = btn;
-
-            // Chuyển card
             cardLayout.show(mainContentPanel, cardName);
         });
+    }
+
+    private void resetButtonStyle(JButton btn) {
+        boolean isSub = Boolean.TRUE.equals(btn.getClientProperty("subMenu"));
+        btn.setBackground(isSub ? new Color(16, 34, 57) : new Color(11, 26, 44));
+        btn.setForeground(isSub ? new Color(150, 168, 185) : new Color(180, 190, 200));
+        btn.setFont(new Font("Arial", Font.PLAIN, isSub ? 13 : 14));
     }
 }

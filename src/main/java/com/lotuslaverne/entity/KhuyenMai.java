@@ -5,29 +5,33 @@ import java.sql.Timestamp;
 public class KhuyenMai {
     private String maKhuyenMai;
     private String tenKhuyenMai;
-    private double phanTramGiam;
-    private double soTienGiam;
+    private Timestamp ngayApDung;
     private Timestamp ngayKetThuc;
+    private double phanTramGiam;
+    private String dieuKienApDung;
 
     public KhuyenMai() {}
 
-    public KhuyenMai(String maKhuyenMai, String tenKhuyenMai, double phanTramGiam, double soTienGiam, Timestamp ngayKetThuc) {
+    public KhuyenMai(String maKhuyenMai, String tenKhuyenMai, Timestamp ngayApDung,
+                     Timestamp ngayKetThuc, double phanTramGiam, String dieuKienApDung) {
         this.maKhuyenMai = maKhuyenMai;
         this.tenKhuyenMai = tenKhuyenMai;
-        this.phanTramGiam = phanTramGiam;
-        this.soTienGiam = soTienGiam;
+        this.ngayApDung = ngayApDung;
         this.ngayKetThuc = ngayKetThuc;
+        this.phanTramGiam = phanTramGiam;
+        this.dieuKienApDung = dieuKienApDung;
     }
 
-    // Getters / Setters
     public String getMaKhuyenMai() { return maKhuyenMai; }
-    public void setMaKhuyenMai(String maKhuyenMai) { this.maKhuyenMai = maKhuyenMai; }
+    public void setMaKhuyenMai(String v) { this.maKhuyenMai = v; }
     public String getTenKhuyenMai() { return tenKhuyenMai; }
-    public void setTenKhuyenMai(String tenKhuyenMai) { this.tenKhuyenMai = tenKhuyenMai; }
-    public double getPhanTramGiam() { return phanTramGiam; }
-    public void setPhanTramGiam(double phanTramGiam) { this.phanTramGiam = phanTramGiam; }
-    public double getSoTienGiam() { return soTienGiam; }
-    public void setSoTienGiam(double soTienGiam) { this.soTienGiam = soTienGiam; }
+    public void setTenKhuyenMai(String v) { this.tenKhuyenMai = v; }
+    public Timestamp getNgayApDung() { return ngayApDung; }
+    public void setNgayApDung(Timestamp v) { this.ngayApDung = v; }
     public Timestamp getNgayKetThuc() { return ngayKetThuc; }
-    public void setNgayKetThuc(Timestamp ngayKetThuc) { this.ngayKetThuc = ngayKetThuc; }
+    public void setNgayKetThuc(Timestamp v) { this.ngayKetThuc = v; }
+    public double getPhanTramGiam() { return phanTramGiam; }
+    public void setPhanTramGiam(double v) { this.phanTramGiam = v; }
+    public String getDieuKienApDung() { return dieuKienApDung; }
+    public void setDieuKienApDung(String v) { this.dieuKienApDung = v; }
 }

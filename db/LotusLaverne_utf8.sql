@@ -403,7 +403,7 @@ SET QUOTED_IDENTIFIER ON
 GO
 CREATE TABLE [dbo].[PhieuThu](
 	[maPhieuThu] [nvarchar](10) NOT NULL,
-	[maHoaDon] [nvarchar](10) NOT NULL,
+	[maHoaDon] [nvarchar](10) NULL,
 	[maNhanVienLap] [nvarchar](10) NOT NULL,
 	[maPhieuDatPhong] [nvarchar](10) NOT NULL,
 	[soTienCoc] [decimal](18, 2) NOT NULL,
@@ -643,6 +643,29 @@ ALTER TABLE [dbo].[TaiKhoan]  WITH CHECK ADD  CONSTRAINT [CHK_TaiKhoan_VaiTro] C
 GO
 ALTER TABLE [dbo].[TaiKhoan] CHECK CONSTRAINT [CHK_TaiKhoan_VaiTro]
 GO
+ALTER TABLE [dbo].[BangGia]  WITH CHECK ADD  CONSTRAINT [CHK_BangGia_Ngay] CHECK  (([ngayKetThuc]>[ngayBatDau]))
+GO
+ALTER TABLE [dbo].[BangGia] CHECK CONSTRAINT [CHK_BangGia_Ngay]
+GO
+
+-- ============================================================
+-- PHẦN 6: INDEXES TỐI ƯU TÌM KIẾM
+-- ============================================================
+CREATE NONCLUSTERED INDEX [IDX_KhachHang_SoDienThoai]
+    ON [dbo].[KhachHang] ([soDienThoai]);
+GO
+CREATE NONCLUSTERED INDEX [IDX_PhieuDatPhong_MaKhachHang]
+    ON [dbo].[PhieuDatPhong] ([maKhachHang]);
+GO
+CREATE NONCLUSTERED INDEX [IDX_PhieuDatPhong_ThoiGian]
+    ON [dbo].[PhieuDatPhong] ([thoiGianNhanDuKien], [thoiGianTraDuKien]);
+GO
+CREATE NONCLUSTERED INDEX [IDX_ChiTietPDP_MaPhong]
+    ON [dbo].[ChiTietPhieuDatPhong] ([maPhong]);
+GO
+CREATE NONCLUSTERED INDEX [IDX_HoaDon_NgayThanhToan]
+    ON [dbo].[HoaDon] ([ngayThanhToan]);
+GO
 /****** Object:  StoredProcedure [dbo].[SP_CheckIn]    Script Date: 4/6/2026 9:54:43 PM ******/
 SET ANSI_NULLS ON
 GO
@@ -715,7 +738,7 @@ BEGIN
         DECLARE @phanTramGiam   FLOAT = 0;
 
         SELECT @tienPhong =
-            DATEDIFF(DAY, p.thoiGianNhanThucTe, GETDATE()) * ct.donGia
+            DATEDIFF(DAY, ISNULL(p.thoiGianNhanThucTe, p.thoiGianNhanDuKien), GETDATE()) * ct.donGia
         FROM PhieuDatPhong p
         JOIN ChiTietPhieuDatPhong ct ON p.maPhieuDatPhong = ct.maPhieuDatPhong
         WHERE p.maPhieuDatPhong = @maPhieuDatPhong;
@@ -789,6 +812,23 @@ BEGIN
         )
         BEGIN
             RAISERROR(N'Phòng mới không trống.', 16, 1);
+            ROLLBACK; RETURN;
+        END
+
+        DECLARE @thoiGianNhan DATETIME, @thoiGianTra DATETIME;
+        SELECT @thoiGianNhan = thoiGianNhanDuKien, @thoiGianTra = thoiGianTraDuKien
+        FROM PhieuDatPhong WHERE maPhieuDatPhong = @maPhieuDatPhong;
+
+        IF EXISTS (
+            SELECT 1 FROM ChiTietPhieuDatPhong ct
+            JOIN PhieuDatPhong p ON ct.maPhieuDatPhong = p.maPhieuDatPhong
+            WHERE ct.maPhong = @maPhongMoi
+              AND ct.maPhieuDatPhong <> @maPhieuDatPhong
+              AND p.thoiGianNhanDuKien < @thoiGianTra
+              AND p.thoiGianTraDuKien  > @thoiGianNhan
+        )
+        BEGIN
+            RAISERROR(N'Phòng mới đã có lịch đặt trùng thời gian.', 16, 1);
             ROLLBACK; RETURN;
         END
 
