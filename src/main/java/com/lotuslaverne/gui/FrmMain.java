@@ -1,6 +1,7 @@
 package com.lotuslaverne.gui;
 
 import com.lotuslaverne.entity.TaiKhoan;
+import com.formdev.flatlaf.extras.FlatSVGIcon;
 
 import javax.swing.*;
 import java.awt.*;
@@ -35,40 +36,55 @@ public class FrmMain extends JFrame {
         lblLogo.setBorder(BorderFactory.createEmptyBorder(20, 0, 20, 0));
         sidebar.add(lblLogo);
 
+        boolean isQuanLy = tkActive != null && "QuanLy".equals(tkActive.getVaiTro());
+
         // Trang chủ (standalone)
-        JButton btnTrangChu = createMenuButton("🏠  Trang chủ", true);
+        JButton btnTrangChu = createMenuButton("Trang chủ", true, "home");
         currentActiveButton = btnTrangChu;
         sidebar.add(btnTrangChu);
         sidebar.add(Box.createRigidArea(new Dimension(0, 4)));
 
-        // --- Nhóm dropdown ---
-        sidebar.add(createMenuGroup("📋  Quản lý Phòng",
-                new String[]{"   Danh sách Phòng", "   Bảng Giá Phòng", "   Quản lý Dịch Vụ"},
+        // --- Nhóm dropdown (phân quyền) ---
+        sidebar.add(createMenuGroup("Quản lý Phòng", "room",
+                new String[]{"Danh sách Phòng", "Bảng Giá Phòng", "Quản lý Dịch Vụ"},
                 new String[]{"Phong", "BangGia", "DichVu"}));
         sidebar.add(Box.createRigidArea(new Dimension(0, 4)));
 
-        sidebar.add(createMenuGroup("🛏  Lưu trú",
-                new String[]{"   Đặt Phòng", "   Check-in Khách", "   Đổi Phòng", "   Check-out / Thanh toán"},
+        sidebar.add(createMenuGroup("Lưu trú", "stay",
+                new String[]{"Đặt Phòng", "Check-in Khách", "Đổi Phòng", "Check-out / Thanh toán"},
                 new String[]{"DatPhong", "CheckIn", "DoiPhong", "ThanhToan"}));
         sidebar.add(Box.createRigidArea(new Dimension(0, 4)));
 
-        sidebar.add(createMenuGroup("💰  Tài chính",
-                new String[]{"   Quản lý Hóa Đơn", "   Khuyến Mãi"},
-                new String[]{"HoaDon", "KhuyenMai"}));
+        // Chỉ QuanLy mới thấy Tài chính
+        if (isQuanLy) {
+            sidebar.add(createMenuGroup("Tài chính", "finance",
+                    new String[]{"Quản lý Hóa Đơn", "Khuyến Mãi"},
+                    new String[]{"HoaDon", "KhuyenMai"}));
+            sidebar.add(Box.createRigidArea(new Dimension(0, 4)));
+        }
+
+        // LeTan chỉ thấy Khách Hàng, QuanLy thấy cả Nhân Viên
+        if (isQuanLy) {
+            sidebar.add(createMenuGroup("Khách hàng & Nhân viên", "people",
+                    new String[]{"Quản lý Khách Hàng", "Quản lý Nhân Viên"},
+                    new String[]{"KhachHang", "NhanVien"}));
+        } else {
+            sidebar.add(createMenuGroup("Khách hàng", "people",
+                    new String[]{"Quản lý Khách Hàng"},
+                    new String[]{"KhachHang"}));
+        }
         sidebar.add(Box.createRigidArea(new Dimension(0, 4)));
 
-        sidebar.add(createMenuGroup("👥  Khách hàng & Nhân viên",
-                new String[]{"   Quản lý Khách Hàng", "   Quản lý Nhân Viên"},
-                new String[]{"KhachHang", "NhanVien"}));
-        sidebar.add(Box.createRigidArea(new Dimension(0, 4)));
-
-        sidebar.add(createMenuGroup("⚙  Hệ thống",
-                new String[]{"   Báo Cáo Thống Kê", "   Tài Khoản Hệ Thống"},
-                new String[]{"ThongKe", "TaiKhoan"}));
+        // Chỉ QuanLy mới thấy Hệ thống
+        if (isQuanLy) {
+            sidebar.add(createMenuGroup("Hệ thống", "system",
+                    new String[]{"Báo Cáo Thống Kê", "Tài Khoản Hệ Thống"},
+                    new String[]{"ThongKe", "TaiKhoan"}));
+        }
 
         sidebar.add(Box.createVerticalGlue());
 
-        JButton btnLogout = createMenuButton("🚪  Đăng xuất", false);
+        JButton btnLogout = createMenuButton("Đăng xuất", false, "logout");
         sidebar.add(btnLogout);
         sidebar.add(Box.createRigidArea(new Dimension(0, 12)));
 
@@ -103,9 +119,21 @@ public class FrmMain extends JFrame {
         JLabel lblHelp = new JLabel("❓ Trợ giúp");
         lblHelp.setForeground(Color.GRAY);
         lblHelp.setFont(new Font("Arial", Font.PLAIN, 14));
+        String vaiTro = tkActive != null ? tkActive.getVaiTro() : "";
+        Color badgeColor = "QuanLy".equals(vaiTro) ? new Color(24, 144, 255) : new Color(40, 167, 69);
+        String badgeText = "QuanLy".equals(vaiTro) ? "Quản Lý" : "Lễ Tân";
+
+        JLabel lblBadge = new JLabel("  " + badgeText + "  ");
+        lblBadge.setFont(new Font("Arial", Font.BOLD, 11));
+        lblBadge.setForeground(Color.WHITE);
+        lblBadge.setBackground(badgeColor);
+        lblBadge.setOpaque(true);
+        lblBadge.putClientProperty("FlatLaf.style", "arc: 8");
+
         JLabel lblUser = new JLabel("👨 " + (tkActive != null ? tkActive.getTenDangNhap().toUpperCase() : "ADMIN"));
         lblUser.setFont(new Font("Arial", Font.BOLD, 14));
         lblUser.setForeground(new Color(44, 62, 80));
+        pnlUser.add(lblBadge);
         pnlUser.add(lblPhone);
         pnlUser.add(lblHelp);
         pnlUser.add(lblUser);
@@ -143,15 +171,34 @@ public class FrmMain extends JFrame {
         });
     }
 
+    private String arrowText(String title, boolean open) {
+        // Dùng "Segoe UI Symbol" vì Arial không có glyph ▶/▼ → hiện thành □
+        String arrow = open ? "▼" : "▶";
+        return "<html><table width='155'><tr>"
+            + "<td>" + title + "</td>"
+            + "<td align='right'><font face='Segoe UI Symbol' color='#8ab4d4'>" + arrow + "</font></td>"
+            + "</tr></table></html>";
+    }
+
+    private Icon loadIcon(String name, int size) {
+        try {
+            FlatSVGIcon icon = new FlatSVGIcon("icons/" + name + ".svg", size, size);
+            icon.setColorFilter(new FlatSVGIcon.ColorFilter(c -> new Color(180, 200, 220)));
+            return icon;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
     /** Tạo panel nhóm accordion có thể mở/đóng */
-    private JPanel createMenuGroup(String headerTitle, String[] subTitles, String[] cardNames) {
+    private JPanel createMenuGroup(String headerTitle, String iconName, String[] subTitles, String[] cardNames) {
         JPanel groupPanel = new JPanel();
         groupPanel.setLayout(new BoxLayout(groupPanel, BoxLayout.Y_AXIS));
         groupPanel.setBackground(new Color(11, 26, 44));
         groupPanel.setMaximumSize(new Dimension(240, Integer.MAX_VALUE));
         groupPanel.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-        JButton btnHeader = createMenuButton("▶  " + headerTitle, false);
+        JButton btnHeader = createMenuButton(arrowText(headerTitle, false), false, iconName);
 
         JPanel subPanel = new JPanel();
         subPanel.setLayout(new BoxLayout(subPanel, BoxLayout.Y_AXIS));
@@ -168,7 +215,7 @@ public class FrmMain extends JFrame {
         btnHeader.addActionListener(e -> {
             boolean wasOpen = subPanel.isVisible();
             subPanel.setVisible(!wasOpen);
-            btnHeader.setText((wasOpen ? "▶  " : "▼  ") + headerTitle);
+            btnHeader.setText(arrowText(headerTitle, !wasOpen));
             sidebar.revalidate();
             sidebar.repaint();
         });
@@ -178,7 +225,7 @@ public class FrmMain extends JFrame {
         return groupPanel;
     }
 
-    private JButton createMenuButton(String text, boolean isActive) {
+    private JButton createMenuButton(String text, boolean isActive, String iconName) {
         JButton btn = new JButton(text);
         btn.setMaximumSize(new Dimension(220, 45));
         btn.setPreferredSize(new Dimension(220, 45));
@@ -188,9 +235,16 @@ public class FrmMain extends JFrame {
         btn.setForeground(isActive ? Color.WHITE : new Color(180, 190, 200));
         btn.setBackground(isActive ? new Color(24, 144, 255) : new Color(11, 26, 44));
         btn.setFocusPainted(false);
-        btn.setBorder(BorderFactory.createEmptyBorder(0, 18, 0, 0));
+        btn.setBorder(BorderFactory.createEmptyBorder(0, 12, 0, 0));
         btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
         btn.setAlignmentX(Component.CENTER_ALIGNMENT);
+        if (iconName != null) {
+            Icon icon = loadIcon(iconName, 18);
+            if (icon != null) {
+                btn.setIcon(icon);
+                btn.setIconTextGap(8);
+            }
+        }
         return btn;
     }
 

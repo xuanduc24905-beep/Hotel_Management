@@ -1,185 +1,269 @@
 package com.lotuslaverne.gui;
 
+import com.lotuslaverne.util.ConnectDB;
+
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.JTableHeader;
 import java.awt.*;
+import java.sql.*;
+import java.text.NumberFormat;
+import java.util.Locale;
 
 public class FrmTrangChu extends JPanel {
 
+    private JLabel lblPhongTrong, lblPhongDung, lblPhongDat, lblPhongCanDon;
+    private JLabel lblDoanhThu, lblKhachDangO, lblCheckinHom, lblCheckoutHom;
+    private DefaultTableModel tableModel;
+
     public FrmTrangChu() {
         initUI();
+        loadData();
     }
 
     private void initUI() {
-        setLayout(new BorderLayout(20, 20));
+        setLayout(new BorderLayout(16, 16));
         setBackground(new Color(245, 246, 250));
-        setBorder(new EmptyBorder(20, 20, 20, 20));
+        setBorder(new EmptyBorder(24, 24, 24, 24));
 
-        // --- TOP CARDS ---
-        JPanel pnlCards = new JPanel(new GridLayout(1, 4, 20, 0));
+        // ── Row 1: Stat cards ──
+        JPanel pnlCards = new JPanel(new GridLayout(1, 4, 16, 0));
         pnlCards.setBackground(new Color(245, 246, 250));
-        pnlCards.setPreferredSize(new Dimension(0, 120));
+        pnlCards.setPreferredSize(new Dimension(0, 110));
 
-        pnlCards.add(createStatCard("Phòng đến trong ngày", "2.267", new Color(225, 238, 255), new Color(11, 26, 44)));
-        pnlCards.add(createStatCard("Phòng đi trong ngày", "1.267", new Color(245, 236, 255), new Color(11, 26, 44)));
-        pnlCards.add(createStatCard("Phòng đang sử dụng", "4.982", new Color(225, 250, 235), new Color(11, 26, 44)));
-        pnlCards.add(createStatCard("Khách đang ở", "4.521", new Color(255, 236, 232), new Color(11, 26, 44)));
+        lblPhongTrong  = new JLabel("...");
+        lblPhongDung   = new JLabel("...");
+        lblPhongDat    = new JLabel("...");
+        lblPhongCanDon = new JLabel("...");
+
+        pnlCards.add(createStatCard("Phòng Trống",    lblPhongTrong,  new Color(230, 244, 255), new Color(24, 144, 255),  "🟦"));
+        pnlCards.add(createStatCard("Đang Sử Dụng",   lblPhongDung,   new Color(230, 255, 236), new Color(40, 167, 69),   "🟩"));
+        pnlCards.add(createStatCard("Đã Đặt Trước",   lblPhongDat,    new Color(255, 243, 224), new Color(250, 140, 22),  "🟧"));
+        pnlCards.add(createStatCard("Cần Dọn Phòng",  lblPhongCanDon, new Color(255, 232, 230), new Color(220, 53, 69),   "🟥"));
 
         add(pnlCards, BorderLayout.NORTH);
 
-        // --- CENTER TABLE SECTION ---
-        JPanel pnlTableWrapper = new JPanel(new BorderLayout());
-        pnlTableWrapper.setBackground(Color.WHITE);
-        pnlTableWrapper.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(new Color(220, 220, 220)),
-                new EmptyBorder(0, 0, 0, 0)
-        ));
+        // ── Row 2: Table (left) + Info panel (right) ──
+        JPanel pnlCenter = new JPanel(new BorderLayout(16, 0));
+        pnlCenter.setBackground(new Color(245, 246, 250));
 
-        // Fake Tab Header
-        JPanel pnlTabs = new JPanel(new FlowLayout(FlowLayout.LEFT, 30, 15));
-        pnlTabs.setBackground(Color.WHITE);
-        pnlTabs.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, new Color(220, 220, 220)));
+        // Left: bảng check-in hôm nay
+        JPanel pnlTable = new JPanel(new BorderLayout());
+        pnlTable.setBackground(Color.WHITE);
+        pnlTable.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(new Color(220, 220, 220)),
+            new EmptyBorder(0, 0, 0, 0)));
 
-        JLabel lblTab1 = new JLabel("Phòng đến trong ngày");
-        lblTab1.setFont(new Font("Arial", Font.BOLD, 14));
-        lblTab1.setForeground(new Color(24, 144, 255)); // Active blue
-        lblTab1.setBorder(BorderFactory.createMatteBorder(0, 0, 2, 0, new Color(24, 144, 255)));
+        JPanel pnlTableHeader = new JPanel(new BorderLayout());
+        pnlTableHeader.setBackground(Color.WHITE);
+        pnlTableHeader.setBorder(new EmptyBorder(14, 20, 14, 20));
+        JLabel lblTableTitle = new JLabel("Check-in hôm nay");
+        lblTableTitle.setFont(new Font("Arial", Font.BOLD, 15));
+        lblTableTitle.setForeground(new Color(30, 40, 55));
+        JButton btnRefresh = new JButton("↻ Làm mới");
+        btnRefresh.setFont(new Font("Arial", Font.PLAIN, 12));
+        btnRefresh.setForeground(new Color(24, 144, 255));
+        btnRefresh.setBackground(Color.WHITE);
+        btnRefresh.setBorder(BorderFactory.createLineBorder(new Color(24, 144, 255)));
+        btnRefresh.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btnRefresh.addActionListener(e -> loadData());
+        pnlTableHeader.add(lblTableTitle, BorderLayout.WEST);
+        pnlTableHeader.add(btnRefresh, BorderLayout.EAST);
+        pnlTable.add(pnlTableHeader, BorderLayout.NORTH);
 
-        JLabel lblTab2 = new JLabel("Phòng đi trong ngày");
-        lblTab2.setFont(new Font("Arial", Font.PLAIN, 14));
-        lblTab2.setForeground(Color.GRAY);
-
-        JLabel lblTab3 = new JLabel("Phòng đang sử dụng");
-        lblTab3.setFont(new Font("Arial", Font.PLAIN, 14));
-        lblTab3.setForeground(Color.GRAY);
-
-        pnlTabs.add(lblTab1);
-        pnlTabs.add(lblTab2);
-        pnlTabs.add(lblTab3);
-
-        pnlTableWrapper.add(pnlTabs, BorderLayout.NORTH);
-
-        // Table
-        String[] cols = {"STT", "MÃ XÁC NHẬN", "MÃ BOOKING", "KHÁCH HÀNG", "LOẠI PHÒNG", "SỐ PHÒNG", "NGÀY ĐẾN", "NGÀY ĐI", "CÔNG TY"};
-        Object[][] data = {
-                {"01", "998866", "668899", "NGUYEN DUY HIEN", "Executive Double", "7003", "26/02/2021", "28/02/2021", "booking.com"},
-                {"02", "998866", "668899", "TRAN QUANG MINH", "Executive Double", "7003", "26/02/2021", "28/02/2021", "booking.com"},
-                {"03", "998866", "668899", "VU TO UYEN", "Executive Double", "7003", "26/02/2021", "28/02/2021", "booking.com"},
-                {"04", "998866", "668899", "NGUYEN VAN TRUONG", "Executive Double", "7003", "26/02/2021", "28/02/2021", "booking.com"},
-                {"05", "998866", "668899", "DO MINH HOA", "Executive Double", "7003", "26/02/2021", "28/02/2021", "booking.com"},
-                {"06", "998866", "668899", "DINH VAN HIEU", "Executive Double", "7003", "26/02/2021", "28/02/2021", "booking.com"},
-                {"07", "998866", "668899", "NGUYEN TUAN MINH", "Executive Double", "7003", "26/02/2021", "28/02/2021", "booking.com"},
-                {"08", "998866", "668899", "TRAN MINH TUAN", "Executive Double", "7003", "26/02/2021", "28/02/2021", "booking.com"},
-                {"09", "998866", "668899", "NGUYEN THI LUYEN", "Executive Double", "7003", "26/02/2021", "28/02/2021", "booking.com"}
+        String[] cols = {"Mã Phiếu", "Khách Hàng", "Phòng", "Nhận dự kiến", "Trả dự kiến", "Trạng thái"};
+        tableModel = new DefaultTableModel(cols, 0) {
+            public boolean isCellEditable(int r, int c) { return false; }
         };
-
-        DefaultTableModel model = new DefaultTableModel(data, cols) {
-            @Override
-            public boolean isCellEditable(int row, int column) {
-                return false;
-            }
-        };
-        
-        JTable table = new JTable(model);
-        table.setRowHeight(40);
+        JTable table = new JTable(tableModel);
+        table.setRowHeight(38);
         table.setShowGrid(false);
         table.setShowHorizontalLines(true);
         table.setGridColor(new Color(240, 240, 240));
-        table.setFont(new Font("Arial", Font.BOLD, 12));
-        table.setForeground(new Color(60, 60, 60));
-        
-        // Header style
-        JTableHeader header = table.getTableHeader();
-        header.setBackground(new Color(250, 250, 250));
-        header.setForeground(Color.GRAY);
-        header.setFont(new Font("Arial", Font.BOLD, 11));
-        header.setPreferredSize(new Dimension(100, 40));
-        ((DefaultTableCellRenderer)header.getDefaultRenderer()).setHorizontalAlignment(JLabel.CENTER);
+        table.setFont(new Font("Arial", Font.PLAIN, 13));
+        table.setForeground(new Color(50, 60, 70));
+        table.setSelectionBackground(new Color(230, 244, 255));
 
-        // Center align text and color specific columns
-        DefaultTableCellRenderer centerRender = new DefaultTableCellRenderer();
-        centerRender.setHorizontalAlignment(JLabel.CENTER);
-        
-        DefaultTableCellRenderer dateInRender = new DefaultTableCellRenderer();
-        dateInRender.setHorizontalAlignment(JLabel.CENTER);
-        dateInRender.setForeground(new Color(32, 201, 151)); // teal
-        
-        DefaultTableCellRenderer dateOutRender = new DefaultTableCellRenderer();
-        dateOutRender.setHorizontalAlignment(JLabel.CENTER);
-        dateOutRender.setForeground(new Color(253, 126, 20)); // orange
+        JTableHeader th = table.getTableHeader();
+        th.setBackground(new Color(250, 251, 252));
+        th.setForeground(new Color(130, 140, 155));
+        th.setFont(new Font("Arial", Font.BOLD, 12));
+        th.setPreferredSize(new Dimension(0, 38));
+        ((DefaultTableCellRenderer) th.getDefaultRenderer()).setHorizontalAlignment(JLabel.LEFT);
 
-        table.getColumnModel().getColumn(0).setCellRenderer(centerRender);
-        table.getColumnModel().getColumn(1).setCellRenderer(centerRender);
-        table.getColumnModel().getColumn(2).setCellRenderer(centerRender);
-        table.getColumnModel().getColumn(5).setCellRenderer(centerRender);
-        table.getColumnModel().getColumn(6).setCellRenderer(dateInRender);  // Ngay den
-        table.getColumnModel().getColumn(7).setCellRenderer(dateOutRender); // Ngay di
-        table.getColumnModel().getColumn(8).setCellRenderer(centerRender);
-        
-        JScrollPane scrollPane = new JScrollPane(table);
-        scrollPane.setBorder(BorderFactory.createEmptyBorder());
-        pnlTableWrapper.add(scrollPane, BorderLayout.CENTER);
+        // Renderer màu cho cột trạng thái
+        table.getColumnModel().getColumn(5).setCellRenderer(new DefaultTableCellRenderer() {
+            @Override
+            public Component getTableCellRendererComponent(JTable t, Object v, boolean sel, boolean foc, int r, int c) {
+                JLabel lbl = (JLabel) super.getTableCellRendererComponent(t, v, sel, foc, r, c);
+                String val = v == null ? "" : v.toString();
+                lbl.setHorizontalAlignment(JLabel.CENTER);
+                if (val.contains("Đang")) {
+                    lbl.setForeground(new Color(40, 167, 69));
+                } else if (val.contains("Đặt")) {
+                    lbl.setForeground(new Color(250, 140, 22));
+                } else {
+                    lbl.setForeground(new Color(130, 140, 155));
+                }
+                return lbl;
+            }
+        });
 
-        // Bottom pagination fake
-        JPanel pnlBottom = new JPanel(new BorderLayout());
-        pnlBottom.setBackground(Color.WHITE);
-        pnlBottom.setBorder(new EmptyBorder(10, 20, 10, 20));
-        
-        JLabel lblShowing = new JLabel("Hiển thị 1 - 10 trong số 50 mục");
-        lblShowing.setForeground(Color.GRAY);
-        lblShowing.setFont(new Font("Arial", Font.PLAIN, 12));
-        
-        JPanel pnlPaging = new JPanel(new FlowLayout(FlowLayout.RIGHT, 5, 0));
-        pnlPaging.setBackground(Color.WHITE);
-        pnlPaging.add(new JLabel(" < "));
-        
-        JLabel lblPage1 = new JLabel("  1  ");
-        lblPage1.setOpaque(true);
-        lblPage1.setBackground(new Color(225, 238, 255));
-        lblPage1.setForeground(new Color(24, 144, 255));
-        pnlPaging.add(lblPage1);
-        
-        pnlPaging.add(new JLabel("  2  "));
-        pnlPaging.add(new JLabel("  3  "));
-        pnlPaging.add(new JLabel("  4  "));
-        pnlPaging.add(new JLabel("  5  "));
-        pnlPaging.add(new JLabel(" ... "));
-        pnlPaging.add(new JLabel("  12 "));
-        pnlPaging.add(new JLabel(" > "));
-        
-        pnlBottom.add(lblShowing, BorderLayout.WEST);
-        pnlBottom.add(pnlPaging, BorderLayout.EAST);
-        
-        pnlTableWrapper.add(pnlBottom, BorderLayout.SOUTH);
+        pnlTable.add(new JScrollPane(table), BorderLayout.CENTER);
+        pnlCenter.add(pnlTable, BorderLayout.CENTER);
 
-        add(pnlTableWrapper, BorderLayout.CENTER);
+        // Right: quick stats panel
+        JPanel pnlRight = new JPanel();
+        pnlRight.setLayout(new BoxLayout(pnlRight, BoxLayout.Y_AXIS));
+        pnlRight.setBackground(new Color(245, 246, 250));
+        pnlRight.setPreferredSize(new Dimension(260, 0));
+
+        lblDoanhThu    = new JLabel("...");
+        lblKhachDangO  = new JLabel("...");
+        lblCheckinHom  = new JLabel("...");
+        lblCheckoutHom = new JLabel("...");
+
+        pnlRight.add(createInfoCard("Doanh thu hôm nay",   lblDoanhThu,    new Color(24, 144, 255)));
+        pnlRight.add(Box.createRigidArea(new Dimension(0, 14)));
+        pnlRight.add(createInfoCard("Khách đang ở",        lblKhachDangO,  new Color(40, 167, 69)));
+        pnlRight.add(Box.createRigidArea(new Dimension(0, 14)));
+        pnlRight.add(createInfoCard("Check-in hôm nay",    lblCheckinHom,  new Color(250, 140, 22)));
+        pnlRight.add(Box.createRigidArea(new Dimension(0, 14)));
+        pnlRight.add(createInfoCard("Check-out hôm nay",   lblCheckoutHom, new Color(220, 53, 69)));
+
+        pnlCenter.add(pnlRight, BorderLayout.EAST);
+        add(pnlCenter, BorderLayout.CENTER);
     }
 
-    private JPanel createStatCard(String title, String value, Color bgColor, Color textColor) {
-        JPanel panel = new JPanel();
-        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
-        panel.setBackground(bgColor);
-        
-        // Simulating rounded corners in Standard Swing 
-        // using EmptyBorder will just show square, but with FlatLaf roundRect can be used.
-        panel.putClientProperty("FlatLaf.style", "arc: 15"); 
-        panel.setBorder(new EmptyBorder(25, 25, 25, 25));
+    private void loadData() {
+        Connection con = ConnectDB.getInstance().getConnection();
+        if (con == null) return;
+        try {
+            // ── Stat cards ──
+            ResultSet rs1 = con.prepareStatement(
+                "SELECT trangThai, COUNT(*) AS so FROM Phong GROUP BY trangThai").executeQuery();
+            int phongTrong = 0, phongDung = 0, phongDat = 0, phongCanDon = 0;
+            while (rs1.next()) {
+                switch (rs1.getString("trangThai")) {
+                    case "PhongTrong"      -> phongTrong  = rs1.getInt("so");
+                    case "PhongDangSuDung" -> phongDung   = rs1.getInt("so");
+                    case "PhongDat"        -> phongDat    = rs1.getInt("so");
+                    case "PhongCanDon"     -> phongCanDon = rs1.getInt("so");
+                }
+            }
+            lblPhongTrong.setText(String.valueOf(phongTrong));
+            lblPhongDung.setText(String.valueOf(phongDung));
+            lblPhongDat.setText(String.valueOf(phongDat));
+            lblPhongCanDon.setText(String.valueOf(phongCanDon));
+
+            // ── Doanh thu hôm nay ──
+            ResultSet rs2 = con.prepareStatement(
+                "SELECT ISNULL(SUM(tienThanhToan),0) AS dt FROM HoaDon WHERE CAST(ngayThanhToan AS DATE)=CAST(GETDATE() AS DATE)").executeQuery();
+            if (rs2.next()) {
+                double dt = rs2.getDouble("dt");
+                lblDoanhThu.setText(NumberFormat.getNumberInstance(new Locale("vi","VN")).format(dt) + " ₫");
+            }
+
+            // ── Khách đang ở ──
+            ResultSet rs3 = con.prepareStatement(
+                "SELECT COUNT(*) AS so FROM PhieuDatPhong WHERE thoiGianNhanThucTe IS NOT NULL AND thoiGianTraThucTe IS NULL").executeQuery();
+            if (rs3.next()) lblKhachDangO.setText(String.valueOf(rs3.getInt("so")));
+
+            // ── Check-in / Check-out hôm nay ──
+            ResultSet rs4 = con.prepareStatement(
+                "SELECT COUNT(*) AS so FROM PhieuDatPhong WHERE CAST(thoiGianNhanThucTe AS DATE)=CAST(GETDATE() AS DATE)").executeQuery();
+            if (rs4.next()) lblCheckinHom.setText(String.valueOf(rs4.getInt("so")));
+
+            ResultSet rs5 = con.prepareStatement(
+                "SELECT COUNT(*) AS so FROM PhieuDatPhong WHERE CAST(thoiGianTraThucTe AS DATE)=CAST(GETDATE() AS DATE)").executeQuery();
+            if (rs5.next()) lblCheckoutHom.setText(String.valueOf(rs5.getInt("so")));
+
+            // ── Bảng check-in hôm nay ──
+            tableModel.setRowCount(0);
+            ResultSet rs6 = con.prepareStatement(
+                "SELECT p.maPhieuDatPhong, kh.hoTenKH, ph.tenPhong, " +
+                "       FORMAT(p.thoiGianNhanDuKien,'dd/MM/yyyy HH:mm'), " +
+                "       FORMAT(p.thoiGianTraDuKien,'dd/MM/yyyy HH:mm'), " +
+                "       ph.trangThai " +
+                "FROM PhieuDatPhong p " +
+                "JOIN KhachHang kh ON p.maKhachHang = kh.maKH " +
+                "JOIN ChiTietPhieuDatPhong ct ON p.maPhieuDatPhong = ct.maPhieuDatPhong " +
+                "JOIN Phong ph ON ct.maPhong = ph.maPhong " +
+                "WHERE CAST(p.thoiGianNhanDuKien AS DATE) = CAST(GETDATE() AS DATE) " +
+                "ORDER BY p.thoiGianNhanDuKien").executeQuery();
+            while (rs6.next()) {
+                String trangThai = switch (rs6.getString(6)) {
+                    case "PhongDangSuDung" -> "Đang sử dụng";
+                    case "PhongDat"        -> "Đã đặt";
+                    case "PhongTrong"      -> "Phòng trống";
+                    default                -> rs6.getString(6);
+                };
+                tableModel.addRow(new Object[]{
+                    rs6.getString(1), rs6.getString(2), rs6.getString(3),
+                    rs6.getString(4), rs6.getString(5), trangThai
+                });
+            }
+
+        } catch (Exception e) { e.printStackTrace(); }
+    }
+
+    private JPanel createStatCard(String title, JLabel valueLabel, Color bg, Color accent, String icon) {
+        JPanel panel = new JPanel(new BorderLayout());
+        panel.setBackground(bg);
+        panel.putClientProperty("FlatLaf.style", "arc: 14");
+        panel.setBorder(new EmptyBorder(18, 20, 18, 20));
+
+        JLabel lblIcon = new JLabel(icon);
+        lblIcon.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 28));
+        lblIcon.setVerticalAlignment(JLabel.CENTER);
+
+        JPanel pnlText = new JPanel();
+        pnlText.setLayout(new BoxLayout(pnlText, BoxLayout.Y_AXIS));
+        pnlText.setBackground(bg);
 
         JLabel lblTitle = new JLabel(title);
-        lblTitle.setFont(new Font("Arial", Font.PLAIN, 14));
-        lblTitle.setForeground(new Color(80, 90, 100)); // Darker gray
+        lblTitle.setFont(new Font("Arial", Font.PLAIN, 12));
+        lblTitle.setForeground(new Color(100, 110, 125));
 
-        JLabel lblValue = new JLabel(value);
-        lblValue.setFont(new Font("Arial", Font.BOLD, 42));
-        lblValue.setForeground(textColor);
+        valueLabel.setFont(new Font("Arial", Font.BOLD, 36));
+        valueLabel.setForeground(accent);
 
-        panel.add(lblTitle);
-        panel.add(Box.createVerticalStrut(10));
-        panel.add(lblValue);
+        pnlText.add(lblTitle);
+        pnlText.add(Box.createVerticalStrut(4));
+        pnlText.add(valueLabel);
 
+        panel.add(lblIcon, BorderLayout.EAST);
+        panel.add(pnlText, BorderLayout.CENTER);
+        return panel;
+    }
+
+    private JPanel createInfoCard(String title, JLabel valueLabel, Color accent) {
+        JPanel panel = new JPanel(new BorderLayout());
+        panel.setBackground(Color.WHITE);
+        panel.putClientProperty("FlatLaf.style", "arc: 14");
+        panel.setBorder(new EmptyBorder(16, 18, 16, 18));
+        panel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 90));
+
+        JLabel lblTitle = new JLabel(title);
+        lblTitle.setFont(new Font("Arial", Font.PLAIN, 12));
+        lblTitle.setForeground(new Color(130, 140, 155));
+
+        valueLabel.setFont(new Font("Arial", Font.BOLD, 26));
+        valueLabel.setForeground(accent);
+
+        JPanel left = new JPanel(new BorderLayout(0, 4));
+        left.setBackground(Color.WHITE);
+        left.add(lblTitle, BorderLayout.NORTH);
+        left.add(valueLabel, BorderLayout.CENTER);
+
+        JPanel accent_bar = new JPanel();
+        accent_bar.setPreferredSize(new Dimension(4, 0));
+        accent_bar.setBackground(accent);
+
+        panel.add(accent_bar, BorderLayout.WEST);
+        panel.add(left, BorderLayout.CENTER);
         return panel;
     }
 }
