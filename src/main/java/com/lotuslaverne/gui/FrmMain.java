@@ -195,7 +195,7 @@ public class FrmMain extends JFrame {
         JPanel groupPanel = new JPanel();
         groupPanel.setLayout(new BoxLayout(groupPanel, BoxLayout.Y_AXIS));
         groupPanel.setBackground(new Color(11, 26, 44));
-        groupPanel.setMaximumSize(new Dimension(240, Integer.MAX_VALUE));
+        groupPanel.setMaximumSize(new Dimension(240, 45));
         groupPanel.setAlignmentX(Component.CENTER_ALIGNMENT);
 
         JButton btnHeader = createMenuButton(arrowText(headerTitle, false), false, iconName);
@@ -212,10 +212,12 @@ public class FrmMain extends JFrame {
             subPanel.add(Box.createRigidArea(new Dimension(0, 3)));
         }
 
+        int subHeight = subTitles.length * (38 + 3);
         btnHeader.addActionListener(e -> {
             boolean wasOpen = subPanel.isVisible();
             subPanel.setVisible(!wasOpen);
             btnHeader.setText(arrowText(headerTitle, !wasOpen));
+            groupPanel.setMaximumSize(new Dimension(240, wasOpen ? 45 : 45 + subHeight));
             sidebar.revalidate();
             sidebar.repaint();
         });
