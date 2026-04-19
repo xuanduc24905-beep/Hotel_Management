@@ -5,6 +5,7 @@ import com.formdev.flatlaf.extras.FlatSVGIcon;
 
 import javax.swing.*;
 import java.awt.*;
+import java.awt.datatransfer.StringSelection;
 import java.awt.event.ActionEvent;
 
 public class FrmMain extends JFrame {
@@ -95,6 +96,7 @@ public class FrmMain extends JFrame {
         sidebarScroll.setBorder(null);
         sidebarScroll.getVerticalScrollBar().setUnitIncrement(16);
         add(sidebarScroll, BorderLayout.WEST);
+        final JScrollPane finalSidebarScroll = sidebarScroll;
 
         // --- Top Header ---
         JPanel rightWrapper = new JPanel(new BorderLayout());
@@ -105,20 +107,57 @@ public class FrmMain extends JFrame {
         topHeader.setPreferredSize(new Dimension(0, 60));
         topHeader.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, new Color(230, 230, 230)));
 
-        JLabel lblMenuIcon = new JLabel("  ≡  ");
-        lblMenuIcon.setFont(new Font("Arial", Font.BOLD, 24));
+        JLabel lblMenuIcon = new JLabel("  \u2630  ");
+        lblMenuIcon.setFont(new Font("Segoe UI Symbol", Font.PLAIN, 22));
         lblMenuIcon.setForeground(Color.DARK_GRAY);
         lblMenuIcon.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        lblMenuIcon.setToolTipText("Ẩn/hiện thanh menu");
+        lblMenuIcon.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent e) {
+                boolean visible = finalSidebarScroll.isVisible();
+                finalSidebarScroll.setVisible(!visible);
+                revalidate();
+                repaint();
+            }
+            public void mouseEntered(java.awt.event.MouseEvent e) {
+                lblMenuIcon.setForeground(new Color(24, 144, 255));
+            }
+            public void mouseExited(java.awt.event.MouseEvent e) {
+                lblMenuIcon.setForeground(Color.DARK_GRAY);
+            }
+        });
         topHeader.add(lblMenuIcon, BorderLayout.WEST);
 
         JPanel pnlUser = new JPanel(new FlowLayout(FlowLayout.RIGHT, 20, 15));
         pnlUser.setBackground(Color.WHITE);
-        JLabel lblPhone = new JLabel("📞 024 35 683727");
+        JLabel lblPhone = new JLabel("<html><font face='Segoe UI Symbol'>\u260E</font> 024 35 683727</html>");
         lblPhone.setForeground(new Color(220, 53, 69));
         lblPhone.setFont(new Font("Arial", Font.BOLD, 14));
-        JLabel lblHelp = new JLabel("❓ Trợ giúp");
+        lblPhone.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        lblPhone.setToolTipText("Click để sao chép số điện thoại");
+        lblPhone.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent e) {
+                Toolkit.getDefaultToolkit().getSystemClipboard()
+                        .setContents(new StringSelection("024 35 683727"), null);
+                JOptionPane.showMessageDialog(null, "Đã sao chép số điện thoại: 024 35 683727", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
+            }
+        });
+
+        JLabel lblHelp = new JLabel("<html><font face='Segoe UI Symbol'>\u2753</font> Trợ giúp</html>");
         lblHelp.setForeground(Color.GRAY);
         lblHelp.setFont(new Font("Arial", Font.PLAIN, 14));
+        lblHelp.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        lblHelp.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent e) {
+                JOptionPane.showMessageDialog(null,
+                        "<html><b>Hướng dẫn sử dụng</b><br><br>"
+                        + "- <b>Quản Lý</b>: Toàn quyền truy cập hệ thống<br>"
+                        + "- <b>Lễ Tân</b>: Đặt phòng, check-in/out, khách hàng<br><br>"
+                        + "Hotline hỗ trợ: <b>024 35 683727</b><br>"
+                        + "Email: support@lotuslaverne.vn</html>",
+                        "Trợ giúp", JOptionPane.INFORMATION_MESSAGE);
+            }
+        });
         String vaiTro = tkActive != null ? tkActive.getVaiTro() : "";
         Color badgeColor = "QuanLy".equals(vaiTro) ? new Color(24, 144, 255) : new Color(40, 167, 69);
         String badgeText = "QuanLy".equals(vaiTro) ? "Quản Lý" : "Lễ Tân";
@@ -130,7 +169,7 @@ public class FrmMain extends JFrame {
         lblBadge.setOpaque(true);
         lblBadge.putClientProperty("FlatLaf.style", "arc: 8");
 
-        JLabel lblUser = new JLabel("👨 " + (tkActive != null ? tkActive.getTenDangNhap().toUpperCase() : "ADMIN"));
+        JLabel lblUser = new JLabel("<html><font face='Segoe UI Symbol' color='#1890ff'>\u25CF</font> " + (tkActive != null ? tkActive.getTenDangNhap().toUpperCase() : "ADMIN") + "</html>");
         lblUser.setFont(new Font("Arial", Font.BOLD, 14));
         lblUser.setForeground(new Color(44, 62, 80));
         pnlUser.add(lblBadge);

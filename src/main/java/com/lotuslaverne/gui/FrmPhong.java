@@ -122,7 +122,7 @@ public class FrmPhong extends JPanel {
         pnCenter.add(pnlTableWrapper, BorderLayout.CENTER);
         add(pnCenter, BorderLayout.CENTER);
 
-        // BUTTONS & LOGIC UC
+        // BUTTONS & LOGIfC UC
         JPanel panelBottom = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 10));
         panelBottom.setBackground(new Color(245, 246, 250));
         

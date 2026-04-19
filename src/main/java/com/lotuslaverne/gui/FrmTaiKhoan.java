@@ -76,8 +76,11 @@ public class FrmTaiKhoan extends JPanel {
             }
         });
 
+        JPanel pnBtnTao = new JPanel(new FlowLayout(FlowLayout.CENTER));
+        pnBtnTao.setBackground(new Color(245, 246, 250));
+        pnBtnTao.add(btnTao);
         leftPanel.add(formTao, BorderLayout.NORTH);
-        leftPanel.add(btnTao, BorderLayout.CENTER);
+        leftPanel.add(pnBtnTao, BorderLayout.CENTER);
 
         // RIGHT: đổi mật khẩu (UC003)
         JPanel rightPanel = new JPanel(new BorderLayout(0, 10));
@@ -113,8 +116,11 @@ public class FrmTaiKhoan extends JPanel {
             }
         });
 
+        JPanel pnBtnDoiMK = new JPanel(new FlowLayout(FlowLayout.CENTER));
+        pnBtnDoiMK.setBackground(new Color(245, 246, 250));
+        pnBtnDoiMK.add(btnDoiMK);
         rightPanel.add(formDoiMK, BorderLayout.NORTH);
-        rightPanel.add(btnDoiMK, BorderLayout.CENTER);
+        rightPanel.add(pnBtnDoiMK, BorderLayout.CENTER);
 
         mainPanel.add(leftPanel); mainPanel.add(rightPanel);
         add(mainPanel, BorderLayout.CENTER);
