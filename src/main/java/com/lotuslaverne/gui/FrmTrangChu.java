@@ -142,68 +142,80 @@ public class FrmTrangChu extends JPanel {
         if (con == null) return;
         try {
             // ── Stat cards ──
-            ResultSet rs1 = con.prepareStatement(
-                "SELECT trangThai, COUNT(*) AS so FROM Phong GROUP BY trangThai").executeQuery();
-            int phongTrong = 0, phongDung = 0, phongDat = 0, phongCanDon = 0;
-            while (rs1.next()) {
-                switch (rs1.getString("trangThai")) {
-                    case "PhongTrong"      -> phongTrong  = rs1.getInt("so");
-                    case "PhongDangSuDung" -> phongDung   = rs1.getInt("so");
-                    case "PhongDat"        -> phongDat    = rs1.getInt("so");
-                    case "PhongCanDon"     -> phongCanDon = rs1.getInt("so");
+            try (PreparedStatement pst1 = con.prepareStatement(
+                    "SELECT trangThai, COUNT(*) AS so FROM Phong GROUP BY trangThai");
+                 ResultSet rs1 = pst1.executeQuery()) {
+                int phongTrong = 0, phongDung = 0, phongDat = 0, phongCanDon = 0;
+                while (rs1.next()) {
+                    switch (rs1.getString("trangThai")) {
+                        case "PhongTrong"      -> phongTrong  = rs1.getInt("so");
+                        case "PhongDangSuDung" -> phongDung   = rs1.getInt("so");
+                        case "PhongDat"        -> phongDat    = rs1.getInt("so");
+                        case "PhongCanDon"     -> phongCanDon = rs1.getInt("so");
+                    }
                 }
+                lblPhongTrong.setText(String.valueOf(phongTrong));
+                lblPhongDung.setText(String.valueOf(phongDung));
+                lblPhongDat.setText(String.valueOf(phongDat));
+                lblPhongCanDon.setText(String.valueOf(phongCanDon));
             }
-            lblPhongTrong.setText(String.valueOf(phongTrong));
-            lblPhongDung.setText(String.valueOf(phongDung));
-            lblPhongDat.setText(String.valueOf(phongDat));
-            lblPhongCanDon.setText(String.valueOf(phongCanDon));
 
             // ── Doanh thu hôm nay ──
-            ResultSet rs2 = con.prepareStatement(
-                "SELECT ISNULL(SUM(tienThanhToan),0) AS dt FROM HoaDon WHERE CAST(ngayThanhToan AS DATE)=CAST(GETDATE() AS DATE)").executeQuery();
-            if (rs2.next()) {
-                double dt = rs2.getDouble("dt");
-                lblDoanhThu.setText(NumberFormat.getNumberInstance(new Locale("vi","VN")).format(dt) + " ₫");
+            try (PreparedStatement pst2 = con.prepareStatement(
+                    "SELECT ISNULL(SUM(tienThanhToan),0) AS dt FROM HoaDon WHERE CAST(ngayThanhToan AS DATE)=CAST(GETDATE() AS DATE)");
+                 ResultSet rs2 = pst2.executeQuery()) {
+                if (rs2.next()) {
+                    lblDoanhThu.setText(NumberFormat.getNumberInstance(new Locale("vi","VN")).format(rs2.getDouble("dt")) + " ₫");
+                }
             }
 
             // ── Khách đang ở ──
-            ResultSet rs3 = con.prepareStatement(
-                "SELECT COUNT(*) AS so FROM PhieuDatPhong WHERE thoiGianNhanThucTe IS NOT NULL AND thoiGianTraThucTe IS NULL").executeQuery();
-            if (rs3.next()) lblKhachDangO.setText(String.valueOf(rs3.getInt("so")));
+            try (PreparedStatement pst3 = con.prepareStatement(
+                    "SELECT COUNT(*) AS so FROM PhieuDatPhong WHERE thoiGianNhanThucTe IS NOT NULL AND thoiGianTraThucTe IS NULL");
+                 ResultSet rs3 = pst3.executeQuery()) {
+                if (rs3.next()) lblKhachDangO.setText(String.valueOf(rs3.getInt("so")));
+            }
 
-            // ── Check-in / Check-out hôm nay ──
-            ResultSet rs4 = con.prepareStatement(
-                "SELECT COUNT(*) AS so FROM PhieuDatPhong WHERE CAST(thoiGianNhanThucTe AS DATE)=CAST(GETDATE() AS DATE)").executeQuery();
-            if (rs4.next()) lblCheckinHom.setText(String.valueOf(rs4.getInt("so")));
+            // ── Check-in hôm nay ──
+            try (PreparedStatement pst4 = con.prepareStatement(
+                    "SELECT COUNT(*) AS so FROM PhieuDatPhong WHERE CAST(thoiGianNhanThucTe AS DATE)=CAST(GETDATE() AS DATE)");
+                 ResultSet rs4 = pst4.executeQuery()) {
+                if (rs4.next()) lblCheckinHom.setText(String.valueOf(rs4.getInt("so")));
+            }
 
-            ResultSet rs5 = con.prepareStatement(
-                "SELECT COUNT(*) AS so FROM PhieuDatPhong WHERE CAST(thoiGianTraThucTe AS DATE)=CAST(GETDATE() AS DATE)").executeQuery();
-            if (rs5.next()) lblCheckoutHom.setText(String.valueOf(rs5.getInt("so")));
+            // ── Check-out hôm nay ──
+            try (PreparedStatement pst5 = con.prepareStatement(
+                    "SELECT COUNT(*) AS so FROM PhieuDatPhong WHERE CAST(thoiGianTraThucTe AS DATE)=CAST(GETDATE() AS DATE)");
+                 ResultSet rs5 = pst5.executeQuery()) {
+                if (rs5.next()) lblCheckoutHom.setText(String.valueOf(rs5.getInt("so")));
+            }
 
             // ── Bảng check-in hôm nay ──
             tableModel.setRowCount(0);
-            ResultSet rs6 = con.prepareStatement(
-                "SELECT p.maPhieuDatPhong, kh.hoTenKH, ph.tenPhong, " +
-                "       FORMAT(p.thoiGianNhanDuKien,'dd/MM/yyyy HH:mm'), " +
-                "       FORMAT(p.thoiGianTraDuKien,'dd/MM/yyyy HH:mm'), " +
-                "       ph.trangThai " +
-                "FROM PhieuDatPhong p " +
-                "JOIN KhachHang kh ON p.maKhachHang = kh.maKH " +
-                "JOIN ChiTietPhieuDatPhong ct ON p.maPhieuDatPhong = ct.maPhieuDatPhong " +
-                "JOIN Phong ph ON ct.maPhong = ph.maPhong " +
-                "WHERE CAST(p.thoiGianNhanDuKien AS DATE) = CAST(GETDATE() AS DATE) " +
-                "ORDER BY p.thoiGianNhanDuKien").executeQuery();
-            while (rs6.next()) {
-                String trangThai = switch (rs6.getString(6)) {
-                    case "PhongDangSuDung" -> "Đang sử dụng";
-                    case "PhongDat"        -> "Đã đặt";
-                    case "PhongTrong"      -> "Phòng trống";
-                    default                -> rs6.getString(6);
-                };
-                tableModel.addRow(new Object[]{
-                    rs6.getString(1), rs6.getString(2), rs6.getString(3),
-                    rs6.getString(4), rs6.getString(5), trangThai
-                });
+            try (PreparedStatement pst6 = con.prepareStatement(
+                    "SELECT p.maPhieuDatPhong, kh.hoTenKH, ph.tenPhong, " +
+                    "       FORMAT(p.thoiGianNhanDuKien,'dd/MM/yyyy HH:mm'), " +
+                    "       FORMAT(p.thoiGianTraDuKien,'dd/MM/yyyy HH:mm'), " +
+                    "       ph.trangThai " +
+                    "FROM PhieuDatPhong p " +
+                    "JOIN KhachHang kh ON p.maKhachHang = kh.maKH " +
+                    "JOIN ChiTietPhieuDatPhong ct ON p.maPhieuDatPhong = ct.maPhieuDatPhong " +
+                    "JOIN Phong ph ON ct.maPhong = ph.maPhong " +
+                    "WHERE CAST(p.thoiGianNhanDuKien AS DATE) = CAST(GETDATE() AS DATE) " +
+                    "ORDER BY p.thoiGianNhanDuKien");
+                 ResultSet rs6 = pst6.executeQuery()) {
+                while (rs6.next()) {
+                    String trangThai = switch (rs6.getString(6)) {
+                        case "PhongDangSuDung" -> "Đang sử dụng";
+                        case "PhongDat"        -> "Đã đặt";
+                        case "PhongTrong"      -> "Phòng trống";
+                        default                -> rs6.getString(6);
+                    };
+                    tableModel.addRow(new Object[]{
+                        rs6.getString(1), rs6.getString(2), rs6.getString(3),
+                        rs6.getString(4), rs6.getString(5), trangThai
+                    });
+                }
             }
 
         } catch (Exception e) { e.printStackTrace(); }

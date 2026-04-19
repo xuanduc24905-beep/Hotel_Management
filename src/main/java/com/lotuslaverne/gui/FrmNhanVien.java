@@ -172,7 +172,7 @@ public class FrmNhanVien extends JPanel {
         tableModel.setRowCount(0);
         List<NhanVien> list = dao.getAll();
         for (NhanVien nv : list) {
-            tableModel.addRow(new Object[]{nv.getMaNhanVien(), nv.getTenNhanVien(), nv.getSoDienThoai(), nv.getTrangThai()});
+            tableModel.addRow(new Object[]{nv.getMaNhanVien(), nv.getTenNhanVien(), nv.getSoDienThoai(), nv.getVaiTro()});
         }
     }
 }

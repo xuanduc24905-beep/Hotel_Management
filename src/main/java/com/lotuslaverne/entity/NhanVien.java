@@ -4,15 +4,15 @@ public class NhanVien {
     private String maNhanVien;
     private String tenNhanVien;
     private String soDienThoai;
-    private String trangThai;
+    private String vaiTro;
 
     public NhanVien() {}
 
-    public NhanVien(String maNhanVien, String tenNhanVien, String soDienThoai, String trangThai) {
+    public NhanVien(String maNhanVien, String tenNhanVien, String soDienThoai, String vaiTro) {
         this.maNhanVien = maNhanVien;
         this.tenNhanVien = tenNhanVien;
         this.soDienThoai = soDienThoai;
-        this.trangThai = trangThai;
+        this.vaiTro = vaiTro;
     }
 
     public String getMaNhanVien() { return maNhanVien; }
@@ -21,6 +21,6 @@ public class NhanVien {
     public void setTenNhanVien(String tenNhanVien) { this.tenNhanVien = tenNhanVien; }
     public String getSoDienThoai() { return soDienThoai; }
     public void setSoDienThoai(String soDienThoai) { this.soDienThoai = soDienThoai; }
-    public String getTrangThai() { return trangThai; }
-    public void setTrangThai(String trangThai) { this.trangThai = trangThai; }
+    public String getVaiTro() { return vaiTro; }
+    public void setVaiTro(String vaiTro) { this.vaiTro = vaiTro; }
 }

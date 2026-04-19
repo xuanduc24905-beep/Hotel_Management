@@ -96,20 +96,20 @@ public class FrmDoiPhong extends JPanel {
         if (maPDP.isEmpty()) { JOptionPane.showMessageDialog(this, "Nhập mã phiếu đặt phòng!"); return; }
         Connection con = ConnectDB.getInstance().getConnection();
         if (con == null) return;
-        try {
-            PreparedStatement pst = con.prepareStatement(
-                "SELECT ct.maPhong, bg.donGia FROM ChiTietPhieuDatPhong ct " +
+        String sql = "SELECT ct.maPhong, bg.donGia FROM ChiTietPhieuDatPhong ct " +
                 "JOIN PhieuDatPhong p ON ct.maPhieuDatPhong=p.maPhieuDatPhong " +
                 "JOIN Phong ph ON ct.maPhong=ph.maPhong " +
                 "LEFT JOIN BangGia bg ON ph.maLoaiPhong=bg.maLoaiPhong AND bg.loaiThue='QuaDem' AND GETDATE() BETWEEN bg.ngayBatDau AND bg.ngayKetThuc " +
-                "WHERE ct.maPhieuDatPhong=? AND p.thoiGianNhanThucTe IS NOT NULL AND p.thoiGianTraThucTe IS NULL");
+                "WHERE ct.maPhieuDatPhong=? AND p.thoiGianNhanThucTe IS NOT NULL AND p.thoiGianTraThucTe IS NULL";
+        try (PreparedStatement pst = con.prepareStatement(sql)) {
             pst.setString(1, maPDP);
-            ResultSet rs = pst.executeQuery();
-            if (rs.next()) {
-                lblPhongHienTai.setText(rs.getString("maPhong") + "  (giá hiện tại: " +
-                    new DecimalFormat("#,###").format(rs.getDouble("donGia")) + " VNĐ/đêm)");
-            } else {
-                lblPhongHienTai.setText("Không tìm thấy (phiếu chưa check-in hoặc đã trả)");
+            try (ResultSet rs = pst.executeQuery()) {
+                if (rs.next()) {
+                    lblPhongHienTai.setText(rs.getString("maPhong") + "  (giá hiện tại: " +
+                        new DecimalFormat("#,###").format(rs.getDouble("donGia")) + " VNĐ/đêm)");
+                } else {
+                    lblPhongHienTai.setText("Không tìm thấy (phiếu chưa check-in hoặc đã trả)");
+                }
             }
         } catch (Exception ex) { ex.printStackTrace(); }
     }

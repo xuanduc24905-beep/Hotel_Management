@@ -41,7 +41,7 @@ public class NhanVienDAO {
             pst.setString(1, nv.getMaNhanVien());
             pst.setString(2, nv.getTenNhanVien());
             pst.setString(3, nv.getSoDienThoai());
-            pst.setString(4, nv.getTrangThai()); // Mượn biến trangThai xài cho vaiTro
+            pst.setString(4, nv.getVaiTro());
             return pst.executeUpdate() > 0;
         } catch (Exception e) {
             e.printStackTrace();
@@ -56,7 +56,7 @@ public class NhanVienDAO {
             PreparedStatement pst = con.prepareStatement(sql);
             pst.setString(1, nv.getTenNhanVien());
             pst.setString(2, nv.getSoDienThoai());
-            pst.setString(3, nv.getTrangThai());
+            pst.setString(3, nv.getVaiTro());
             pst.setString(4, nv.getMaNhanVien());
             return pst.executeUpdate() > 0;
         } catch (Exception e) {

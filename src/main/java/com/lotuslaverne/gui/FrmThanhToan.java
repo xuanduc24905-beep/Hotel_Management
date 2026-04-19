@@ -124,26 +124,35 @@ public class FrmThanhToan extends JPanel {
             return;
         }
 
-        long tNhan = pdp.getThoiGianNhanThucTe() != null
-                ? pdp.getThoiGianNhanThucTe().getTime()
-                : pdp.getThoiGianNhanDuKien().getTime();
+        java.util.Date thoiGianRef = pdp.getThoiGianNhanThucTe() != null
+                ? pdp.getThoiGianNhanThucTe()
+                : pdp.getThoiGianNhanDuKien();
+        if (thoiGianRef == null) {
+            JOptionPane.showMessageDialog(this, "Không xác định được thời gian nhận phòng!");
+            return;
+        }
+        long tNhan = thoiGianRef.getTime();
         long soGio = Math.max(1, (System.currentTimeMillis() - tNhan) / 3600000);
         long soNgay = Math.max(1, soGio / 24);
 
         double donGia = 0;
         try {
             java.sql.Connection con = com.lotuslaverne.util.ConnectDB.getInstance().getConnection();
-            java.sql.PreparedStatement pst = con.prepareStatement(
-                "SELECT ph.maLoaiPhong FROM ChiTietPhieuDatPhong ct JOIN Phong ph ON ct.maPhong=ph.maPhong WHERE ct.maPhieuDatPhong=?");
-            pst.setString(1, maPDP);
-            java.sql.ResultSet rs = pst.executeQuery();
-            if (rs.next()) {
-                String maLP = rs.getString("maLoaiPhong");
-                donGia = bangGiaDAO.getGiaHienTai(maLP, "QuaDem");
-                if (donGia == 0) donGia = bangGiaDAO.getGiaHienTai(maLP, "TheoNgay");
-                if (donGia == 0) donGia = 200000; // fallback
+            if (con != null) {
+                try (java.sql.PreparedStatement pst = con.prepareStatement(
+                        "SELECT ph.maLoaiPhong FROM ChiTietPhieuDatPhong ct JOIN Phong ph ON ct.maPhong=ph.maPhong WHERE ct.maPhieuDatPhong=?")) {
+                    pst.setString(1, maPDP);
+                    try (java.sql.ResultSet rs = pst.executeQuery()) {
+                        if (rs.next()) {
+                            String maLP = rs.getString("maLoaiPhong");
+                            donGia = bangGiaDAO.getGiaHienTai(maLP, "QuaDem");
+                            if (donGia == 0) donGia = bangGiaDAO.getGiaHienTai(maLP, "TheoNgay");
+                        }
+                    }
+                }
             }
-        } catch (Exception ex) { donGia = 200000; }
+        } catch (Exception ex) { ex.printStackTrace(); }
+        if (donGia == 0) donGia = 200000;
 
         double base = soNgay * donGia;
         currentTotal = Math.max(0, base - discountAmount);
@@ -195,13 +204,14 @@ public class FrmThanhToan extends JPanel {
     }
 
     private String layMaPhong(String maPDP) {
-        try {
-            java.sql.Connection con = com.lotuslaverne.util.ConnectDB.getInstance().getConnection();
-            java.sql.PreparedStatement pst = con.prepareStatement(
-                "SELECT maPhong FROM ChiTietPhieuDatPhong WHERE maPhieuDatPhong=?");
+        java.sql.Connection con = com.lotuslaverne.util.ConnectDB.getInstance().getConnection();
+        if (con == null) return "";
+        try (java.sql.PreparedStatement pst = con.prepareStatement(
+                "SELECT maPhong FROM ChiTietPhieuDatPhong WHERE maPhieuDatPhong=?")) {
             pst.setString(1, maPDP);
-            java.sql.ResultSet rs = pst.executeQuery();
-            if (rs.next()) return rs.getString("maPhong");
+            try (java.sql.ResultSet rs = pst.executeQuery()) {
+                if (rs.next()) return rs.getString("maPhong");
+            }
         } catch (Exception ex) { ex.printStackTrace(); }
         return "";
     }

@@ -186,18 +186,18 @@ public class FrmMain extends JFrame {
 
         mainContentPanel.add(new FrmTrangChu(), "TrangChu");
         mainContentPanel.add(new FrmPhong(), "Phong");
-        try { mainContentPanel.add(new FrmDatPhong(), "DatPhong"); } catch (Exception e) {}
+        try { mainContentPanel.add(new FrmDatPhong(), "DatPhong"); } catch (Exception e) { System.err.println("FrmDatPhong init lỗi: " + e.getMessage()); }
         mainContentPanel.add(new FrmKhachHang(), "KhachHang");
         mainContentPanel.add(new FrmDichVu(), "DichVu");
-        try { mainContentPanel.add(new FrmThanhToan(), "ThanhToan"); } catch (Exception e) {}
-        try { mainContentPanel.add(new FrmNhanVien(), "NhanVien"); } catch (Exception e) {}
-        try { mainContentPanel.add(new FrmThongKe(), "ThongKe"); } catch (Exception e) {}
-        try { mainContentPanel.add(new FrmCheckIn(), "CheckIn"); } catch (Exception e) {}
-        try { mainContentPanel.add(new FrmDoiPhong(), "DoiPhong"); } catch (Exception e) {}
-        try { mainContentPanel.add(new FrmHoaDon(), "HoaDon"); } catch (Exception e) {}
-        try { mainContentPanel.add(new FrmKhuyenMai(), "KhuyenMai"); } catch (Exception e) {}
-        try { mainContentPanel.add(new FrmBangGia(), "BangGia"); } catch (Exception e) {}
-        try { mainContentPanel.add(new FrmTaiKhoan(tkActive), "TaiKhoan"); } catch (Exception e) {}
+        try { mainContentPanel.add(new FrmThanhToan(), "ThanhToan"); } catch (Exception e) { System.err.println("FrmThanhToan init lỗi: " + e.getMessage()); }
+        try { mainContentPanel.add(new FrmNhanVien(), "NhanVien"); } catch (Exception e) { System.err.println("FrmNhanVien init lỗi: " + e.getMessage()); }
+        try { mainContentPanel.add(new FrmThongKe(), "ThongKe"); } catch (Exception e) { System.err.println("FrmThongKe init lỗi: " + e.getMessage()); }
+        try { mainContentPanel.add(new FrmCheckIn(), "CheckIn"); } catch (Exception e) { System.err.println("FrmCheckIn init lỗi: " + e.getMessage()); }
+        try { mainContentPanel.add(new FrmDoiPhong(), "DoiPhong"); } catch (Exception e) { System.err.println("FrmDoiPhong init lỗi: " + e.getMessage()); }
+        try { mainContentPanel.add(new FrmHoaDon(), "HoaDon"); } catch (Exception e) { System.err.println("FrmHoaDon init lỗi: " + e.getMessage()); }
+        try { mainContentPanel.add(new FrmKhuyenMai(), "KhuyenMai"); } catch (Exception e) { System.err.println("FrmKhuyenMai init lỗi: " + e.getMessage()); }
+        try { mainContentPanel.add(new FrmBangGia(), "BangGia"); } catch (Exception e) { System.err.println("FrmBangGia init lỗi: " + e.getMessage()); }
+        try { mainContentPanel.add(new FrmTaiKhoan(tkActive), "TaiKhoan"); } catch (Exception e) { System.err.println("FrmTaiKhoan init lỗi: " + e.getMessage()); }
 
         rightWrapper.add(mainContentPanel, BorderLayout.CENTER);
         add(rightWrapper, BorderLayout.CENTER);
