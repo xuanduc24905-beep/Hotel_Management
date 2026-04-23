@@ -19,8 +19,8 @@ public class ConnectDB {
             connection = DriverManager.getConnection(url, user, password);
             System.out.println("Kết nối CSDL LotusLaverne thành công!");
         } catch (SQLException e) {
-            System.err.println("Lỗi kết nối CSDL: " + e.getMessage());
-            javax.swing.JOptionPane.showMessageDialog(null, "Lỗi kết nối Cơ sở dữ liệu SQL Server!\nChi tiết: " + e.getMessage() + "\n\n(Xin hãy mở file ConnectDB.java và kiểm tra kỹ lại chữ 'sapassword' đã đúng mật khẩu SQL chưa nhé!)", "Lỗi CSDL", javax.swing.JOptionPane.ERROR_MESSAGE);
+            System.err.println("Chạy offline (không có DB): " + e.getMessage());
+            connection = null;
         }
     }
 
@@ -37,8 +37,8 @@ public class ConnectDB {
                 connection = DriverManager.getConnection(url, user, password);
             }
         } catch (SQLException e) {
-            javax.swing.JOptionPane.showMessageDialog(null, "Không thể kết nối đến CSDL: " + e.getMessage(), "Lỗi Kết Nối", javax.swing.JOptionPane.ERROR_MESSAGE);
-            e.printStackTrace();
+            System.err.println("Offline mode: " + e.getMessage());
+            connection = null;
         }
         return connection;
     }

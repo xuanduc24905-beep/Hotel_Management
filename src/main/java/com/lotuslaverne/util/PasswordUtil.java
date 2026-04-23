@@ -14,10 +14,15 @@ public class PasswordUtil {
 
     /**
      * So sánh mật khẩu người dùng nhập với hash đã lưu trong DB.
-     * Trả về false ngay nếu hash null hoặc không phải định dạng BCrypt.
+     * Chấp nhận cả BCrypt hash lẫn plain-text (dành cho tài khoản seed/demo
+     * chưa được băm).
      */
     public static boolean verify(String plainPassword, String storedHash) {
-        if (storedHash == null || !storedHash.startsWith("$2")) return false;
-        return BCrypt.checkpw(plainPassword, storedHash);
+        if (storedHash == null || storedHash.isEmpty()) return false;
+        if (storedHash.startsWith("$2")) {
+            return BCrypt.checkpw(plainPassword, storedHash);
+        }
+        // Fallback: so sánh plain-text (chỉ xảy ra với dữ liệu seed chưa băm)
+        return plainPassword.equals(storedHash);
     }
 }
