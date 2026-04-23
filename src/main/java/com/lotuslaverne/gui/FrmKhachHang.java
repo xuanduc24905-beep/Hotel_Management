@@ -5,7 +5,6 @@ import com.lotuslaverne.entity.KhachHang;
 import com.lotuslaverne.util.UIFactory;
 
 import javax.swing.*;
-import javax.swing.border.EmptyBorder;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.TableRowSorter;
 import java.awt.*;
@@ -72,6 +71,11 @@ public class FrmKhachHang extends JPanel {
                 txtCMND.setText(tableModel.getValueAt(modelRow, 3).toString());
             }
         });
+        table.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent e) {
+                if (e.getClickCount() == 2) moFormSuaKhachHang();
+            }
+        });
 
         JPanel pnCenter = new JPanel(new BorderLayout(0, 20));
         pnCenter.setBackground(new Color(245, 246, 250));
@@ -134,22 +138,61 @@ public class FrmKhachHang extends JPanel {
             }
         });
 
-        btnSua.addActionListener(e -> { // UC: CẬP NHẬT
-            if (txtMaKH.getText().isEmpty()) {
-                JOptionPane.showMessageDialog(this, "Vui lòng chọn khách hàng trên bảng để sửa!");
-                return;
-            }
-            KhachHang kh = new KhachHang(txtMaKH.getText(), txtTenKH.getText(), txtSDT.getText(), txtCMND.getText());
-            if (dao.suaKhachHang(kh)) {
-                JOptionPane.showMessageDialog(this, "Đã thay đổi thông tin định danh.");
-                loadDataToTable();
-            } else {
-                JOptionPane.showMessageDialog(this, "Sửa thất bại! Không tìm thấy khách hàng hoặc trùng lặp dữ liệu.");
-            }
-        });
+        btnSua.addActionListener(e -> moFormSuaKhachHang());
 
         panelBottom.add(btnLamMoi); panelBottom.add(btnThem); panelBottom.add(btnSua);
         add(panelBottom, BorderLayout.SOUTH);
+    }
+
+    private void moFormSuaKhachHang() {
+        int row = table.getSelectedRow();
+        if (row < 0) {
+            JOptionPane.showMessageDialog(this, "Vui lòng chọn khách hàng cần sửa!");
+            return;
+        }
+        int modelRow = table.convertRowIndexToModel(row);
+        String maKH  = tableModel.getValueAt(modelRow, 0).toString();
+        String tenKH = tableModel.getValueAt(modelRow, 1).toString();
+        String sdt   = tableModel.getValueAt(modelRow, 2).toString();
+        String cmnd  = tableModel.getValueAt(modelRow, 3).toString();
+
+        JDialog dialog = new JDialog(SwingUtilities.getWindowAncestor(this), "Sửa thông tin Khách Hàng", java.awt.Dialog.ModalityType.APPLICATION_MODAL);
+        dialog.setLayout(new BorderLayout(10, 10));
+        dialog.setSize(420, 230);
+        dialog.setLocationRelativeTo(this);
+
+        JPanel pnlForm = new JPanel(new GridLayout(4, 2, 10, 10));
+        pnlForm.setBorder(BorderFactory.createEmptyBorder(15, 20, 10, 20));
+
+        JTextField fldTen  = new JTextField(tenKH);
+        JTextField fldSDT  = new JTextField(sdt);
+        JTextField fldCMND = new JTextField(cmnd);
+
+        pnlForm.add(new JLabel("Mã Khách Hàng:"));    pnlForm.add(new JLabel(maKH));
+        pnlForm.add(new JLabel("Họ & Tên:"));          pnlForm.add(fldTen);
+        pnlForm.add(new JLabel("Số Điện Thoại:"));     pnlForm.add(fldSDT);
+        pnlForm.add(new JLabel("Số CMND / Căn cước:")); pnlForm.add(fldCMND);
+
+        JPanel pnlBtn = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        JButton btnLuu = UIFactory.createActionButton("Lưu", new Color(24, 144, 255), Color.WHITE);
+        JButton btnHuy = UIFactory.createActionButton("Hủy", new Color(240, 240, 240), Color.BLACK);
+        pnlBtn.add(btnHuy); pnlBtn.add(btnLuu);
+
+        btnLuu.addActionListener(ev -> {
+            KhachHang kh = new KhachHang(maKH, fldTen.getText(), fldSDT.getText(), fldCMND.getText());
+            if (dao.suaKhachHang(kh)) {
+                JOptionPane.showMessageDialog(dialog, "Đã thay đổi thông tin định danh.");
+                loadDataToTable();
+                dialog.dispose();
+            } else {
+                JOptionPane.showMessageDialog(dialog, "Sửa thất bại! Không tìm thấy hoặc trùng dữ liệu.");
+            }
+        });
+        btnHuy.addActionListener(ev -> dialog.dispose());
+
+        dialog.add(pnlForm, BorderLayout.CENTER);
+        dialog.add(pnlBtn, BorderLayout.SOUTH);
+        dialog.setVisible(true);
     }
 
     private void loadDataToTable() {

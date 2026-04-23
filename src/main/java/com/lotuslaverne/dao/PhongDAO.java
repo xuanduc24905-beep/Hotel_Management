@@ -49,6 +49,22 @@ public class PhongDAO {
         }
     }
 
+    public boolean capNhatPhong(Phong p) {
+        Connection con = ConnectDB.getInstance().getConnection();
+        try {
+            String sql = "UPDATE Phong SET tenPhong = ?, maLoaiPhong = ?, trangThai = ? WHERE maPhong = ?";
+            PreparedStatement pst = con.prepareStatement(sql);
+            pst.setString(1, p.getTenPhong());
+            pst.setString(2, p.getMaLoaiPhong());
+            pst.setString(3, p.getTrangThai());
+            pst.setString(4, p.getMaPhong());
+            return pst.executeUpdate() > 0;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
     public boolean capNhatTrangThai(String maPhong, String trangThaiMoi) {
         Connection con = ConnectDB.getInstance().getConnection();
         try {

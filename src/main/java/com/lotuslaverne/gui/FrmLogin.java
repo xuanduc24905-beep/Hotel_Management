@@ -17,6 +17,7 @@ import java.util.Random;
 public class FrmLogin extends JFrame {
     private JTextField txtUsername;
     private JPasswordField txtPassword;
+    private JComboBox<String> cbVaiTro;
     private JButton btnLogin;
 
     public FrmLogin() {
@@ -113,6 +114,21 @@ public class FrmLogin extends JFrame {
         formPanel.add(txtPassword);
         formPanel.add(Box.createVerticalStrut(20));
 
+        // Vai trò
+        cbVaiTro = new JComboBox<>(new String[]{"Lễ Tân", "Quản Lý"});
+        cbVaiTro.setMaximumSize(new Dimension(320, 45));
+        cbVaiTro.setPreferredSize(new Dimension(320, 45));
+        cbVaiTro.setFont(new Font("Arial", Font.PLAIN, 14));
+        cbVaiTro.putClientProperty("JComboBox.buttonType", "roundRect");
+        cbVaiTro.setAlignmentX(Component.CENTER_ALIGNMENT);
+        JLabel lblVaiTro = new JLabel("Đăng nhập với vai trò:");
+        lblVaiTro.setFont(new Font("Arial", Font.PLAIN, 12));
+        lblVaiTro.setForeground(new Color(100, 100, 100));
+        lblVaiTro.setAlignmentX(Component.CENTER_ALIGNMENT);
+        formPanel.add(lblVaiTro);
+        formPanel.add(Box.createVerticalStrut(5));
+        formPanel.add(cbVaiTro);
+        formPanel.add(Box.createVerticalStrut(20));
 
         // Nút Đăng nhập
         btnLogin = new JButton("Đăng nhập");
@@ -183,16 +199,27 @@ public class FrmLogin extends JFrame {
             return;
         }
 
-        // Gọi DAO lấy CSDL
+        // Map display text → DB value
+        String vaiTroChon = cbVaiTro.getSelectedIndex() == 0 ? "LeTan" : "QuanLy";
+
         TaiKhoanDAO dao = new TaiKhoanDAO();
         TaiKhoan tk = dao.checkLogin(username, password);
 
-        if (tk != null) {
-            this.dispose(); 
-            new FrmMain(tk).setVisible(true);
-        } else {
+        if (tk == null) {
             JOptionPane.showMessageDialog(this, "Tên đăng nhập hoặc mật khẩu không đúng!", "Lỗi đăng nhập", JOptionPane.ERROR_MESSAGE);
+            return;
         }
+
+        if (!vaiTroChon.equals(tk.getVaiTro())) {
+            String tenVaiTroChon = cbVaiTro.getSelectedItem().toString();
+            JOptionPane.showMessageDialog(this,
+                    "Tài khoản này không có quyền \"" + tenVaiTroChon + "\"!\nVui lòng chọn đúng vai trò.",
+                    "Không đủ quyền", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        this.dispose();
+        new FrmMain(tk).setVisible(true);
     }
     
     public static void main(String[] args) {

@@ -5,7 +5,6 @@ import com.lotuslaverne.entity.NhanVien;
 import com.lotuslaverne.util.UIFactory;
 
 import javax.swing.*;
-import javax.swing.border.EmptyBorder;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.TableRowSorter;
 import java.awt.*;
@@ -72,6 +71,11 @@ public class FrmNhanVien extends JPanel {
                 cbVaiTro.setSelectedItem(tableModel.getValueAt(modelRow, 3).toString());
             }
         });
+        table.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent e) {
+                if (e.getClickCount() == 2) moFormSuaNhanVien();
+            }
+        });
 
         JPanel pnCenter = new JPanel(new BorderLayout(0, 20));
         pnCenter.setBackground(new Color(245, 246, 250));
@@ -135,19 +139,7 @@ public class FrmNhanVien extends JPanel {
             }
         });
 
-        btnSua.addActionListener(e -> { // UC: CẬP NHẬT
-            if (txtMaNV.getText().isEmpty()) {
-                JOptionPane.showMessageDialog(this, "Vui lòng chọn nhân viên cần sửa!");
-                return;
-            }
-            NhanVien nv = new NhanVien(txtMaNV.getText(), txtTenNV.getText(), txtSDT.getText(), cbVaiTro.getSelectedItem().toString());
-            if (dao.suaNhanVien(nv)) {
-                JOptionPane.showMessageDialog(this, "Đã cập nhật thông tin!");
-                loadDataToTable();
-            } else {
-                JOptionPane.showMessageDialog(this, "Không thể cập nhật nhân viên.");
-            }
-        });
+        btnSua.addActionListener(e -> moFormSuaNhanVien());
 
         btnXoa.addActionListener(e -> { // UC: XÓA NHÂN VIÊN
             if (txtMaNV.getText().isEmpty()) {
@@ -166,6 +158,58 @@ public class FrmNhanVien extends JPanel {
         panelBottom.add(btnLamMoi); panelBottom.add(btnThem);
         panelBottom.add(btnSua); panelBottom.add(btnXoa);
         add(panelBottom, BorderLayout.SOUTH);
+    }
+
+    private void moFormSuaNhanVien() {
+        int row = table.getSelectedRow();
+        if (row < 0) {
+            JOptionPane.showMessageDialog(this, "Vui lòng chọn nhân viên cần sửa!");
+            return;
+        }
+        int modelRow = table.convertRowIndexToModel(row);
+        String maNV = tableModel.getValueAt(modelRow, 0).toString();
+        String tenNV = tableModel.getValueAt(modelRow, 1).toString();
+        String sdt   = tableModel.getValueAt(modelRow, 2).toString();
+        String vaiTro = tableModel.getValueAt(modelRow, 3).toString();
+
+        JDialog dialog = new JDialog(SwingUtilities.getWindowAncestor(this), "Sửa thông tin Nhân Viên", java.awt.Dialog.ModalityType.APPLICATION_MODAL);
+        dialog.setLayout(new BorderLayout(10, 10));
+        dialog.setSize(420, 240);
+        dialog.setLocationRelativeTo(this);
+
+        JPanel pnlForm = new JPanel(new GridLayout(4, 2, 10, 10));
+        pnlForm.setBorder(BorderFactory.createEmptyBorder(15, 20, 10, 20));
+
+        JTextField fldTen  = new JTextField(tenNV);
+        JTextField fldSDT  = new JTextField(sdt);
+        JComboBox<String> fldVaiTro = new JComboBox<>(new String[]{"LeTan", "QuanLy"});
+        fldVaiTro.setSelectedItem(vaiTro);
+
+        pnlForm.add(new JLabel("Mã Nhân Viên:")); pnlForm.add(new JLabel(maNV));
+        pnlForm.add(new JLabel("Tên Nhân Viên:")); pnlForm.add(fldTen);
+        pnlForm.add(new JLabel("Số Điện Thoại:")); pnlForm.add(fldSDT);
+        pnlForm.add(new JLabel("Vai Trò CV:"));    pnlForm.add(fldVaiTro);
+
+        JPanel pnlBtn = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        JButton btnLuu = UIFactory.createActionButton("Lưu", new Color(24, 144, 255), Color.WHITE);
+        JButton btnHuy = UIFactory.createActionButton("Hủy", new Color(240, 240, 240), Color.BLACK);
+        pnlBtn.add(btnHuy); pnlBtn.add(btnLuu);
+
+        btnLuu.addActionListener(ev -> {
+            NhanVien nv = new NhanVien(maNV, fldTen.getText(), fldSDT.getText(), fldVaiTro.getSelectedItem().toString());
+            if (dao.suaNhanVien(nv)) {
+                JOptionPane.showMessageDialog(dialog, "Đã cập nhật thông tin!");
+                loadDataToTable();
+                dialog.dispose();
+            } else {
+                JOptionPane.showMessageDialog(dialog, "Không thể cập nhật nhân viên.");
+            }
+        });
+        btnHuy.addActionListener(ev -> dialog.dispose());
+
+        dialog.add(pnlForm, BorderLayout.CENTER);
+        dialog.add(pnlBtn, BorderLayout.SOUTH);
+        dialog.setVisible(true);
     }
 
     private void loadDataToTable() {

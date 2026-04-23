@@ -5,7 +5,6 @@ import com.lotuslaverne.entity.DichVu;
 import com.lotuslaverne.util.UIFactory;
 
 import javax.swing.*;
-import javax.swing.border.EmptyBorder;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.util.List;
@@ -70,6 +69,11 @@ public class FrmDichVu extends JPanel {
                 cbTrangThai.setSelectedItem(tableModel.getValueAt(row, 4).toString());
             }
         });
+        table.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent e) {
+                if (e.getClickCount() == 2) moFormSuaDichVu();
+            }
+        });
 
         JPanel pnCenter = new JPanel(new BorderLayout(0, 20));
         pnCenter.setBackground(new Color(245, 246, 250));
@@ -116,23 +120,7 @@ public class FrmDichVu extends JPanel {
             }
         });
 
-        btnSua.addActionListener(e -> { // CẬP NHẬT MENU
-            if(txtMaDV.getText().isEmpty()) {
-                JOptionPane.showMessageDialog(this, "Vui lòng chọn Dịch vụ cần cập nhật!");
-                return;
-            }
-            try {
-                DichVu dv = new DichVu(txtMaDV.getText(), txtTenDV.getText(), txtMaLoaiDV.getText(), Double.parseDouble(txtDonGia.getText()), cbTrangThai.getSelectedItem().toString());
-                if (dao.capNhatDichVu(dv)) {
-                    JOptionPane.showMessageDialog(this, "Đã lưu lại điều chỉnh giá cả!");
-                    loadDataToTable();
-                } else {
-                    JOptionPane.showMessageDialog(this, "Lỗi kết nối hoặc sai mã dịch vụ.");
-                }
-            } catch (NumberFormatException ex) {
-                JOptionPane.showMessageDialog(this, "Đơn giá phải là số hợp lệ!");
-            }
-        });
+        btnSua.addActionListener(e -> moFormSuaDichVu());
 
         btnNgungBD.addActionListener(e -> { // NGỪNG BÁN
             if(txtMaDV.getText().isEmpty()) {
@@ -150,6 +138,65 @@ public class FrmDichVu extends JPanel {
         panelBottom.add(btnLamMoi); panelBottom.add(btnThem);
         panelBottom.add(btnSua); panelBottom.add(btnNgungBD);
         add(panelBottom, BorderLayout.SOUTH);
+    }
+
+    private void moFormSuaDichVu() {
+        int row = table.getSelectedRow();
+        if (row < 0) {
+            JOptionPane.showMessageDialog(this, "Vui lòng chọn dịch vụ cần cập nhật!");
+            return;
+        }
+        String maDV    = tableModel.getValueAt(row, 0).toString();
+        String tenDV   = tableModel.getValueAt(row, 1).toString();
+        String maLoai  = tableModel.getValueAt(row, 2).toString();
+        String donGia  = tableModel.getValueAt(row, 3).toString();
+        String tthai   = tableModel.getValueAt(row, 4).toString();
+
+        JDialog dialog = new JDialog(SwingUtilities.getWindowAncestor(this), "Sửa Dịch Vụ", java.awt.Dialog.ModalityType.APPLICATION_MODAL);
+        dialog.setLayout(new BorderLayout(10, 10));
+        dialog.setSize(450, 260);
+        dialog.setLocationRelativeTo(this);
+
+        JPanel pnlForm = new JPanel(new GridLayout(5, 2, 10, 10));
+        pnlForm.setBorder(BorderFactory.createEmptyBorder(15, 20, 10, 20));
+
+        JTextField fldTen   = new JTextField(tenDV);
+        JTextField fldLoai  = new JTextField(maLoai);
+        JTextField fldGia   = new JTextField(donGia);
+        JComboBox<String> fldTT = new JComboBox<>(new String[]{"DangKinhDoanh", "NgungKinhDoanh"});
+        fldTT.setSelectedItem(tthai);
+
+        pnlForm.add(new JLabel("Mã Dịch Vụ:"));      pnlForm.add(new JLabel(maDV));
+        pnlForm.add(new JLabel("Tên Dịch Vụ:"));      pnlForm.add(fldTen);
+        pnlForm.add(new JLabel("Mã Loại:"));           pnlForm.add(fldLoai);
+        pnlForm.add(new JLabel("Đơn Giá (VNĐ):"));    pnlForm.add(fldGia);
+        pnlForm.add(new JLabel("Trạng Thái:"));        pnlForm.add(fldTT);
+
+        JPanel pnlBtn = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        JButton btnLuu = UIFactory.createActionButton("Lưu", new Color(24, 144, 255), Color.WHITE);
+        JButton btnHuy = UIFactory.createActionButton("Hủy", new Color(240, 240, 240), Color.BLACK);
+        pnlBtn.add(btnHuy); pnlBtn.add(btnLuu);
+
+        btnLuu.addActionListener(ev -> {
+            try {
+                DichVu dv = new DichVu(maDV, fldTen.getText(), fldLoai.getText(),
+                        Double.parseDouble(fldGia.getText()), fldTT.getSelectedItem().toString());
+                if (dao.capNhatDichVu(dv)) {
+                    JOptionPane.showMessageDialog(dialog, "Đã lưu lại điều chỉnh!");
+                    loadDataToTable();
+                    dialog.dispose();
+                } else {
+                    JOptionPane.showMessageDialog(dialog, "Lỗi kết nối hoặc sai mã dịch vụ.");
+                }
+            } catch (NumberFormatException ex) {
+                JOptionPane.showMessageDialog(dialog, "Đơn giá phải là số hợp lệ!");
+            }
+        });
+        btnHuy.addActionListener(ev -> dialog.dispose());
+
+        dialog.add(pnlForm, BorderLayout.CENTER);
+        dialog.add(pnlBtn, BorderLayout.SOUTH);
+        dialog.setVisible(true);
     }
 
     private void loadDataToTable() {

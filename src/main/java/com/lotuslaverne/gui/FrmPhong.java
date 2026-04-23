@@ -7,7 +7,6 @@ import com.lotuslaverne.entity.Phong;
 import com.lotuslaverne.util.UIFactory;
 
 import javax.swing.*;
-import javax.swing.border.EmptyBorder;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.TableRowSorter;
 import java.awt.*;
@@ -75,7 +74,7 @@ public class FrmPhong extends JPanel {
                 txtMaPhong.setText(tableModel.getValueAt(modelRow, 0).toString());
                 txtMaPhong.setEditable(false);
                 txtTenPhong.setText(tableModel.getValueAt(modelRow, 1).toString());
-                
+
                 String maLoaiPhong = tableModel.getValueAt(modelRow, 2).toString();
                 for (int i = 0; i < cbLoaiPhong.getItemCount(); i++) {
                     if (cbLoaiPhong.getItemAt(i).startsWith(maLoaiPhong)) {
@@ -84,6 +83,11 @@ public class FrmPhong extends JPanel {
                     }
                 }
                 cbTrangThai.setSelectedItem(tableModel.getValueAt(modelRow, 3).toString());
+            }
+        });
+        table.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent e) {
+                if (e.getClickCount() == 2) moFormSuaPhong();
             }
         });
 
@@ -151,18 +155,7 @@ public class FrmPhong extends JPanel {
             }
         });
 
-        btnSua.addActionListener(e -> { // UC: CẬP NHẬT TRẠNG THÁI
-            if (txtMaPhong.getText().isEmpty()) {
-                JOptionPane.showMessageDialog(this, "Vui lòng chọn hoặc nhập Mã Phòng cần sửa!");
-                return;
-            }
-            if (dao.capNhatTrangThai(txtMaPhong.getText(), cbTrangThai.getSelectedItem().toString())) {
-                JOptionPane.showMessageDialog(this, "Trạng thái phòng đã thay đổi.");
-                loadDataToTable();
-            } else {
-                JOptionPane.showMessageDialog(this, "Không thể cập nhật! Kiểm tra lại mã phòng.");
-            }
-        });
+        btnSua.addActionListener(e -> moFormSuaPhong());
 
         btnXoa.addActionListener(e -> { // UC: XÓA PHÒNG
             if (txtMaPhong.getText().isEmpty()) {
@@ -180,6 +173,68 @@ public class FrmPhong extends JPanel {
         panelBottom.add(btnLamMoi); panelBottom.add(btnThem);
         panelBottom.add(btnSua); panelBottom.add(btnXoa);
         add(panelBottom, BorderLayout.SOUTH);
+    }
+
+    private void moFormSuaPhong() {
+        int row = table.getSelectedRow();
+        if (row < 0) {
+            JOptionPane.showMessageDialog(this, "Vui lòng chọn phòng cần sửa!");
+            return;
+        }
+        int modelRow = table.convertRowIndexToModel(row);
+        String maPhong  = tableModel.getValueAt(modelRow, 0).toString();
+        String tenPhong = tableModel.getValueAt(modelRow, 1).toString();
+        String maLoai   = tableModel.getValueAt(modelRow, 2).toString();
+        String trangThai = tableModel.getValueAt(modelRow, 3).toString();
+
+        JDialog dialog = new JDialog(SwingUtilities.getWindowAncestor(this), "Sửa thông tin Phòng", java.awt.Dialog.ModalityType.APPLICATION_MODAL);
+        dialog.setLayout(new BorderLayout(10, 10));
+        dialog.setSize(450, 240);
+        dialog.setLocationRelativeTo(this);
+
+        JPanel pnlForm = new JPanel(new GridLayout(4, 2, 10, 10));
+        pnlForm.setBorder(BorderFactory.createEmptyBorder(15, 20, 10, 20));
+
+        JTextField fldTen = new JTextField(tenPhong);
+
+        JComboBox<String> fldLoai = new JComboBox<>();
+        List<LoaiPhong> dsLoai = loaiPhongDAO.getAll();
+        for (LoaiPhong lp : dsLoai)
+            fldLoai.addItem(lp.getMaLoaiPhong() + " - " + lp.getTenLoaiPhong());
+        for (int i = 0; i < fldLoai.getItemCount(); i++) {
+            if (fldLoai.getItemAt(i).startsWith(maLoai)) { fldLoai.setSelectedIndex(i); break; }
+        }
+
+        JComboBox<String> fldTrangThai = new JComboBox<>(new String[]{"Trống", "Đang Thuê", "Chưa Dọn"});
+        fldTrangThai.setSelectedItem(trangThai);
+
+        pnlForm.add(new JLabel("Mã Phòng:"));   pnlForm.add(new JLabel(maPhong));
+        pnlForm.add(new JLabel("Tên Phòng:"));   pnlForm.add(fldTen);
+        pnlForm.add(new JLabel("Loại Phòng:"));  pnlForm.add(fldLoai);
+        pnlForm.add(new JLabel("Trạng Thái:")); pnlForm.add(fldTrangThai);
+
+        JPanel pnlBtn = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        JButton btnLuu = UIFactory.createActionButton("Lưu", new Color(24, 144, 255), Color.WHITE);
+        JButton btnHuy = UIFactory.createActionButton("Hủy", new Color(240, 240, 240), Color.BLACK);
+        pnlBtn.add(btnHuy); pnlBtn.add(btnLuu);
+
+        btnLuu.addActionListener(ev -> {
+            String selLP = (String) fldLoai.getSelectedItem();
+            String maLP  = selLP != null ? selLP.split(" - ")[0] : "";
+            Phong p = new Phong(maPhong, fldTen.getText(), maLP, fldTrangThai.getSelectedItem().toString());
+            if (dao.capNhatPhong(p)) {
+                JOptionPane.showMessageDialog(dialog, "Đã cập nhật thông tin phòng.");
+                loadDataToTable();
+                dialog.dispose();
+            } else {
+                JOptionPane.showMessageDialog(dialog, "Không thể cập nhật! Kiểm tra lại mã phòng.");
+            }
+        });
+        btnHuy.addActionListener(ev -> dialog.dispose());
+
+        dialog.add(pnlForm, BorderLayout.CENTER);
+        dialog.add(pnlBtn, BorderLayout.SOUTH);
+        dialog.setVisible(true);
     }
 
     private void loadLoaiPhong() {

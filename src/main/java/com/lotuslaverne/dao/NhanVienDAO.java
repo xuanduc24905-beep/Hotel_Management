@@ -22,7 +22,7 @@ public class NhanVienDAO {
             while (rs.next()) {
                 list.add(new NhanVien(
                     rs.getString("maNhanVien"),
-                    rs.getString("hoTenNhanVien"), // Cần khớp với DB
+                    rs.getString("tenNhanVien"), // Cần khớp với DB
                     rs.getString("soDienThoai"),
                     rs.getString("vaiTro")
                 ));
@@ -36,7 +36,7 @@ public class NhanVienDAO {
     public boolean themNhanVien(NhanVien nv) {
         Connection con = ConnectDB.getInstance().getConnection();
         try {
-            String sql = "INSERT INTO NhanVien (maNhanVien, hoTenNhanVien, soDienThoai, vaiTro) VALUES (?, ?, ?, ?)";
+            String sql = "INSERT INTO NhanVien (maNhanVien, tenNhanVien, soDienThoai, vaiTro) VALUES (?, ?, ?, ?)";
             PreparedStatement pst = con.prepareStatement(sql);
             pst.setString(1, nv.getMaNhanVien());
             pst.setString(2, nv.getTenNhanVien());
@@ -52,7 +52,7 @@ public class NhanVienDAO {
     public boolean suaNhanVien(NhanVien nv) {
         Connection con = ConnectDB.getInstance().getConnection();
         try {
-            String sql = "UPDATE NhanVien SET hoTenNhanVien = ?, soDienThoai = ?, vaiTro = ? WHERE maNhanVien = ?";
+            String sql = "UPDATE NhanVien SET tenNhanVien = ?, soDienThoai = ?, vaiTro = ? WHERE maNhanVien = ?";
             PreparedStatement pst = con.prepareStatement(sql);
             pst.setString(1, nv.getTenNhanVien());
             pst.setString(2, nv.getSoDienThoai());

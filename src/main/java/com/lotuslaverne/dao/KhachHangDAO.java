@@ -24,7 +24,7 @@ public class KhachHangDAO {
                     rs.getString("maKH"),
                     rs.getString("hoTenKH"),
                     rs.getString("soDienThoai"),
-                    rs.getString("cccd")
+                    rs.getString("cmnd")
                 ));
             }
         } catch (Exception e) {
@@ -39,7 +39,7 @@ public class KhachHangDAO {
         }
         Connection con = ConnectDB.getInstance().getConnection();
         try {
-            String sql = "INSERT INTO KhachHang (maKH, hoTenKH, cccd, soDienThoai, gioiTinh) VALUES (?, ?, ?, ?, 1)";
+            String sql = "INSERT INTO KhachHang (maKH, hoTenKH, cmnd, soDienThoai, gioiTinh) VALUES (?, ?, ?, ?, 1)";
             PreparedStatement pst = con.prepareStatement(sql);
             pst.setString(1, kh.getMaKH());
             pst.setString(2, kh.getHoTenKH());
@@ -55,7 +55,7 @@ public class KhachHangDAO {
     public boolean suaKhachHang(KhachHang kh) {
         Connection con = ConnectDB.getInstance().getConnection();
         try {
-            String sql = "UPDATE KhachHang SET hoTenKH = ?, soDienThoai = ?, cccd = ? WHERE maKH = ?";
+            String sql = "UPDATE KhachHang SET hoTenKH = ?, soDienThoai = ?, cmnd = ? WHERE maKH = ?";
             PreparedStatement pst = con.prepareStatement(sql);
             pst.setString(1, kh.getHoTenKH());
             pst.setString(2, kh.getSoDienThoai());
