@@ -20,16 +20,41 @@ public class NhanVienView {
         "Lễ Tân", "Quản Lý", "Buồng Phòng", "An Ninh", "Kỹ Thuật", "Ẩm Thực", "Tài Chính"
     };
 
+    private static final String[] CA_LAM = {"Sáng", "Chiều", "Đêm", "Hành Chính"};
+
     private static final Object[][] DEMO_NV = {
-        {"NV001", "Nguyễn Thị Thu",   "Lễ Tân",     "Lễ Tân",     "0901234567", "thu.nguyen@lotus.vn",    "01/03/2023", "Đang Làm"},
-        {"NV002", "Trần Văn Minh",    "Quản Lý",     "Quản Lý",    "0912345678", "minh.tran@lotus.vn",     "15/01/2022", "Đang Làm"},
-        {"NV003", "Lê Thị Hoa",       "Nhân Viên",   "Buồng Phòng","0923456789", "hoa.le@lotus.vn",        "10/06/2023", "Đang Làm"},
-        {"NV004", "Phạm Quốc Bảo",    "Bảo Vệ",      "An Ninh",    "0934567890", "bao.pham@lotus.vn",      "20/09/2022", "Đang Làm"},
-        {"NV005", "Hoàng Văn Kỹ",     "Kỹ Thuật Viên","Kỹ Thuật",  "0945678901", "ky.hoang@lotus.vn",      "05/02/2024", "Đang Làm"},
-        {"NV006", "Vũ Thị Bếp",       "Đầu Bếp",     "Ẩm Thực",   "0956789012", "bep.vu@lotus.vn",        "12/11/2021", "Đang Làm"},
-        {"NV007", "Đặng Thị Kế",      "Kế Toán",     "Tài Chính",  "0967890123", "ke.dang@lotus.vn",       "07/07/2023", "Đang Làm"},
-        {"NV008", "Bùi Văn Phục",     "Nhân Viên",   "Buồng Phòng","0978901234", "phuc.bui@lotus.vn",      "03/04/2024", "Nghỉ Phép"},
+        {"NV001", "Nguyễn Thị Thu",   "Lễ Tân",     "Lễ Tân",     "0901234567", "thu.nguyen@lotus.vn",    "01/03/2023", "Đang Làm",  "Sáng"},
+        {"NV002", "Trần Văn Minh",    "Quản Lý",     "Quản Lý",    "0912345678", "minh.tran@lotus.vn",     "15/01/2022", "Đang Làm",  "Hành Chính"},
+        {"NV003", "Lê Thị Hoa",       "Nhân Viên",   "Buồng Phòng","0923456789", "hoa.le@lotus.vn",        "10/06/2023", "Đang Làm",  "Chiều"},
+        {"NV004", "Phạm Quốc Bảo",    "Bảo Vệ",      "An Ninh",    "0934567890", "bao.pham@lotus.vn",      "20/09/2022", "Đang Làm",  "Đêm"},
+        {"NV005", "Hoàng Văn Kỹ",     "Kỹ Thuật Viên","Kỹ Thuật",  "0945678901", "ky.hoang@lotus.vn",      "05/02/2024", "Đang Làm",  "Hành Chính"},
+        {"NV006", "Vũ Thị Bếp",       "Đầu Bếp",     "Ẩm Thực",   "0956789012", "bep.vu@lotus.vn",        "12/11/2021", "Đang Làm",  "Sáng"},
+        {"NV007", "Đặng Thị Kế",      "Kế Toán",     "Tài Chính",  "0967890123", "ke.dang@lotus.vn",       "07/07/2023", "Đang Làm",  "Hành Chính"},
+        {"NV008", "Bùi Văn Phục",     "Nhân Viên",   "Buồng Phòng","0978901234", "phuc.bui@lotus.vn",      "03/04/2024", "Nghỉ Phép", "Chiều"},
     };
+
+    /** Map giá trị DB ↔ display */
+    private static String caToDisplay(String db) {
+        if (db == null) return "—";
+        return switch (db) {
+            case "Sang"      -> "Sáng";
+            case "Chieu"     -> "Chiều";
+            case "Dem"       -> "Đêm";
+            case "HanhChinh" -> "Hành Chính";
+            default -> db;
+        };
+    }
+
+    private static String caToDB(String display) {
+        if (display == null) return null;
+        return switch (display) {
+            case "Sáng"        -> "Sang";
+            case "Chiều"       -> "Chieu";
+            case "Đêm"         -> "Dem";
+            case "Hành Chính" -> "HanhChinh";
+            default -> display;
+        };
+    }
 
     public Node build() {
         VBox root = new VBox(0);
@@ -97,11 +122,9 @@ public class NhanVienView {
         TextField tfSDT = formField(); form.add(tfSDT, 3, 1);
 
         // Row 1 labels
-        String[] row1Labels = {"Email", "Ngày Vào Làm", "Trạng Thái", ""};
+        String[] row1Labels = {"Email", "Ngày Vào Làm", "Trạng Thái", "Ca Làm"};
         for (int i = 0; i < row1Labels.length; i++) {
-            if (!row1Labels[i].isEmpty()) {
-                form.add(formLabel(row1Labels[i]), i, 2);
-            }
+            form.add(formLabel(row1Labels[i]), i, 2);
         }
 
         TextField tfEmail  = formField(); form.add(tfEmail, 0, 3);
@@ -113,12 +136,21 @@ public class NhanVienView {
         cbTT.setStyle(comboStyle());
         form.add(cbTT, 2, 3);
 
-        Button addBtn = new Button("+ Thêm");
+        ComboBox<String> cbCa = new ComboBox<>();
+        cbCa.getItems().addAll(CA_LAM);
+        cbCa.setValue("Sáng");
+        cbCa.setMaxWidth(Double.MAX_VALUE);
+        cbCa.setStyle(comboStyle());
+        form.add(cbCa, 3, 3);
+
+        Button addBtn = new Button("+ Thêm Nhân Viên");
         addBtn.setStyle("-fx-background-color: #1890FF; -fx-text-fill: white;"
                 + "-fx-background-radius: 8; -fx-padding: 8 20; -fx-font-weight: bold; -fx-cursor: hand;");
-        form.add(addBtn, 3, 3);
+        HBox btnRow = new HBox(addBtn);
+        btnRow.setAlignment(Pos.CENTER_RIGHT);
+        btnRow.setPadding(new Insets(8, 0, 0, 0));
 
-        card.getChildren().addAll(cardTitle, form);
+        card.getChildren().addAll(cardTitle, form, btnRow);
         return card;
     }
 
@@ -225,6 +257,35 @@ public class NhanVienView {
             }
         });
 
+        // Ca làm việc badge
+        TableColumn<Object[], String> colCa = new TableColumn<>("Ca Làm");
+        colCa.setCellValueFactory(p -> {
+            Object v = p.getValue().length > 8 ? p.getValue()[8] : "—";
+            return new SimpleStringProperty(v != null ? v.toString() : "—");
+        });
+        colCa.setCellFactory(tc -> new TableCell<>() {
+            @Override protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null || item.equals("—")) {
+                    setGraphic(null); setText(empty ? null : item); return;
+                }
+                Label b = new Label(item);
+                String bg, fg;
+                switch (item) {
+                    case "Sáng"        -> { bg = "#FFFBE6"; fg = "#FAAD14"; }
+                    case "Chiều"       -> { bg = "#FFF7E6"; fg = "#FA8C16"; }
+                    case "Đêm"         -> { bg = "#F0F5FF"; fg = "#1890FF"; }
+                    case "Hành Chính" -> { bg = "#F9F0FF"; fg = "#722ED1"; }
+                    default -> { bg = "#F5F5F5"; fg = "#595959"; }
+                }
+                b.setStyle("-fx-background-color: " + bg + "; -fx-text-fill: " + fg + ";"
+                        + "-fx-padding: 2 8 2 8; -fx-background-radius: 10;"
+                        + "-fx-font-size: 11px; -fx-font-weight: bold;");
+                setGraphic(b); setText(null);
+            }
+        });
+        colCa.setPrefWidth(100);
+
         // Thao tác
         TableColumn<Object[], String> colAction = new TableColumn<>("Thao Tác");
         colAction.setCellFactory(tc -> new TableCell<>() {
@@ -240,7 +301,7 @@ public class NhanVienView {
         });
         colAction.setPrefWidth(100);
 
-        table.getColumns().addAll(colStt, colTen, colChucVu, colPB, colSDT, colEmail, colNgay, colTT, colAction);
+        table.getColumns().addAll(colStt, colTen, colChucVu, colPB, colSDT, colEmail, colNgay, colTT, colCa, colAction);
         table.setItems(FXCollections.observableArrayList(loadNhanVien()));
         return table;
     }
@@ -255,7 +316,8 @@ public class NhanVienView {
                     result.add(new Object[]{
                         nv.getMaNhanVien(), nv.getTenNhanVien(),
                         nv.getVaiTro(), nv.getVaiTro(),
-                        nv.getSoDienThoai(), "", "N/A", "Đang Làm"
+                        nv.getSoDienThoai(), "", "N/A", "Đang Làm",
+                        caToDisplay(nv.getCaLamViec())
                     });
                 }
                 return result;

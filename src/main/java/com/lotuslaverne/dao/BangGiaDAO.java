@@ -26,7 +26,7 @@ public class BangGiaDAO {
         if (con == null) return 0;
         try {
             PreparedStatement pst = con.prepareStatement(
-                "SELECT donGia FROM BangGia WHERE maLoaiPhong=? AND loaiThue=? AND GETDATE() BETWEEN ngayBatDau AND ngayKetThuc");
+                "SELECT donGia FROM BangGia WHERE maLoaiPhong=? AND loaiThue=? AND GETDATE() BETWzEEN ngayBatDau AND ngayKetThuc");
             pst.setString(1, maLoaiPhong);
             pst.setString(2, loaiThue);
             ResultSet rs = pst.executeQuery();

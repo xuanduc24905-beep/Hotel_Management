@@ -1,11 +1,36 @@
 package com.lotuslaverne.fx;
 
+import javafx.animation.PauseTransition;
+import javafx.scene.control.Button;
 import javafx.scene.layout.StackPane;
 import javafx.scene.text.Text;
+import javafx.util.Duration;
 
 public final class UiUtils {
 
     private UiUtils() {}
+
+    /**
+     * Flash button text/style ngắn để cho user thấy là click đã được xử lý.
+     * Sau ~1.2 giây sẽ revert lại text + style cũ.
+     */
+    public static void flashButton(Button btn, String successText) {
+        String oldText  = btn.getText();
+        String oldStyle = btn.getStyle();
+        btn.setText(successText);
+        btn.setStyle(oldStyle
+                + "-fx-background-color: #52C41A !important;"
+                + "-fx-text-fill: white !important;"
+                + "-fx-border-color: #52C41A;");
+        btn.setDisable(true);
+        PauseTransition pt = new PauseTransition(Duration.millis(900));
+        pt.setOnFinished(e -> {
+            btn.setText(oldText);
+            btn.setStyle(oldStyle);
+            btn.setDisable(false);
+        });
+        pt.play();
+    }
 
     private static final String[] AVATAR_COLORS = {
         "#1890FF", "#52C41A", "#FF7A45", "#9254DE",

@@ -2,6 +2,8 @@ package com.lotuslaverne.fx;
 
 import com.lotuslaverne.dao.TaiKhoanDAO;
 import com.lotuslaverne.entity.TaiKhoan;
+import com.lotuslaverne.util.ConnectDB;
+import com.lotuslaverne.util.PasswordUtil;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
@@ -9,7 +11,12 @@ import javafx.scene.control.*;
 import javafx.scene.layout.*;
 import javafx.scene.paint.*;
 import javafx.scene.text.Text;
+import javafx.stage.Modality;
 import javafx.stage.Stage;
+
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 
 public class LoginView {
 
@@ -141,11 +148,7 @@ public class LoginView {
                 + "-fx-underline: true;"));
         forgotLbl.setOnMouseExited(e ->
             forgotLbl.setStyle("-fx-font-size: 12px; -fx-text-fill: #AAAAAA; -fx-cursor: hand;"));
-        forgotLbl.setOnMouseClicked(e -> {
-            Alert a = new Alert(Alert.AlertType.INFORMATION,
-                "Tính năng lấy lại mật khẩu đang được phát triển!");
-            a.setHeaderText(null); a.setTitle("Thông báo"); a.showAndWait();
-        });
+        forgotLbl.setOnMouseClicked(e -> openForgotPasswordDialog());
 
         // Xử lý đăng nhập
         loginBtn.setOnAction(e ->
@@ -226,6 +229,157 @@ public class LoginView {
 
     private void show(Label lbl, String msg) {
         lbl.setText(msg);
+        lbl.setVisible(true);
+        lbl.setManaged(true);
+    }
+
+    /** Dialog quên mật khẩu: verify username + CCCD nhân viên → đặt mật khẩu mới */
+    private void openForgotPasswordDialog() {
+        Stage dialog = new Stage();
+        dialog.initModality(Modality.APPLICATION_MODAL);
+        dialog.setTitle("Quên Mật Khẩu");
+        dialog.setResizable(false);
+
+        VBox root = new VBox(14);
+        root.setPadding(new Insets(24));
+        root.setStyle("-fx-background-color: #FFFFFF;");
+
+        Label title = new Label("🔑  Lấy Lại Mật Khẩu");
+        title.setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #1890FF;");
+        Label hint = new Label("Nhập tên đăng nhập và CCCD của nhân viên để xác minh.");
+        hint.setStyle("-fx-font-size: 12px; -fx-text-fill: #8C8C8C;");
+        hint.setWrapText(true);
+
+        TextField txtUser = new TextField();
+        txtUser.setPromptText("Tên đăng nhập");
+        styleField(txtUser);
+        TextField txtCCCD = new TextField();
+        txtCCCD.setPromptText("CCCD/CMND nhân viên (12 số)");
+        styleField(txtCCCD);
+
+        Label step1Lbl = new Label("Bước 1: Xác minh danh tính");
+        step1Lbl.setStyle("-fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: #595959;");
+
+        // Phần đặt mật khẩu mới — ban đầu ẩn
+        VBox newPassBox = new VBox(8);
+        newPassBox.setVisible(false);
+        newPassBox.setManaged(false);
+        Label step2Lbl = new Label("Bước 2: Nhập mật khẩu mới");
+        step2Lbl.setStyle("-fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: #52C41A;");
+        PasswordField txtNewPass = new PasswordField();
+        txtNewPass.setPromptText("Mật khẩu mới (tối thiểu 6 ký tự)");
+        styleField(txtNewPass);
+        PasswordField txtConfirm = new PasswordField();
+        txtConfirm.setPromptText("Xác nhận mật khẩu mới");
+        styleField(txtConfirm);
+        newPassBox.getChildren().addAll(step2Lbl, txtNewPass, txtConfirm);
+
+        Label statusLbl = new Label();
+        statusLbl.setStyle("-fx-font-size: 12px;");
+        statusLbl.setVisible(false);
+        statusLbl.setManaged(false);
+        statusLbl.setWrapText(true);
+
+        Button btnVerify = new Button("Xác Minh");
+        btnVerify.setStyle("-fx-background-color: #1890FF; -fx-text-fill: white;"
+                + "-fx-background-radius: 6; -fx-padding: 8 20; -fx-cursor: hand; -fx-font-weight: bold;");
+
+        Button btnReset = new Button("Đặt Lại Mật Khẩu");
+        btnReset.setStyle("-fx-background-color: #52C41A; -fx-text-fill: white;"
+                + "-fx-background-radius: 6; -fx-padding: 8 20; -fx-cursor: hand; -fx-font-weight: bold;");
+        btnReset.setVisible(false);
+        btnReset.setManaged(false);
+
+        Button btnClose = new Button("Đóng");
+        btnClose.setStyle("-fx-background-color: #F5F5F5; -fx-text-fill: #595959;"
+                + "-fx-background-radius: 6; -fx-padding: 8 20; -fx-cursor: hand;");
+        btnClose.setOnAction(e -> dialog.close());
+
+        // State: lưu maTaiKhoan sau khi xác minh OK
+        String[] verifiedMaTK = {null};
+
+        btnVerify.setOnAction(e -> {
+            String user = txtUser.getText().trim();
+            String cccd = txtCCCD.getText().trim();
+            if (user.isEmpty() || cccd.isEmpty()) {
+                showStatus(statusLbl, "Vui lòng điền đầy đủ thông tin!", "#FF4D4F");
+                return;
+            }
+            String maTK = verifyUserAndCCCD(user, cccd);
+            if (maTK == null) {
+                showStatus(statusLbl, "Tên đăng nhập hoặc CCCD không khớp. Hãy liên hệ quản lý nếu bạn quên CCCD.", "#FF4D4F");
+                return;
+            }
+            verifiedMaTK[0] = maTK;
+            showStatus(statusLbl, "✓ Xác minh thành công! Mời nhập mật khẩu mới.", "#52C41A");
+            txtUser.setEditable(false);
+            txtCCCD.setEditable(false);
+            btnVerify.setDisable(true);
+            newPassBox.setVisible(true);
+            newPassBox.setManaged(true);
+            btnReset.setVisible(true);
+            btnReset.setManaged(true);
+        });
+
+        btnReset.setOnAction(e -> {
+            String np  = txtNewPass.getText();
+            String np2 = txtConfirm.getText();
+            if (np.length() < 6) {
+                showStatus(statusLbl, "Mật khẩu mới phải có ít nhất 6 ký tự!", "#FF4D4F"); return;
+            }
+            if (!np.equals(np2)) {
+                showStatus(statusLbl, "Hai mật khẩu không khớp!", "#FF4D4F"); return;
+            }
+            if (resetPassword(verifiedMaTK[0], np)) {
+                Alert ok = new Alert(Alert.AlertType.INFORMATION,
+                        "Đặt lại mật khẩu thành công!\nĐăng nhập lại bằng mật khẩu mới.");
+                ok.setHeaderText(null); ok.setTitle("Hoàn Tất"); ok.showAndWait();
+                dialog.close();
+            } else {
+                showStatus(statusLbl, "Lỗi cập nhật DB. Vui lòng thử lại.", "#FF4D4F");
+            }
+        });
+
+        HBox btnRow = new HBox(10, btnClose, btnVerify, btnReset);
+        btnRow.setAlignment(Pos.CENTER_RIGHT);
+
+        root.getChildren().addAll(title, hint, step1Lbl, txtUser, txtCCCD, newPassBox, statusLbl, btnRow);
+        dialog.setScene(new Scene(root, 420, 460));
+        dialog.showAndWait();
+    }
+
+    /** Verify username + CCCD bằng JOIN TaiKhoan ↔ NhanVien. Trả về maTaiKhoan nếu khớp. */
+    private String verifyUserAndCCCD(String username, String cccd) {
+        Connection con = ConnectDB.getInstance().getConnection();
+        if (con == null) return null;
+        String sql =
+            "SELECT tk.maTaiKhoan FROM TaiKhoan tk " +
+            "JOIN NhanVien nv ON nv.maNhanVien = tk.maNhanVien " +
+            "WHERE tk.tenDangNhap = ? AND nv.cccd = ?";
+        try (PreparedStatement pst = con.prepareStatement(sql)) {
+            pst.setString(1, username);
+            pst.setString(2, cccd);
+            try (ResultSet rs = pst.executeQuery()) {
+                if (rs.next()) return rs.getString("maTaiKhoan");
+            }
+        } catch (Exception ignored) {}
+        return null;
+    }
+
+    private boolean resetPassword(String maTaiKhoan, String newPassword) {
+        Connection con = ConnectDB.getInstance().getConnection();
+        if (con == null) return false;
+        try (PreparedStatement pst = con.prepareStatement(
+                "UPDATE TaiKhoan SET matKhau = ? WHERE maTaiKhoan = ?")) {
+            pst.setString(1, PasswordUtil.hash(newPassword));
+            pst.setString(2, maTaiKhoan);
+            return pst.executeUpdate() > 0;
+        } catch (Exception ignored) { return false; }
+    }
+
+    private void showStatus(Label lbl, String msg, String color) {
+        lbl.setText(msg);
+        lbl.setStyle("-fx-font-size: 12px; -fx-text-fill: " + color + ";");
         lbl.setVisible(true);
         lbl.setManaged(true);
     }

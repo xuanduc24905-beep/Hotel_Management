@@ -3,14 +3,24 @@ package com.lotuslaverne.fx.views;
 import com.lotuslaverne.dao.KhachHangDAO;
 import com.lotuslaverne.entity.KhachHang;
 import com.lotuslaverne.fx.UiUtils;
+import com.lotuslaverne.util.ConnectDB;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
+import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
+import javafx.stage.Modality;
+import javafx.stage.Stage;
 
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.Timestamp;
+import java.text.DecimalFormat;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -226,26 +236,37 @@ public class KhachView {
         // Thao tác
         TableColumn<Object[], String> colAction = new TableColumn<>("Thao Tác");
         colAction.setCellFactory(tc -> new TableCell<>() {
-            private final Button editBtn = new Button("Sửa");
-            private final Button delBtn  = new Button("Xóa");
+            private final Button historyBtn = new Button("📋 Lịch Sử");
+            private final Button editBtn    = new Button("Sửa");
+            private final Button delBtn     = new Button("Xóa");
             {
+                historyBtn.setStyle("-fx-background-color: #F9F0FF; -fx-text-fill: #722ED1;"
+                        + "-fx-background-radius: 6; -fx-border-radius: 6;"
+                        + "-fx-font-size: 11px; -fx-padding: 3 8; -fx-cursor: hand;");
                 editBtn.setStyle("-fx-background-color: #E6F4FF; -fx-text-fill: #1890FF;"
                         + "-fx-background-radius: 6; -fx-border-radius: 6;"
                         + "-fx-font-size: 11px; -fx-padding: 3 8; -fx-cursor: hand;");
                 delBtn.setStyle("-fx-background-color: #FFF1F0; -fx-text-fill: #FF4D4F;"
                         + "-fx-background-radius: 6; -fx-border-radius: 6;"
                         + "-fx-font-size: 11px; -fx-padding: 3 8; -fx-cursor: hand;");
+
+                historyBtn.setOnAction(e -> {
+                    Object[] row = getTableView().getItems().get(getIndex());
+                    String maKH = row[0] != null ? row[0].toString() : "";
+                    String tenKH = row[1] != null ? row[1].toString() : "";
+                    openHistoryDialog(maKH, tenKH);
+                });
             }
             @Override protected void updateItem(String item, boolean empty) {
                 super.updateItem(item, empty);
                 if (empty) { setGraphic(null); return; }
                 HBox box = new HBox(6);
                 box.setAlignment(Pos.CENTER_LEFT);
-                box.getChildren().addAll(editBtn, delBtn);
+                box.getChildren().addAll(historyBtn, editBtn, delBtn);
                 setGraphic(box);
             }
         });
-        colAction.setPrefWidth(100);
+        colAction.setPrefWidth(220);
 
         table.getColumns().addAll(colStt, colTen, colPhong, colSDT, colCMND, colNhan, colTra, colTT, colAction);
         table.setItems(FXCollections.observableArrayList(loadKhach()));
@@ -287,5 +308,108 @@ public class KhachView {
             if (status.equals(r[7])) count++;
         }
         return count;
+    }
+
+    /** Hiện dialog xem lịch sử lưu trú của 1 khách. */
+    private void openHistoryDialog(String maKH, String tenKH) {
+        Stage dialog = new Stage();
+        dialog.initModality(Modality.APPLICATION_MODAL);
+        dialog.setTitle("Lịch Sử Lưu Trú - " + tenKH);
+
+        VBox root = new VBox(12);
+        root.setPadding(new Insets(20));
+        root.setStyle("-fx-background-color: #F0F2F5;");
+
+        Label title = new Label("📋 Lịch sử của " + tenKH + " (" + maKH + ")");
+        title.setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #1A1A2E;");
+
+        TableView<Object[]> table = new TableView<>();
+        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        table.setStyle("-fx-background-color: #FFFFFF; -fx-background-radius: 8;"
+                + "-fx-border-color: #E8E8E8; -fx-border-width: 1; -fx-border-radius: 8;");
+        table.setPrefHeight(380);
+
+        String[] heads = {"Mã Phiếu", "Phòng", "Loại", "Nhận", "Trả", "Đơn Giá", "Trạng Thái"};
+        for (int i = 0; i < heads.length; i++) {
+            final int idx = i;
+            TableColumn<Object[], String> col = new TableColumn<>(heads[i]);
+            col.setCellValueFactory(p -> {
+                Object v = idx < p.getValue().length ? p.getValue()[idx] : "";
+                return new SimpleStringProperty(v != null ? v.toString() : "");
+            });
+            table.getColumns().add(col);
+        }
+        table.setItems(FXCollections.observableArrayList(loadLichSu(maKH)));
+        table.setPlaceholder(new Label("Khách chưa có lịch sử lưu trú nào."));
+
+        Label countLbl = new Label(table.getItems().size() + " phiếu đặt phòng");
+        countLbl.setStyle("-fx-font-size: 12px; -fx-text-fill: #8C8C8C;");
+
+        Button btnClose = new Button("Đóng");
+        btnClose.setStyle("-fx-background-color: #1890FF; -fx-text-fill: white;"
+                + "-fx-background-radius: 6; -fx-padding: 8 20; -fx-cursor: hand;");
+        btnClose.setOnAction(e -> dialog.close());
+        HBox bottom = new HBox(countLbl, new Region(), btnClose);
+        bottom.setAlignment(Pos.CENTER_LEFT);
+        Region sp = new Region(); HBox.setHgrow(sp, Priority.ALWAYS);
+        bottom.getChildren().set(1, sp);
+
+        root.getChildren().addAll(title, table, bottom);
+
+        dialog.setScene(new Scene(root, 780, 480));
+        dialog.showAndWait();
+    }
+
+    private List<Object[]> loadLichSu(String maKH) {
+        List<Object[]> result = new ArrayList<>();
+        Connection con = ConnectDB.getInstance().getConnection();
+        if (con == null || maKH == null || maKH.isEmpty()) return result;
+        String sql =
+            "SELECT pdp.maPhieuDatPhong, ct.maPhong, lp.tenLoaiPhong, " +
+            "       pdp.thoiGianNhanDuKien, pdp.thoiGianNhanThucTe, " +
+            "       pdp.thoiGianTraDuKien,  pdp.thoiGianTraThucTe, " +
+            "       pdp.trangThai, ct.donGia " +
+            "FROM PhieuDatPhong pdp " +
+            "JOIN ChiTietPhieuDatPhong ct ON ct.maPhieuDatPhong = pdp.maPhieuDatPhong " +
+            "JOIN Phong p     ON p.maPhong = ct.maPhong " +
+            "JOIN LoaiPhong lp ON lp.maLoaiPhong = p.maLoaiPhong " +
+            "WHERE pdp.maKhachHang = ? " +
+            "ORDER BY pdp.ngayDat DESC";
+        DateTimeFormatter fmt = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
+        DecimalFormat money = new DecimalFormat("#,###");
+
+        try (PreparedStatement pst = con.prepareStatement(sql)) {
+            pst.setString(1, maKH);
+            try (ResultSet rs = pst.executeQuery()) {
+                while (rs.next()) {
+                    Timestamp tNhan = rs.getTimestamp("thoiGianNhanThucTe");
+                    if (tNhan == null) tNhan = rs.getTimestamp("thoiGianNhanDuKien");
+                    Timestamp tTra  = rs.getTimestamp("thoiGianTraThucTe");
+                    if (tTra == null)  tTra  = rs.getTimestamp("thoiGianTraDuKien");
+
+                    String nhanStr = tNhan != null ? tNhan.toLocalDateTime().format(fmt) : "—";
+                    String traStr  = tTra  != null ? tTra.toLocalDateTime().format(fmt)  : "—";
+                    String tt = rs.getString("trangThai");
+                    String ttDisplay = switch (tt != null ? tt : "") {
+                        case "DaDat"      -> "Đã đặt";
+                        case "DaCheckIn"  -> "Đang ở";
+                        case "DaCheckOut" -> "Đã trả";
+                        case "DaHuy"      -> "Đã hủy";
+                        default -> tt;
+                    };
+
+                    result.add(new Object[]{
+                        rs.getString("maPhieuDatPhong"),
+                        rs.getString("maPhong"),
+                        rs.getString("tenLoaiPhong"),
+                        nhanStr,
+                        traStr,
+                        money.format(rs.getDouble("donGia")) + "đ",
+                        ttDisplay
+                    });
+                }
+            }
+        } catch (Exception ignored) {}
+        return result;
     }
 }

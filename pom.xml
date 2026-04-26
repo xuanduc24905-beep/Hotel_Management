@@ -29,18 +29,6 @@
             <version>0.4</version>
         </dependency>
 
-        <!-- FlatLaf — kept so legacy Swing gui package still compiles -->
-        <dependency>
-            <groupId>com.formdev</groupId>
-            <artifactId>flatlaf</artifactId>
-            <version>3.4.1</version>
-        </dependency>
-        <dependency>
-            <groupId>com.formdev</groupId>
-            <artifactId>flatlaf-extras</artifactId>
-            <version>3.4.1</version>
-        </dependency>
-
         <!-- JavaFX Controls -->
         <dependency>
             <groupId>org.openjfx</groupId>

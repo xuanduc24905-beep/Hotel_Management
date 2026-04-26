@@ -20,28 +20,32 @@ public class NhanVienDAO {
             PreparedStatement pst = con.prepareStatement(sql);
             ResultSet rs = pst.executeQuery();
             while (rs.next()) {
-                list.add(new NhanVien(
+                NhanVien nv = new NhanVien(
                     rs.getString("maNhanVien"),
-                    rs.getString("tenNhanVien"), // Cần khớp với DB
+                    rs.getString("tenNhanVien"),
                     rs.getString("soDienThoai"),
                     rs.getString("vaiTro")
-                ));
+                );
+                try { nv.setCaLamViec(rs.getString("caLamViec")); } catch (Exception ignored) {}
+                list.add(nv);
             }
         } catch (Exception e) {
-            System.err.println("Load Nhân Viên lỗi (Có thể sai tên cột DB): " + e.getMessage());
+            System.err.println("Load Nhân Viên lỗi: " + e.getMessage());
         }
         return list;
     }
 
     public boolean themNhanVien(NhanVien nv) {
         Connection con = ConnectDB.getInstance().getConnection();
+        if (con == null) return false;
         try {
-            String sql = "INSERT INTO NhanVien (maNhanVien, tenNhanVien, soDienThoai, vaiTro) VALUES (?, ?, ?, ?)";
+            String sql = "INSERT INTO NhanVien (maNhanVien, tenNhanVien, soDienThoai, vaiTro, caLamViec) VALUES (?, ?, ?, ?, ?)";
             PreparedStatement pst = con.prepareStatement(sql);
             pst.setString(1, nv.getMaNhanVien());
             pst.setString(2, nv.getTenNhanVien());
             pst.setString(3, nv.getSoDienThoai());
             pst.setString(4, nv.getVaiTro());
+            pst.setString(5, nv.getCaLamViec());
             return pst.executeUpdate() > 0;
         } catch (Exception e) {
             e.printStackTrace();
@@ -51,13 +55,15 @@ public class NhanVienDAO {
 
     public boolean suaNhanVien(NhanVien nv) {
         Connection con = ConnectDB.getInstance().getConnection();
+        if (con == null) return false;
         try {
-            String sql = "UPDATE NhanVien SET tenNhanVien = ?, soDienThoai = ?, vaiTro = ? WHERE maNhanVien = ?";
+            String sql = "UPDATE NhanVien SET tenNhanVien = ?, soDienThoai = ?, vaiTro = ?, caLamViec = ? WHERE maNhanVien = ?";
             PreparedStatement pst = con.prepareStatement(sql);
             pst.setString(1, nv.getTenNhanVien());
             pst.setString(2, nv.getSoDienThoai());
             pst.setString(3, nv.getVaiTro());
-            pst.setString(4, nv.getMaNhanVien());
+            pst.setString(4, nv.getCaLamViec());
+            pst.setString(5, nv.getMaNhanVien());
             return pst.executeUpdate() > 0;
         } catch (Exception e) {
             e.printStackTrace();
@@ -67,6 +73,7 @@ public class NhanVienDAO {
 
     public boolean xoaNhanVien(String maNhanVien) {
         Connection con = ConnectDB.getInstance().getConnection();
+        if (con == null) return false;
         try {
             String sql = "DELETE FROM NhanVien WHERE maNhanVien = ?";
             PreparedStatement pst = con.prepareStatement(sql);

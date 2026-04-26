@@ -53,9 +53,11 @@ CREATE TABLE NhanVien (
     diaChi              NVARCHAR(200)  NULL,
     email               NVARCHAR(100)  NULL,
     vaiTro              NVARCHAR(10)   NOT NULL,
+    caLamViec           NVARCHAR(15)   NULL,
     CONSTRAINT PK_NhanVien       PRIMARY KEY (maNhanVien),
     CONSTRAINT UQ_NhanVien_CCCD  UNIQUE (cccd),
-    CONSTRAINT CHK_NhanVien_VaiTro CHECK (vaiTro IN (N'LeTan', N'QuanLy'))
+    CONSTRAINT CHK_NhanVien_VaiTro     CHECK (vaiTro IN (N'LeTan', N'QuanLy')),
+    CONSTRAINT CHK_NhanVien_CaLamViec  CHECK (caLamViec IS NULL OR caLamViec IN (N'Sang', N'Chieu', N'Dem', N'HanhChinh'))
 );
 GO
 
@@ -104,15 +106,15 @@ CREATE TABLE KhuyenMai (
 );
 GO
 
--- 7. Phòng  (trangThai dùng tiếng Việt khớp với Java: 'Trống','Đang Thuê','Chưa Dọn')
+-- 7. Phòng  (trangThai dùng enum khớp Java: 'PhongTrong','PhongDat','PhongCanDon','DangDon','BaoTri')
 CREATE TABLE Phong (
     maPhong     NVARCHAR(10)  NOT NULL,
     tenPhong    NVARCHAR(50)  NOT NULL,
     maLoaiPhong NVARCHAR(10)  NOT NULL,
-    trangThai   NVARCHAR(20)  NOT NULL DEFAULT N'Trống',
+    trangThai   NVARCHAR(20)  NOT NULL DEFAULT N'PhongTrong',
     CONSTRAINT PK_Phong          PRIMARY KEY (maPhong),
     CONSTRAINT FK_Phong_LoaiPhong FOREIGN KEY (maLoaiPhong) REFERENCES LoaiPhong (maLoaiPhong),
-    CONSTRAINT CHK_Phong_TrangThai CHECK (trangThai IN (N'Trống', N'Đang Thuê', N'Chưa Dọn'))
+    CONSTRAINT CHK_Phong_TrangThai CHECK (trangThai IN (N'PhongTrong', N'PhongDat', N'PhongCanDon', N'DangDon', N'BaoTri'))
 );
 GO
 
@@ -360,7 +362,7 @@ BEGIN
     SET NOCOUNT ON;
     BEGIN TRANSACTION;
     BEGIN TRY
-        IF NOT EXISTS (SELECT 1 FROM Phong WHERE maPhong = @maPhong AND trangThai = N'Trống')
+        IF NOT EXISTS (SELECT 1 FROM Phong WHERE maPhong = @maPhong AND trangThai = N'PhongTrong')
         BEGIN
             RAISERROR(N'Phòng %s hiện không trống.', 16, 1, @maPhong);
             ROLLBACK; RETURN;
@@ -416,7 +418,7 @@ BEGIN
         SET thoiGianNhanThucTe = GETDATE(), trangThai = N'DaCheckIn'
         WHERE maPhieuDatPhong = @maPhieuDatPhong;
 
-        UPDATE Phong SET trangThai = N'Đang Thuê'
+        UPDATE Phong SET trangThai = N'PhongDat'
         WHERE maPhong IN (
             SELECT maPhong FROM ChiTietPhieuDatPhong
             WHERE maPhieuDatPhong = @maPhieuDatPhong
@@ -476,7 +478,7 @@ BEGIN
             (@maHoaDon, GETDATE(), @maNhanVien, @maPhieuDatPhong,
              GETDATE(), @tienKhuyenMai, @tongTien, @phuongThucThanhToan);
 
-        UPDATE Phong SET trangThai = N'Chưa Dọn'
+        UPDATE Phong SET trangThai = N'PhongCanDon'
         WHERE maPhong IN (
             SELECT maPhong FROM ChiTietPhieuDatPhong
             WHERE maPhieuDatPhong = @maPhieuDatPhong
@@ -506,7 +508,7 @@ BEGIN
         SELECT @maPhongCu = maPhong FROM ChiTietPhieuDatPhong
         WHERE maPhieuDatPhong = @maPhieuDatPhong;
 
-        IF NOT EXISTS (SELECT 1 FROM Phong WHERE maPhong = @maPhongMoi AND trangThai = N'Trống')
+        IF NOT EXISTS (SELECT 1 FROM Phong WHERE maPhong = @maPhongMoi AND trangThai = N'PhongTrong')
         BEGIN
             RAISERROR(N'Phòng mới không trống.', 16, 1);
             ROLLBACK; RETURN;
@@ -534,8 +536,8 @@ BEGIN
         SET maPhong = @maPhongMoi, donGia = @donGiaMoi
         WHERE maPhieuDatPhong = @maPhieuDatPhong;
 
-        UPDATE Phong SET trangThai = N'Chưa Dọn'  WHERE maPhong = @maPhongCu;
-        UPDATE Phong SET trangThai = N'Đang Thuê'  WHERE maPhong = @maPhongMoi;
+        UPDATE Phong SET trangThai = N'PhongCanDon' WHERE maPhong = @maPhongCu;
+        UPDATE Phong SET trangThai = N'PhongDat'    WHERE maPhong = @maPhongMoi;
 
         COMMIT;
     END TRY
@@ -559,10 +561,10 @@ INSERT INTO LoaiDichVu (maLoaiDichVu, tenLoaiDichVu) VALUES
     ('LDV03', N'Tiện Ích');
 
 INSERT INTO NhanVien
-    (maNhanVien, tenNhanVien, soDienThoai, cccd, ngaySinh, ngayBatDauLam, diaChi, email, vaiTro) VALUES
-    ('NV001', N'Nguyễn Văn Anh',  '0912345678', '001099012345', '1990-05-15', '2022-01-01', N'Hà Nội', 'anh.nv@lotus.vn',   'QuanLy'),
-    ('NV002', N'Trần Thị Bình',   '0923456789', '001099023456', '1995-08-20', '2023-03-01', N'Hà Nội', 'binh.tt@lotus.vn',  'LeTan'),
-    ('NV003', N'Lê Văn Cường',    '0934567890', '001099034567', '1998-12-10', '2024-01-15', N'Hà Nội', 'cuong.lv@lotus.vn', 'LeTan');
+    (maNhanVien, tenNhanVien, soDienThoai, cccd, ngaySinh, ngayBatDauLam, diaChi, email, vaiTro, caLamViec) VALUES
+    ('NV001', N'Nguyễn Văn Anh',  '0912345678', '001099012345', '1990-05-15', '2022-01-01', N'Hà Nội', 'anh.nv@lotus.vn',   'QuanLy', N'HanhChinh'),
+    ('NV002', N'Trần Thị Bình',   '0923456789', '001099023456', '1995-08-20', '2023-03-01', N'Hà Nội', 'binh.tt@lotus.vn',  'LeTan',  N'Sang'),
+    ('NV003', N'Lê Văn Cường',    '0934567890', '001099034567', '1998-12-10', '2024-01-15', N'Hà Nội', 'cuong.lv@lotus.vn', 'LeTan',  N'Chieu');
 
 INSERT INTO KhachHang
     (maKH, hoTenKH, soDienThoai, cmnd, gioiTinh, ngaySinh, diaChi, quocTich) VALUES
@@ -591,14 +593,14 @@ INSERT INTO BangGia (maBangGia, maLoaiPhong, loaiThue, donGia, ngayBatDau, ngayK
     ('BG008', 'LP04', N'TheoGio',  300000, '2026-01-01', '2026-12-31');
 
 INSERT INTO Phong (maPhong, tenPhong, maLoaiPhong, trangThai) VALUES
-    ('P101', N'Phòng 101', 'LP01', N'Trống'),
-    ('P102', N'Phòng 102', 'LP01', N'Trống'),
-    ('P103', N'Phòng 103', 'LP01', N'Trống'),
-    ('P201', N'Phòng 201', 'LP02', N'Trống'),
-    ('P202', N'Phòng 202', 'LP02', N'Trống'),
-    ('P301', N'Phòng 301', 'LP03', N'Trống'),
-    ('P302', N'Phòng 302', 'LP03', N'Trống'),
-    ('P401', N'Suite Hoàng Gia', 'LP04', N'Trống');
+    ('P101', N'Phòng 101', 'LP01', N'PhongTrong'),
+    ('P102', N'Phòng 102', 'LP01', N'PhongTrong'),
+    ('P103', N'Phòng 103', 'LP01', N'PhongTrong'),
+    ('P201', N'Phòng 201', 'LP02', N'PhongTrong'),
+    ('P202', N'Phòng 202', 'LP02', N'PhongTrong'),
+    ('P301', N'Phòng 301', 'LP03', N'PhongTrong'),
+    ('P302', N'Phòng 302', 'LP03', N'PhongTrong'),
+    ('P401', N'Suite Hoàng Gia', 'LP04', N'PhongTrong');
 
 INSERT INTO DichVu (maDichVu, tenDichVu, maLoaiDichVu, donGia, trangThai) VALUES
     ('DV001', N'Nước suối Lavie 500ml',  'LDV02',  15000, N'DangKinhDoanh'),
