@@ -7,6 +7,7 @@ import com.lotuslaverne.dao.PhongDAO;
 import com.lotuslaverne.entity.KhachHang;
 import com.lotuslaverne.entity.LoaiPhong;
 import com.lotuslaverne.entity.Phong;
+import com.lotuslaverne.fx.MainLayout;
 import com.lotuslaverne.util.ConnectDB;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -29,6 +30,15 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 public class PhongView {
+
+    /** Reference to MainLayout để điều hướng màn hình khi click card phòng. */
+    private final MainLayout mainLayout;
+
+    /** Constructor mặc định (dùng khi không cần điều hướng cross-screen). */
+    public PhongView() { this.mainLayout = null; }
+
+    /** Constructor với MainLayout reference — dùng bởi MainLayout.navigateToView(). */
+    public PhongView(MainLayout mainLayout) { this.mainLayout = mainLayout; }
 
     private static final String[] LOAI_FILTER_FALLBACK = {"Standard", "Deluxe", "Suite", "Family"};
     private static final String[] TRANG_THAI_FILTER = {"Tất Cả", "Trống", "Đang Thuê", "Cần Dọn", "Đang Dọn", "Bảo Trì"};
@@ -72,15 +82,15 @@ public class PhongView {
     private TableView<Object[]> tableView;
     private Label headerSubtitle;
 
-    // Filter state — tab Phòng (card grid)
-    private String currentLoaiFilter      = "Tất Cả";
-    private String currentTrangThaiFilter  = "Tất Cả";
-    private String currentTienNghiFilter   = "Tất Cả";
+    // Filter state — tab Phòng (card grid) — multi-select, empty = all
+    private final java.util.Set<String> selLoai      = new java.util.LinkedHashSet<>();
+    private final java.util.Set<String> selTrangThai = new java.util.LinkedHashSet<>();
+    private final java.util.Set<String> selTienNghi  = new java.util.LinkedHashSet<>();
 
-    // Filter state — tab Danh Sách (table)
-    private String currentTableLoaiFilter      = "Tất Cả";
-    private String currentTableTrangThaiFilter  = "Tất Cả";
-    private String currentSearchKeyword         = "";
+    // Filter state — tab Danh Sách (table) — multi-select
+    private final java.util.Set<String> selTableLoai      = new java.util.LinkedHashSet<>();
+    private final java.util.Set<String> selTableTrangThai = new java.util.LinkedHashSet<>();
+    private String currentSearchKeyword = "";
     private Label  tableCountLbl;
 
     public Node build() {
@@ -148,9 +158,10 @@ public class PhongView {
             loaiChips.getChildren().add(b);
         }
         for (Button b : loaiBtns) {
+            String[] currentLoaiFilter = {""};
             b.setOnAction(e -> {
                 loaiBtns.forEach(x -> applyChipStyle(x, x == b));
-                currentLoaiFilter = b.getText();
+                currentLoaiFilter[0] = b.getText();
                 refreshRoomCards();
             });
         }
@@ -168,9 +179,10 @@ public class PhongView {
             ttChips.getChildren().add(b);
         }
         for (Button b : ttBtns) {
+            String[] currentTrangThaiFilter = {""};
             b.setOnAction(e -> {
                 ttBtns.forEach(x -> applyChipStyle(x, x == b));
-                currentTrangThaiFilter = b.getText();
+                currentTrangThaiFilter[0] = b.getText();
                 refreshRoomCards();
             });
         }
@@ -203,9 +215,10 @@ public class PhongView {
             tnChips.getChildren().add(b);
         }
         for (Button b : tnBtns) {
+            String[] currentTienNghiFilter = {""};
             b.setOnAction(e -> {
                 tnBtns.forEach(x -> applyChipStyle(x, x == b));
-                currentTienNghiFilter = b.getText();
+                currentTienNghiFilter[0] = b.getText();
                 refreshRoomCards();
             });
         }
@@ -220,57 +233,116 @@ public class PhongView {
         return (HBox) fullBar.getChildren().get(0); // trả về để tương thích; container dùng fullBar
     }
 
-    // Ghi đè buildFilterBar để trả về VBox bọc cả 2 hàng
+    // Ghi đè buildFilterBar để trả về VBox bọc cả 3 hàng — multi-select
     private Node buildFilterBarFull(VBox container) {
-        HBox bar = new HBox(16);
-        bar.setAlignment(Pos.CENTER_LEFT);
-        bar.setPadding(new Insets(12, 16, 12, 16));
-        bar.setStyle("-fx-background-color: #FFFFFF;");
-
-        Label loaiLbl2 = chipLabel("Loại:");
-        HBox loaiChips2 = new HBox(6); loaiChips2.setAlignment(Pos.CENTER_LEFT);
-        List<Button> loaiBtns2 = new ArrayList<>();
-        for (String f : loadLoaiFilters()) {
-            Button b = makeChip(f, f.equals("Tất Cả")); loaiBtns2.add(b); loaiChips2.getChildren().add(b);
-        }
-        for (Button b : loaiBtns2) b.setOnAction(e -> { loaiBtns2.forEach(x -> applyChipStyle(x, x==b)); currentLoaiFilter=b.getText(); refreshRoomCards(); });
-
-        Region sep2 = new Region(); sep2.setPrefWidth(1); sep2.setPrefHeight(24); sep2.setStyle("-fx-background-color:#E8E8E8;");
-
-        Label ttLbl2 = chipLabel("Trạng thái:");
-        HBox ttChips2 = new HBox(6); ttChips2.setAlignment(Pos.CENTER_LEFT);
-        List<Button> ttBtns2 = new ArrayList<>();
-        for (String f : TRANG_THAI_FILTER) {
-            Button b = makeChip(f, f.equals("Tất Cả")); ttBtns2.add(b); ttChips2.getChildren().add(b);
-        }
-        for (Button b : ttBtns2) b.setOnAction(e -> { ttBtns2.forEach(x -> applyChipStyle(x, x==b)); currentTrangThaiFilter=b.getText(); refreshRoomCards(); });
-
-        Region spacer2 = new Region(); HBox.setHgrow(spacer2, Priority.ALWAYS);
+        // ── Hàng 1: Xóa bộ lọc + Làm mới
+        Button btnClear = new Button("✕ Xóa Bộ Lọc");
+        btnClear.setStyle("-fx-background-color:#FFF1F0;-fx-text-fill:#FF4D4F;"
+                +"-fx-background-radius:8;-fx-border-color:#FF4D4F;-fx-border-width:1;"
+                +"-fx-border-radius:8;-fx-padding:5 14;-fx-cursor:hand;-fx-font-size:12px;");
         Button btnRefresh2 = new Button("↻ Làm Mới");
         btnRefresh2.setStyle("-fx-background-color:#F5F5F5;-fx-text-fill:#595959;"
                 +"-fx-background-radius:8;-fx-border-color:#D9D9D9;-fx-border-width:1;"
                 +"-fx-border-radius:8;-fx-padding:5 14;-fx-cursor:hand;-fx-font-size:12px;");
-        btnRefresh2.setOnAction(e -> { refreshRoomCards(); refreshTable(); com.lotuslaverne.fx.UiUtils.flashButton(btnRefresh2,"✓ Đã làm mới"); });
-        bar.getChildren().addAll(loaiLbl2, loaiChips2, sep2, ttLbl2, ttChips2, spacer2, btnRefresh2);
+        Label activeFilterLbl = new Label("Tất cả phòng");
+        activeFilterLbl.setStyle("-fx-font-size:12px;-fx-text-fill:#8C8C8C;");
+        Region spacerTop = new Region(); HBox.setHgrow(spacerTop, Priority.ALWAYS);
+        HBox topRow = new HBox(10, activeFilterLbl, spacerTop, btnClear, btnRefresh2);
+        topRow.setAlignment(Pos.CENTER_LEFT);
+        topRow.setPadding(new Insets(10, 16, 6, 16));
+        topRow.setStyle("-fx-background-color: #FFFFFF;");
 
-        // Hàng tiện nghi
-        HBox tnBar2 = new HBox(8); tnBar2.setAlignment(Pos.CENTER_LEFT);
-        tnBar2.setPadding(new Insets(6, 16, 10, 16));
-        tnBar2.setStyle("-fx-background-color:#FAFAFA;-fx-border-color:#F0F0F0;-fx-border-width:1 0 0 0;");
+        // ── Hàng 2: FlowPane Loại (multi-select)
+        javafx.scene.layout.FlowPane loaiRow = new javafx.scene.layout.FlowPane(8, 6);
+        loaiRow.setAlignment(Pos.CENTER_LEFT);
+        loaiRow.setPadding(new Insets(0, 16, 6, 16));
+        loaiRow.setStyle("-fx-background-color: #FFFFFF;");
+
+        Label loaiLbl2 = chipLabel("Loại:");
+        List<Button> loaiBtns2 = new ArrayList<>();
+        for (String f : loadLoaiFilters()) {
+            if ("Tất Cả".equals(f)) continue; // bỏ "Tất Cả" — thay bằng nút Xóa
+            Button b = makeChip(f, false); loaiBtns2.add(b);
+            b.setOnAction(e -> {
+                boolean nowSelected = !selLoai.contains(f);
+                if (nowSelected) selLoai.add(f); else selLoai.remove(f);
+                applyChipStyle(b, nowSelected);
+                updateActiveLabel(activeFilterLbl);
+                refreshRoomCards();
+            });
+        }
+        loaiRow.getChildren().add(loaiLbl2);
+        loaiRow.getChildren().addAll(loaiBtns2);
+
+        Region sep2 = new Region(); sep2.setPrefSize(1, 24); sep2.setStyle("-fx-background-color:#E8E8E8;");
+
+        // ── Trạng thái (multi-select, same row)
+        Label ttLbl2 = chipLabel("Trạng thái:");
+        List<Button> ttBtns2 = new ArrayList<>();
+        for (String f : TRANG_THAI_FILTER) {
+            if ("Tất Cả".equals(f)) continue;
+            Button b = makeChip(f, false); ttBtns2.add(b);
+            b.setOnAction(e -> {
+                boolean nowSelected = !selTrangThai.contains(f);
+                if (nowSelected) selTrangThai.add(f); else selTrangThai.remove(f);
+                applyChipStyle(b, nowSelected);
+                updateActiveLabel(activeFilterLbl);
+                refreshRoomCards();
+            });
+        }
+        loaiRow.getChildren().add(sep2);
+        loaiRow.getChildren().add(ttLbl2);
+        loaiRow.getChildren().addAll(ttBtns2);
+
+        // ── Hàng 3: Tiện nghi (multi-select)
+        javafx.scene.layout.FlowPane tnRow = new javafx.scene.layout.FlowPane(8, 6);
+        tnRow.setAlignment(Pos.CENTER_LEFT);
+        tnRow.setPadding(new Insets(4, 16, 10, 16));
+        tnRow.setStyle("-fx-background-color:#FAFAFA;-fx-border-color:#F0F0F0;-fx-border-width:1 0 0 0;");
         Label tnLbl2 = chipLabel("Tiện nghi:");
-        HBox tnChips2 = new HBox(6); tnChips2.setAlignment(Pos.CENTER_LEFT);
         List<Button> tnBtns2 = new ArrayList<>();
         for (String f : TIEN_NGHI_FILTER) {
-            Button b = makeChip(f, f.equals("Tất Cả")); tnBtns2.add(b); tnChips2.getChildren().add(b);
+            if ("Tất Cả".equals(f)) continue;
+            Button b = makeChip(f, false); tnBtns2.add(b);
+            b.setOnAction(e -> {
+                boolean nowSelected = !selTienNghi.contains(f);
+                if (nowSelected) selTienNghi.add(f); else selTienNghi.remove(f);
+                applyChipStyle(b, nowSelected);
+                updateActiveLabel(activeFilterLbl);
+                refreshRoomCards();
+            });
         }
-        for (Button b : tnBtns2) b.setOnAction(e -> { tnBtns2.forEach(x -> applyChipStyle(x, x==b)); currentTienNghiFilter=b.getText(); refreshRoomCards(); });
-        tnBar2.getChildren().addAll(tnLbl2, tnChips2);
+        tnRow.getChildren().add(tnLbl2);
+        tnRow.getChildren().addAll(tnBtns2);
 
-        VBox fullBar2 = new VBox(0, bar, tnBar2);
+        // ── Clear action
+        List<Button> allChips = new ArrayList<>();
+        allChips.addAll(loaiBtns2); allChips.addAll(ttBtns2); allChips.addAll(tnBtns2);
+        btnClear.setOnAction(e -> {
+            selLoai.clear(); selTrangThai.clear(); selTienNghi.clear();
+            allChips.forEach(b -> applyChipStyle(b, false));
+            updateActiveLabel(activeFilterLbl);
+            refreshRoomCards();
+        });
+        btnRefresh2.setOnAction(e -> { refreshRoomCards(); refreshTable(); com.lotuslaverne.fx.UiUtils.flashButton(btnRefresh2,"✓ Đã làm mới"); });
+
+        VBox fullBar2 = new VBox(0, topRow, loaiRow, tnRow);
         fullBar2.setStyle("-fx-background-color:#FFFFFF;-fx-background-radius:10;"
                 +"-fx-effect:dropshadow(gaussian,rgba(0,0,0,0.06),6,0,0,1);");
         return fullBar2;
     }
+
+    private void updateActiveLabel(Label lbl) {
+        int total = selLoai.size() + selTrangThai.size() + selTienNghi.size();
+        if (total == 0) {
+            lbl.setText("Tất cả phòng");
+            lbl.setStyle("-fx-font-size:12px;-fx-text-fill:#8C8C8C;");
+        } else {
+            lbl.setText(total + " bộ lọc đang áp dụng");
+            lbl.setStyle("-fx-font-size:12px;-fx-text-fill:#1890FF;-fx-font-weight:bold;");
+        }
+    }
+
 
     @SuppressWarnings("unused")
     private HBox _unused() {
@@ -301,12 +373,14 @@ public class PhongView {
         box.setStyle("-fx-background-color: transparent;");
 
         List<Object[]> rooms = loadRooms().stream()
-                .filter(r -> "Tất Cả".equals(currentLoaiFilter) || currentLoaiFilter.equals(r[2]))
-                .filter(r -> "Tất Cả".equals(currentTrangThaiFilter) || currentTrangThaiFilter.equals(r[5]))
+                .filter(r -> selLoai.isEmpty() || selLoai.contains(r[2]))
+                .filter(r -> selTrangThai.isEmpty() || selTrangThai.contains(r[5]))
                 .filter(r -> {
-                    if ("Tất Cả".equals(currentTienNghiFilter)) return true;
+                    if (selTienNghi.isEmpty()) return true;
                     Object tn = r.length > 9 ? r[9] : null;
-                    return tn != null && tn.toString().contains(currentTienNghiFilter);
+                    if (tn == null) return false;
+                    String tnStr = tn.toString();
+                    return selTienNghi.stream().anyMatch(tnStr::contains);
                 })
                 .collect(Collectors.toList());
         Map<Integer, List<Object[]>> byFloor = new LinkedHashMap<>();
@@ -449,18 +523,31 @@ public class PhongView {
     private void handleCardAction(String maPhong, String trangThai) {
         PhongDAO phongDAO = new PhongDAO();
         switch (trangThai) {
-            case "Trống" -> openNhanPhongDialog(maPhong);
+            case "Trống" -> {
+                // Điều hướng sang màn hình Đặt Phòng với maPhong điền sẵn
+                if (mainLayout != null) {
+                    mainLayout.navigateToView("datphong", maPhong);
+                } else {
+                    openNhanPhongDialog(maPhong);
+                }
+            }
             case "Đang Thuê" -> {
-                Alert confirm = confirm("Trả Phòng",
-                        "Xác nhận trả phòng " + maPhong + "?\nTrạng thái sẽ chuyển sang 'Cần Dọn'.");
-                confirm.showAndWait().ifPresent(btn -> {
-                    if (btn == ButtonType.OK) {
-                        try { phongDAO.capNhatTrangThai(maPhong, "PhongCanDon"); }
-                        catch (Exception ignored) {}
-                        refreshRoomCards();
-                        refreshTable();
-                    }
-                });
+                // Tìm mã phiếu đặt phòng đang active cho phòng này rồi navigate sang Thanh Toán
+                if (mainLayout != null) {
+                    String maPDP = layMaPDPDangActive(maPhong);
+                    mainLayout.navigateToView("thanhtoan", maPDP != null ? maPDP : "");
+                } else {
+                    Alert confirm = confirm("Trả Phòng",
+                            "Xác nhận trả phòng " + maPhong + "?\nTrạng thái sẽ chuyển sang 'Cần Dọn'.");
+                    confirm.showAndWait().ifPresent(btn -> {
+                        if (btn == ButtonType.OK) {
+                            try { phongDAO.capNhatTrangThai(maPhong, "PhongCanDon"); }
+                            catch (Exception ignored) {}
+                            refreshRoomCards();
+                            refreshTable();
+                        }
+                    });
+                }
             }
             case "Cần Dọn" -> {
                 try { phongDAO.capNhatTrangThai(maPhong, "DangDon"); }
@@ -498,6 +585,28 @@ public class PhongView {
                 refreshRoomCards();
             }
         }
+    }
+
+    /**
+     * Tra cứu mã phiếu đặt phòng đang active (PhongDat) cho phòng này.
+     * Ưu tiên phiếu chưa checkout, lấy mới nhất.
+     */
+    private String layMaPDPDangActive(String maPhong) {
+        Connection con = ConnectDB.getInstance().getConnection();
+        if (con == null) return null;
+        String sql = "SELECT TOP 1 ct.maPhieuDatPhong " +
+                     "FROM ChiTietPhieuDatPhong ct " +
+                     "JOIN PhieuDatPhong pdp ON pdp.maPhieuDatPhong = ct.maPhieuDatPhong " +
+                     "WHERE ct.maPhong = ? " +
+                     "  AND pdp.trangThai NOT IN ('DaCheckOut','HuyDat') " +
+                     "ORDER BY pdp.thoiGianNhanDuKien DESC";
+        try (PreparedStatement pst = con.prepareStatement(sql)) {
+            pst.setString(1, maPhong);
+            try (ResultSet rs = pst.executeQuery()) {
+                if (rs.next()) return rs.getString(1);
+            }
+        } catch (Exception ignored) {}
+        return null;
     }
 
     /** Dialog đặt phòng nhanh từ card "Nhận Phòng" */
@@ -729,51 +838,17 @@ public class PhongView {
         container.setPadding(new Insets(16, 24, 24, 24));
         container.setStyle("-fx-background-color: #F0F2F5;");
 
-        HBox toolbar = new HBox(10);
-        toolbar.setAlignment(Pos.CENTER_LEFT);
-        toolbar.setPadding(new Insets(12, 16, 12, 16));
-        toolbar.setStyle("-fx-background-color: #FFFFFF; -fx-background-radius: 10;"
-                + "-fx-effect: dropshadow(gaussian,rgba(0,0,0,0.06),6,0,0,1);");
-
-        TextField search = new TextField();
-        search.setPromptText("Tìm phòng, khách...");
-        search.setPrefWidth(180); search.setPrefHeight(34);
-        search.setStyle("-fx-background-color: #F5F5F5; -fx-border-color: #E8E8E8;"
-                + "-fx-border-radius: 6; -fx-background-radius: 6; -fx-border-width: 1;"
-                + "-fx-padding: 4 10; -fx-font-size: 12px;");
-
-        Label loaiLbl = chipLabel("Loại:");
-        HBox loaiBox = new HBox(5); loaiBox.setAlignment(Pos.CENTER_LEFT);
-        List<Button> loaiBtns = new ArrayList<>();
-        for (String f : loadLoaiFilters()) {
-            Button b = makeChip(f, f.equals("Tất Cả")); loaiBtns.add(b); loaiBox.getChildren().add(b);
-        }
-        for (Button b : loaiBtns) b.setOnAction(e -> {
-            loaiBtns.forEach(x -> applyChipStyle(x, x == b));
-            currentTableLoaiFilter = b.getText();
-            applyTableFilter();
-        });
-
-        Region sep1 = new Region(); sep1.setPrefSize(1, 24);
-        sep1.setStyle("-fx-background-color: #E8E8E8;");
-
-        Label ttLbl = chipLabel("Trạng thái:");
-        HBox ttBox = new HBox(5); ttBox.setAlignment(Pos.CENTER_LEFT);
-        List<Button> ttBtns = new ArrayList<>();
-        for (String f : TRANG_THAI_FILTER) {
-            Button b = makeChip(f, f.equals("Tất Cả")); ttBtns.add(b); ttBox.getChildren().add(b);
-        }
-        for (Button b : ttBtns) b.setOnAction(e -> {
-            ttBtns.forEach(x -> applyChipStyle(x, x == b));
-            currentTableTrangThaiFilter = b.getText();
-            applyTableFilter();
-        });
-
-        Region spacer = new Region(); HBox.setHgrow(spacer, Priority.ALWAYS);
-
+        // ── Hàng 1: Search + Count + Nút hành động
         tableItems = FXCollections.observableArrayList(loadRooms());
         tableCountLbl = new Label(tableItems.size() + " kết quả");
         tableCountLbl.setStyle("-fx-font-size: 12px; -fx-text-fill: #8C8C8C;");
+
+        TextField search = new TextField();
+        search.setPromptText("Tìm phòng, khách...");
+        search.setPrefWidth(200); search.setPrefHeight(34);
+        search.setStyle("-fx-background-color: #F5F5F5; -fx-border-color: #E8E8E8;"
+                + "-fx-border-radius: 6; -fx-background-radius: 6; -fx-border-width: 1;"
+                + "-fx-padding: 4 10; -fx-font-size: 12px;");
 
         Button refreshBtn = new Button("↻ Làm Mới");
         refreshBtn.setStyle("-fx-background-color: #F5F5F5; -fx-text-fill: #595959;"
@@ -791,7 +866,80 @@ public class PhongView {
                 + "-fx-font-weight: bold; -fx-cursor: hand;");
         addBtn.setOnAction(e -> openAddPhongDialog());
 
-        toolbar.getChildren().addAll(search, loaiLbl, loaiBox, sep1, ttLbl, ttBox, spacer, tableCountLbl, refreshBtn, addBtn);
+        Region spacerTop = new Region(); HBox.setHgrow(spacerTop, Priority.ALWAYS);
+        HBox topRow = new HBox(10, search, spacerTop, tableCountLbl, refreshBtn, addBtn);
+        topRow.setAlignment(Pos.CENTER_LEFT);
+        topRow.setPadding(new Insets(12, 16, 8, 16));
+        topRow.setStyle("-fx-background-color: #FFFFFF;");
+
+        // ── Hàng 2: Filter chips Loại + Trạng thái (multi-select, tự wrap)
+        Label tableFilterLbl = new Label("Tất cả phòng");
+        tableFilterLbl.setStyle("-fx-font-size:12px;-fx-text-fill:#8C8C8C;");
+        Button btnTableClear = new Button("✕ Xóa Bộ Lọc");
+        btnTableClear.setStyle("-fx-background-color:#FFF1F0;-fx-text-fill:#FF4D4F;"
+                +"-fx-background-radius:8;-fx-border-color:#FF4D4F;-fx-border-width:1;"
+                +"-fx-border-radius:8;-fx-padding:4 12;-fx-cursor:hand;-fx-font-size:11px;");
+        Region spacerClear = new Region(); HBox.setHgrow(spacerClear, Priority.ALWAYS);
+        HBox clearRow = new HBox(8, tableFilterLbl, spacerClear, btnTableClear);
+        clearRow.setAlignment(Pos.CENTER_LEFT);
+        clearRow.setPadding(new Insets(6, 16, 4, 16));
+        clearRow.setStyle("-fx-background-color: #FAFAFA; -fx-border-color: #F0F0F0; -fx-border-width: 1 0 0 0;");
+
+        javafx.scene.layout.FlowPane filterRow = new javafx.scene.layout.FlowPane(8, 6);
+        filterRow.setAlignment(Pos.CENTER_LEFT);
+        filterRow.setPadding(new Insets(0, 16, 10, 16));
+        filterRow.setStyle("-fx-background-color: #FAFAFA;");
+
+        Label loaiLbl = chipLabel("Loại:");
+        List<Button> loaiBtns = new ArrayList<>();
+        for (String f : loadLoaiFilters()) {
+            if ("Tất Cả".equals(f)) continue;
+            Button b = makeChip(f, false); loaiBtns.add(b);
+            b.setOnAction(e -> {
+                boolean nowSel = !selTableLoai.contains(f);
+                if (nowSel) selTableLoai.add(f); else selTableLoai.remove(f);
+                applyChipStyle(b, nowSel);
+                updateTableFilterLabel(tableFilterLbl);
+                applyTableFilter();
+            });
+        }
+
+        Region sep1 = new Region(); sep1.setPrefSize(1, 24);
+        sep1.setStyle("-fx-background-color: #E8E8E8;");
+
+        Label ttLbl = chipLabel("Trạng thái:");
+        List<Button> ttBtns = new ArrayList<>();
+        for (String f : TRANG_THAI_FILTER) {
+            if ("Tất Cả".equals(f)) continue;
+            Button b = makeChip(f, false); ttBtns.add(b);
+            b.setOnAction(e -> {
+                boolean nowSel = !selTableTrangThai.contains(f);
+                if (nowSel) selTableTrangThai.add(f); else selTableTrangThai.remove(f);
+                applyChipStyle(b, nowSel);
+                updateTableFilterLabel(tableFilterLbl);
+                applyTableFilter();
+            });
+        }
+
+        List<Button> allTableChips = new ArrayList<>();
+        allTableChips.addAll(loaiBtns); allTableChips.addAll(ttBtns);
+        btnTableClear.setOnAction(e -> {
+            selTableLoai.clear(); selTableTrangThai.clear();
+            allTableChips.forEach(b -> applyChipStyle(b, false));
+            updateTableFilterLabel(tableFilterLbl);
+            applyTableFilter();
+        });
+
+        filterRow.getChildren().add(loaiLbl);
+        filterRow.getChildren().addAll(loaiBtns);
+        filterRow.getChildren().add(sep1);
+        filterRow.getChildren().add(ttLbl);
+        filterRow.getChildren().addAll(ttBtns);
+
+        VBox toolbar = new VBox(0, topRow, clearRow, filterRow);
+        toolbar.setStyle("-fx-background-color: #FFFFFF; -fx-background-radius: 10;"
+                + "-fx-effect: dropshadow(gaussian,rgba(0,0,0,0.06),6,0,0,1);");
+;
 
         tableView = buildPhongTable();
         VBox.setVgrow(tableView, Priority.ALWAYS);
@@ -811,8 +959,8 @@ public class PhongView {
         String kw = currentSearchKeyword.toLowerCase();
         ObservableList<Object[]> filtered = FXCollections.observableArrayList();
         for (Object[] r : tableItems) {
-            if (!"Tất Cả".equals(currentTableLoaiFilter) && !currentTableLoaiFilter.equals(r[2])) continue;
-            if (!"Tất Cả".equals(currentTableTrangThaiFilter) && !currentTableTrangThaiFilter.equals(r[5])) continue;
+            if (!selTableLoai.isEmpty() && !selTableLoai.contains(r[2])) continue;
+            if (!selTableTrangThai.isEmpty() && !selTableTrangThai.contains(r[5])) continue;
             if (!kw.isEmpty()) {
                 boolean matched = false;
                 for (Object cell : r) {
@@ -824,6 +972,17 @@ public class PhongView {
         }
         tableView.setItems(filtered);
         if (tableCountLbl != null) tableCountLbl.setText(filtered.size() + " kết quả");
+    }
+
+    private void updateTableFilterLabel(Label lbl) {
+        int total = selTableLoai.size() + selTableTrangThai.size();
+        if (total == 0) {
+            lbl.setText("Tất cả phòng");
+            lbl.setStyle("-fx-font-size:12px;-fx-text-fill:#8C8C8C;");
+        } else {
+            lbl.setText(total + " bộ lọc đang áp dụng");
+            lbl.setStyle("-fx-font-size:12px;-fx-text-fill:#1890FF;-fx-font-weight:bold;");
+        }
     }
 
     private void refreshTable() {
@@ -978,7 +1137,7 @@ public class PhongView {
         Label tnLabel = fLabel("Tiện Nghi:");
         String[] tnList = {"WiFi","TV","Điều Hòa","Bồn Tắm","Ban Công","Mini Bar","Tủ Lạnh","Két An Toàn"};
         Map<String,Button> tnMap = new LinkedHashMap<>();
-        HBox tnChips = new HBox(8); tnChips.setAlignment(Pos.CENTER_LEFT); tnChips.setWrapLength(480);
+        HBox tnChips = new HBox(8); tnChips.setAlignment(Pos.CENTER_LEFT);
         FlowPane tnFlow = new FlowPane(8,8);
         for (String tn : tnList) {
             Button b = new Button(tn);

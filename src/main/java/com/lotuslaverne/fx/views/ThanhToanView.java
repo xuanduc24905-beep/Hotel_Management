@@ -26,6 +26,12 @@ import java.util.UUID;
 
 public class ThanhToanView {
 
+    /** Mã phiếu đặt phòng điền sẵn từ màn hình Quản Lý Phòng (null = mở bình thường). */
+    private final String prefillMaPDP;
+
+    public ThanhToanView() { this.prefillMaPDP = null; }
+    public ThanhToanView(String maPDP) { this.prefillMaPDP = maPDP; }
+
     private TextField txtMaPhieuDP;
     private TextField txtKhuyenMai;
     private Label lblTongTien;
@@ -54,6 +60,22 @@ public class ThanhToanView {
         Label sub = new Label("Tính tiền và xuất hóa đơn cho khách trả phòng");
         sub.setStyle("-fx-font-size: 13px; -fx-text-fill: #8C8C8C;");
         header.getChildren().addAll(title, sub);
+
+        // Banner khi được mở từ Quản Lý Phòng
+        if (prefillMaPDP != null && !prefillMaPDP.isEmpty()) {
+            HBox banner = new HBox(10);
+            banner.setAlignment(Pos.CENTER_LEFT);
+            banner.setPadding(new Insets(10, 16, 10, 16));
+            banner.setStyle("-fx-background-color: #FFF7E6; -fx-background-radius: 8;"
+                    + "-fx-border-color: #FFD591; -fx-border-width: 1; -fx-border-radius: 8;");
+            Label bannerIcon = new Label("💳");
+            bannerIcon.setStyle("-fx-font-size: 16px;");
+            Label bannerTxt = new Label("Thanh toán phiếu: " + prefillMaPDP
+                    + "  |  Mã phiếu đã điền sẵn. Nhấn 'Tính Toán Tiền' để xác nhận.");
+            bannerTxt.setStyle("-fx-font-size: 13px; -fx-text-fill: #D46B08; -fx-font-weight: bold;");
+            banner.getChildren().addAll(bannerIcon, bannerTxt);
+            content.getChildren().add(banner);
+        }
 
         HBox mainRow = new HBox(20);
         mainRow.setAlignment(Pos.TOP_LEFT);
@@ -100,7 +122,14 @@ public class ThanhToanView {
         ColumnConstraints c2 = new ColumnConstraints(); c2.setPercentWidth(58);
         form.getColumnConstraints().addAll(c1, c2);
 
-        txtMaPhieuDP = field("PDP001");
+        // Mã phiếu: điền sẵn và khóa nếu được navigate từ Quản Lý Phòng
+        txtMaPhieuDP = field(prefillMaPDP != null && !prefillMaPDP.isEmpty() ? prefillMaPDP : "PDP001");
+        if (prefillMaPDP != null && !prefillMaPDP.isEmpty()) {
+            txtMaPhieuDP.setEditable(false);
+            txtMaPhieuDP.setStyle("-fx-background-color: #F5F5F5; -fx-border-color: #FAAD14;"
+                    + "-fx-border-radius: 6; -fx-background-radius: 6; -fx-border-width: 1.5;"
+                    + "-fx-padding: 7 10; -fx-font-weight: bold; -fx-text-fill: #D46B08;");
+        }
 
         // Khuyến mãi row
         txtKhuyenMai = field("");
