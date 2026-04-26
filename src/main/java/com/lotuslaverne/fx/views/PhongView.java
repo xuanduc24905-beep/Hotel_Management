@@ -32,6 +32,7 @@ public class PhongView {
 
     private static final String[] LOAI_FILTER_FALLBACK = {"Standard", "Deluxe", "Suite", "Family"};
     private static final String[] TRANG_THAI_FILTER = {"Tất Cả", "Trống", "Đang Thuê", "Cần Dọn", "Đang Dọn", "Bảo Trì"};
+    private static final String[] TIEN_NGHI_FILTER  = {"Tất Cả", "WiFi", "TV", "Điều Hòa", "Bồn Tắm", "Ban Công", "Mini Bar"};
 
     /** Lấy danh sách loại phòng động từ DB (fallback về list cứng nếu DB offline). */
     private List<String> loadLoaiFilters() {
@@ -49,19 +50,20 @@ public class PhongView {
         return list;
     }
 
+    // col[9] = tienNghi (String)
     private static final Object[][] DEMO_ROOMS = {
-        {"P101", "101", "Standard", "Phòng Đơn",     550_000, "Trống",     "",                "",           1},
-        {"P102", "102", "Standard", "Phòng Đôi",     750_000, "Đang Thuê", "Nguyễn Văn An",   "25/04/2026", 1},
-        {"P103", "103", "Deluxe",   "Phòng Đôi",     950_000, "Cần Dọn",   "",                "",           1},
-        {"P104", "104", "Suite",    "Phòng Suite", 1_500_000, "Đang Dọn",  "",                "",           1},
-        {"P201", "201", "Standard", "Phòng Đơn",     550_000, "Trống",     "",                "",           2},
-        {"P202", "202", "Deluxe",   "Phòng Đôi",     950_000, "Đang Thuê", "Trần Thị Bình",   "26/04/2026", 2},
-        {"P203", "203", "Family",   "Phòng Gia Đình",1_200_000,"Trống",    "",                "",           2},
-        {"P204", "204", "Suite",    "Phòng Suite", 1_500_000, "Đang Thuê", "Lê Hoàng Cường",  "27/04/2026", 2},
-        {"P301", "301", "Standard", "Phòng Đơn",     550_000, "Cần Dọn",   "",                "",           3},
-        {"P302", "302", "Deluxe",   "Phòng Đôi",     950_000, "Trống",     "",                "",           3},
-        {"P303", "303", "Family",   "Phòng Gia Đình",1_200_000,"Đang Thuê","Phạm Thị Dung",   "28/04/2026", 3},
-        {"P304", "304", "Suite",    "Phòng Suite", 1_500_000, "Trống",     "",                "",           3},
+        {"P101","101","Standard","Phòng Đơn",    550_000,"Trống",    "",               "",          1,"WiFi,TV"},
+        {"P102","102","Standard","Phòng Đôi",    750_000,"Đang Thuê","Nguyễn Văn An",  "25/04/2026",1,"WiFi,TV,Điều Hòa"},
+        {"P103","103","Deluxe",  "Phòng Đôi",    950_000,"Cần Dọn",  "",               "",          1,"WiFi,TV,Điều Hòa,Bồn Tắm"},
+        {"P104","104","Suite",   "Phòng Suite",1_500_000,"Đang Dọn", "",               "",          1,"WiFi,TV,Điều Hòa,Bồn Tắm,Ban Công,Mini Bar"},
+        {"P201","201","Standard","Phòng Đơn",    550_000,"Trống",    "",               "",          2,"WiFi"},
+        {"P202","202","Deluxe",  "Phòng Đôi",    950_000,"Đang Thuê","Trần Thị Bình",  "26/04/2026",2,"WiFi,TV,Điều Hòa"},
+        {"P203","203","Family",  "Phòng Gia Đình",1_200_000,"Trống", "",               "",          2,"WiFi,TV,Bồn Tắm"},
+        {"P204","204","Suite",   "Phòng Suite",1_500_000,"Đang Thuê","Lê Hoàng Cường", "27/04/2026",2,"WiFi,TV,Điều Hòa,Mini Bar"},
+        {"P301","301","Standard","Phòng Đơn",    550_000,"Cần Dọn",  "",               "",          3,"WiFi"},
+        {"P302","302","Deluxe",  "Phòng Đôi",    950_000,"Trống",    "",               "",          3,"WiFi,TV,Điều Hòa,Ban Công"},
+        {"P303","303","Family",  "Phòng Gia Đình",1_200_000,"Đang Thuê","Phạm Thị Dung","28/04/2026",3,"WiFi,TV,Bồn Tắm"},
+        {"P304","304","Suite",   "Phòng Suite",1_500_000,"Trống",    "",               "",          3,"WiFi,TV,Điều Hòa,Bồn Tắm,Ban Công,Mini Bar"},
     };
 
     // Instance fields for refresh
@@ -71,14 +73,15 @@ public class PhongView {
     private Label headerSubtitle;
 
     // Filter state — tab Phòng (card grid)
-    private String currentLoaiFilter = "Tất Cả";
-    private String currentTrangThaiFilter = "Tất Cả";
+    private String currentLoaiFilter      = "Tất Cả";
+    private String currentTrangThaiFilter  = "Tất Cả";
+    private String currentTienNghiFilter   = "Tất Cả";
 
     // Filter state — tab Danh Sách (table)
-    private String currentTableLoaiFilter = "Tất Cả";
-    private String currentTableTrangThaiFilter = "Tất Cả";
-    private String currentSearchKeyword = "";
-    private Label tableCountLbl;
+    private String currentTableLoaiFilter      = "Tất Cả";
+    private String currentTableTrangThaiFilter  = "Tất Cả";
+    private String currentSearchKeyword         = "";
+    private Label  tableCountLbl;
 
     public Node build() {
         VBox root = new VBox(0);
@@ -115,8 +118,8 @@ public class PhongView {
         container.setPadding(new Insets(16, 28, 28, 28));
         container.setStyle("-fx-background-color: #F0F2F5;");
 
-        HBox filterBar = buildFilterBar(container);
-        container.getChildren().add(filterBar);
+        // Dùng buildFilterBarFull (hàng Loại + Trạng thái + Tiện nghi)
+        container.getChildren().add(buildFilterBarFull(container));
 
         roomsScroll = new ScrollPane();
         roomsScroll.setFitToWidth(true);
@@ -184,8 +187,94 @@ public class PhongView {
             com.lotuslaverne.fx.UiUtils.flashButton(btnRefresh, "✓ Đã làm mới");
         });
 
-        bar.getChildren().addAll(loaiLbl, loaiChips, sep, ttLbl, ttChips, spacer, btnRefresh);
-        return bar;
+        // ── Tiện Nghi filter (hàng 2) ──
+        HBox tnBar = new HBox(16);
+        tnBar.setAlignment(Pos.CENTER_LEFT);
+        tnBar.setPadding(new Insets(8, 16, 8, 16));
+        tnBar.setStyle("-fx-background-color: #FAFAFA; -fx-background-radius: 0 0 10 10;"
+                + "-fx-border-color: #F0F0F0; -fx-border-width: 1 0 0 0;");
+        Label tnLbl = chipLabel("Tiện nghi:");
+        HBox tnChips = new HBox(6);
+        tnChips.setAlignment(Pos.CENTER_LEFT);
+        List<Button> tnBtns = new ArrayList<>();
+        for (String f : TIEN_NGHI_FILTER) {
+            Button b = makeChip(f, f.equals("Tất Cả"));
+            tnBtns.add(b);
+            tnChips.getChildren().add(b);
+        }
+        for (Button b : tnBtns) {
+            b.setOnAction(e -> {
+                tnBtns.forEach(x -> applyChipStyle(x, x == b));
+                currentTienNghiFilter = b.getText();
+                refreshRoomCards();
+            });
+        }
+        tnBar.getChildren().addAll(tnLbl, tnChips);
+
+        VBox fullBar = new VBox(0, bar, tnBar);
+        fullBar.setStyle("-fx-background-color: #FFFFFF; -fx-background-radius: 10;"
+                + "-fx-effect: dropshadow(gaussian,rgba(0,0,0,0.06),6,0,0,1);");
+
+        // Thay thế bar bằng fullBar trong container
+        bar.setStyle("-fx-background-color: #FFFFFF;");
+        return (HBox) fullBar.getChildren().get(0); // trả về để tương thích; container dùng fullBar
+    }
+
+    // Ghi đè buildFilterBar để trả về VBox bọc cả 2 hàng
+    private Node buildFilterBarFull(VBox container) {
+        HBox bar = new HBox(16);
+        bar.setAlignment(Pos.CENTER_LEFT);
+        bar.setPadding(new Insets(12, 16, 12, 16));
+        bar.setStyle("-fx-background-color: #FFFFFF;");
+
+        Label loaiLbl2 = chipLabel("Loại:");
+        HBox loaiChips2 = new HBox(6); loaiChips2.setAlignment(Pos.CENTER_LEFT);
+        List<Button> loaiBtns2 = new ArrayList<>();
+        for (String f : loadLoaiFilters()) {
+            Button b = makeChip(f, f.equals("Tất Cả")); loaiBtns2.add(b); loaiChips2.getChildren().add(b);
+        }
+        for (Button b : loaiBtns2) b.setOnAction(e -> { loaiBtns2.forEach(x -> applyChipStyle(x, x==b)); currentLoaiFilter=b.getText(); refreshRoomCards(); });
+
+        Region sep2 = new Region(); sep2.setPrefWidth(1); sep2.setPrefHeight(24); sep2.setStyle("-fx-background-color:#E8E8E8;");
+
+        Label ttLbl2 = chipLabel("Trạng thái:");
+        HBox ttChips2 = new HBox(6); ttChips2.setAlignment(Pos.CENTER_LEFT);
+        List<Button> ttBtns2 = new ArrayList<>();
+        for (String f : TRANG_THAI_FILTER) {
+            Button b = makeChip(f, f.equals("Tất Cả")); ttBtns2.add(b); ttChips2.getChildren().add(b);
+        }
+        for (Button b : ttBtns2) b.setOnAction(e -> { ttBtns2.forEach(x -> applyChipStyle(x, x==b)); currentTrangThaiFilter=b.getText(); refreshRoomCards(); });
+
+        Region spacer2 = new Region(); HBox.setHgrow(spacer2, Priority.ALWAYS);
+        Button btnRefresh2 = new Button("↻ Làm Mới");
+        btnRefresh2.setStyle("-fx-background-color:#F5F5F5;-fx-text-fill:#595959;"
+                +"-fx-background-radius:8;-fx-border-color:#D9D9D9;-fx-border-width:1;"
+                +"-fx-border-radius:8;-fx-padding:5 14;-fx-cursor:hand;-fx-font-size:12px;");
+        btnRefresh2.setOnAction(e -> { refreshRoomCards(); refreshTable(); com.lotuslaverne.fx.UiUtils.flashButton(btnRefresh2,"✓ Đã làm mới"); });
+        bar.getChildren().addAll(loaiLbl2, loaiChips2, sep2, ttLbl2, ttChips2, spacer2, btnRefresh2);
+
+        // Hàng tiện nghi
+        HBox tnBar2 = new HBox(8); tnBar2.setAlignment(Pos.CENTER_LEFT);
+        tnBar2.setPadding(new Insets(6, 16, 10, 16));
+        tnBar2.setStyle("-fx-background-color:#FAFAFA;-fx-border-color:#F0F0F0;-fx-border-width:1 0 0 0;");
+        Label tnLbl2 = chipLabel("Tiện nghi:");
+        HBox tnChips2 = new HBox(6); tnChips2.setAlignment(Pos.CENTER_LEFT);
+        List<Button> tnBtns2 = new ArrayList<>();
+        for (String f : TIEN_NGHI_FILTER) {
+            Button b = makeChip(f, f.equals("Tất Cả")); tnBtns2.add(b); tnChips2.getChildren().add(b);
+        }
+        for (Button b : tnBtns2) b.setOnAction(e -> { tnBtns2.forEach(x -> applyChipStyle(x, x==b)); currentTienNghiFilter=b.getText(); refreshRoomCards(); });
+        tnBar2.getChildren().addAll(tnLbl2, tnChips2);
+
+        VBox fullBar2 = new VBox(0, bar, tnBar2);
+        fullBar2.setStyle("-fx-background-color:#FFFFFF;-fx-background-radius:10;"
+                +"-fx-effect:dropshadow(gaussian,rgba(0,0,0,0.06),6,0,0,1);");
+        return fullBar2;
+    }
+
+    @SuppressWarnings("unused")
+    private HBox _unused() {
+        return null;
     }
 
     private void refreshRoomCards() {
@@ -214,6 +303,11 @@ public class PhongView {
         List<Object[]> rooms = loadRooms().stream()
                 .filter(r -> "Tất Cả".equals(currentLoaiFilter) || currentLoaiFilter.equals(r[2]))
                 .filter(r -> "Tất Cả".equals(currentTrangThaiFilter) || currentTrangThaiFilter.equals(r[5]))
+                .filter(r -> {
+                    if ("Tất Cả".equals(currentTienNghiFilter)) return true;
+                    Object tn = r.length > 9 ? r[9] : null;
+                    return tn != null && tn.toString().contains(currentTienNghiFilter);
+                })
                 .collect(Collectors.toList());
         Map<Integer, List<Object[]>> byFloor = new LinkedHashMap<>();
         for (Object[] r : rooms) {
@@ -295,6 +389,27 @@ public class PhongView {
         typeLbl.setStyle("-fx-font-size: 12px; -fx-text-fill: #595959;");
         Label priceLbl = new Label(String.format("%,dđ / đêm", gia));
         priceLbl.setStyle("-fx-font-size: 12px; -fx-text-fill: #8C8C8C;");
+
+        // Tags tiện nghi (tối đa 3 + "+N")
+        String tienNghi = r.length > 9 && r[9] != null ? r[9].toString() : "";
+        if (!tienNghi.isEmpty()) {
+            HBox tagsRow = new HBox(4); tagsRow.setAlignment(Pos.CENTER_LEFT);
+            String[] tags = tienNghi.split(",");
+            int show = Math.min(tags.length, 3);
+            for (int i = 0; i < show; i++) {
+                Label tag = new Label(tags[i].trim());
+                tag.setStyle("-fx-background-color:#F0F8FF;-fx-text-fill:#1890FF;"
+                        +"-fx-padding:1 6;-fx-background-radius:8;-fx-font-size:10px;");
+                tagsRow.getChildren().add(tag);
+            }
+            if (tags.length > 3) {
+                Label more = new Label("+" + (tags.length-3));
+                more.setStyle("-fx-background-color:#F5F5F5;-fx-text-fill:#8C8C8C;"
+                        +"-fx-padding:1 6;-fx-background-radius:8;-fx-font-size:10px;");
+                tagsRow.getChildren().add(more);
+            }
+            card.getChildren().add(tagsRow);
+        }
 
         card.getChildren().addAll(headerRow, categoryLbl, typeLbl, priceLbl);
 
@@ -826,65 +941,132 @@ public class PhongView {
         dialog.setTitle("Thêm Phòng Mới");
         dialog.setResizable(false);
 
+        ScrollPane scroll = new ScrollPane();
+        scroll.setFitToWidth(true);
+        scroll.setStyle("-fx-background-color:#FFFFFF;");
+
+        VBox formRoot = new VBox(16);
+        formRoot.setPadding(new Insets(20));
+        formRoot.setStyle("-fx-background-color:#FFFFFF;");
+
+        // ── Grid các trường cơ bản ──
         GridPane form = new GridPane();
         form.setHgap(12); form.setVgap(12);
-        form.setPadding(new Insets(20));
-        ColumnConstraints c1 = new ColumnConstraints(); c1.setPrefWidth(130);
-        ColumnConstraints c2 = new ColumnConstraints(); c2.setPrefWidth(200);
+        ColumnConstraints c1 = new ColumnConstraints(); c1.setPercentWidth(50);
+        ColumnConstraints c2 = new ColumnConstraints(); c2.setPercentWidth(50);
         form.getColumnConstraints().addAll(c1, c2);
 
-        TextField txtMa   = field("");
-        TextField txtTen  = field("");
-        ComboBox<String> cbLoai = new ComboBox<>();
-        cbLoai.getItems().addAll("Standard", "Deluxe", "Suite", "Family");
-        cbLoai.setValue("Standard");
-        cbLoai.setMaxWidth(Double.MAX_VALUE);
+        TextField txtMa   = field(""); txtMa.setPromptText("VD: P305");
+        TextField txtTen  = field(""); txtTen.setPromptText("VD: 305");
+        TextField txtSuaChua = field("2"); txtSuaChua.setPromptText("Số người tối đa");
+        TextField txtTang  = field(""); txtTang.setPromptText("VD: 3");
 
-        form.add(fLabel("Mã Phòng *:"),   0, 0); form.add(txtMa,  1, 0);
-        form.add(fLabel("Tên Phòng *:"),  0, 1); form.add(txtTen, 1, 1);
-        form.add(fLabel("Loại Phòng:"),   0, 2); form.add(cbLoai, 1, 2);
+        ComboBox<String> cbLoai = new ComboBox<>();
+        try { for (LoaiPhong lp : new LoaiPhongDAO().getAll()) cbLoai.getItems().add(lp.getTenLoaiPhong()); }
+        catch (Exception ignored) {}
+        if (cbLoai.getItems().isEmpty()) cbLoai.getItems().addAll("Standard","Deluxe","Suite","Family");
+        cbLoai.setValue(cbLoai.getItems().get(0));
+        cbLoai.setMaxWidth(Double.MAX_VALUE);
+        cbLoai.setStyle("-fx-background-color:#FFF;-fx-border-color:#D9D9D9;-fx-border-radius:6;-fx-background-radius:6;-fx-border-width:1;");
+
+        form.add(fLabel("Mã Phòng *:"),  0,0); form.add(txtMa,    0,1);
+        form.add(fLabel("Tên Phòng *:"), 1,0); form.add(txtTen,   1,1);
+        form.add(fLabel("Loại Phòng:"),  0,2); form.add(cbLoai,  0,3);
+        form.add(fLabel("Sức Chứa:"),   1,2); form.add(txtSuaChua,1,3);
+
+        // ── Tiện nghi (multi-select chips) ──
+        Label tnLabel = fLabel("Tiện Nghi:");
+        String[] tnList = {"WiFi","TV","Điều Hòa","Bồn Tắm","Ban Công","Mini Bar","Tủ Lạnh","Két An Toàn"};
+        Map<String,Button> tnMap = new LinkedHashMap<>();
+        HBox tnChips = new HBox(8); tnChips.setAlignment(Pos.CENTER_LEFT); tnChips.setWrapLength(480);
+        FlowPane tnFlow = new FlowPane(8,8);
+        for (String tn : tnList) {
+            Button b = new Button(tn);
+            b.setStyle("-fx-background-color:#F5F5F5;-fx-text-fill:#595959;"
+                    +"-fx-background-radius:20;-fx-border-color:#D9D9D9;-fx-border-width:1;"
+                    +"-fx-border-radius:20;-fx-padding:4 12;-fx-cursor:hand;-fx-font-size:12px;");
+            b.setOnAction(e -> {
+                boolean sel = "#1890FF".equals(b.getUserData());
+                if (sel) {
+                    b.setUserData(null);
+                    b.setStyle("-fx-background-color:#F5F5F5;-fx-text-fill:#595959;"
+                            +"-fx-background-radius:20;-fx-border-color:#D9D9D9;-fx-border-width:1;"
+                            +"-fx-border-radius:20;-fx-padding:4 12;-fx-cursor:hand;-fx-font-size:12px;");
+                } else {
+                    b.setUserData("#1890FF");
+                    b.setStyle("-fx-background-color:#1890FF;-fx-text-fill:white;"
+                            +"-fx-background-radius:20;-fx-border-color:#1890FF;-fx-border-width:1;"
+                            +"-fx-border-radius:20;-fx-padding:4 12;-fx-cursor:hand;-fx-font-size:12px;");
+                }
+            });
+            tnMap.put(tn, b);
+            tnFlow.getChildren().add(b);
+        }
+
+        // ── Mô tả ──
+        Label moTaLabel = fLabel("Mô Tả:");
+        TextArea taMotA = new TextArea();
+        taMotA.setPromptText("Nhập mô tả phòng (tiện nghi nổi bật, view, đặc điểm...)");
+        taMotA.setPrefRowCount(3);
+        taMotA.setWrapText(true);
+        taMotA.setStyle("-fx-background-color:#FFF;-fx-border-color:#D9D9D9;"
+                +"-fx-border-radius:6;-fx-background-radius:6;-fx-border-width:1;-fx-font-size:13px;");
 
         Label errLbl = new Label();
-        errLbl.setStyle("-fx-text-fill: #FF4D4F; -fx-font-size: 12px;");
+        errLbl.setStyle("-fx-text-fill:#FF4D4F;-fx-font-size:12px;");
         errLbl.setVisible(false); errLbl.setManaged(false);
-        errLbl.setPadding(new Insets(0, 20, 0, 20));
 
-        Button btnSave = new Button("Thêm");
-        btnSave.setStyle("-fx-background-color: #52C41A; -fx-text-fill: white;"
-                + "-fx-background-radius: 6; -fx-padding: 8 20; -fx-cursor: hand;");
+        Button btnSave = new Button("+ Thêm Phòng");
+        btnSave.setStyle("-fx-background-color:#52C41A;-fx-text-fill:white;"
+                +"-fx-background-radius:8;-fx-padding:10 24;-fx-font-weight:bold;-fx-cursor:hand;");
         Button btnCancel = new Button("Hủy");
-        btnCancel.setStyle("-fx-background-color: #F5F5F5; -fx-text-fill: #595959;"
-                + "-fx-background-radius: 6; -fx-padding: 8 20; -fx-cursor: hand;");
+        btnCancel.setStyle("-fx-background-color:#F5F5F5;-fx-text-fill:#595959;"
+                +"-fx-background-radius:8;-fx-padding:10 20;-fx-cursor:hand;");
         btnCancel.setOnAction(e -> dialog.close());
 
         btnSave.setOnAction(e -> {
             if (txtMa.getText().trim().isEmpty() || txtTen.getText().trim().isEmpty()) {
-                errLbl.setText("Mã phòng và tên phòng không được trống!");
+                errLbl.setText("Mã phòng và tên phòng không được để trống!");
                 errLbl.setVisible(true); errLbl.setManaged(true); return;
             }
+            // Thu thập tiện nghi được chọn
+            String tienNghi = tnMap.entrySet().stream()
+                .filter(en -> "#1890FF".equals(en.getValue().getUserData()))
+                .map(Map.Entry::getKey)
+                .collect(Collectors.joining(","));
+            int sucChua = 2;
+            try { sucChua = Integer.parseInt(txtSuaChua.getText().trim()); } catch (Exception ignored) {}
+
+            Phong phong = new Phong();
+            phong.setMaPhong     (txtMa.getText().trim());
+            phong.setTenPhong    (txtTen.getText().trim());
+            phong.setMaLoaiPhong (cbLoai.getValue());
+            phong.setTrangThai   ("PhongTrong");
+            phong.setTienNghi    (tienNghi.isEmpty() ? null : tienNghi);
+            phong.setSoNguoiToiDa(sucChua);
+            phong.setMoTa        (taMotA.getText().trim());
             try {
-                Phong phong = new Phong();
-                phong.setMaPhong(txtMa.getText().trim());
-                phong.setTenPhong(txtTen.getText().trim());
-                phong.setMaLoaiPhong(cbLoai.getValue());
-                phong.setTrangThai("PhongTrong");
                 new PhongDAO().themPhong(phong);
-                dialog.close();
-                refreshTable();
-                refreshRoomCards();
             } catch (Exception ex) {
                 errLbl.setText("Lỗi DB: " + ex.getMessage());
-                errLbl.setVisible(true); errLbl.setManaged(true);
+                errLbl.setVisible(true); errLbl.setManaged(true); return;
             }
+            dialog.close();
+            refreshTable();
+            refreshRoomCards();
         });
 
         HBox btnRow = new HBox(10, btnCancel, btnSave);
         btnRow.setAlignment(Pos.CENTER_RIGHT);
-        btnRow.setPadding(new Insets(0, 20, 16, 20));
 
-        VBox root = new VBox(form, errLbl, btnRow);
-        root.setStyle("-fx-background-color: #FFFFFF;");
-        dialog.setScene(new Scene(root, 370, 240));
+        formRoot.getChildren().addAll(
+            fLabel("Thêm Phòng Mới — Thông Tin Cơ Bản"), form,
+            tnLabel, tnFlow,
+            moTaLabel, taMotA,
+            errLbl, btnRow
+        );
+        scroll.setContent(formRoot);
+        dialog.setScene(new Scene(scroll, 520, 500));
         dialog.showAndWait();
     }
 
@@ -912,9 +1094,10 @@ public class PhongView {
                         default -> p.getTrangThai();
                     };
                     int floor = (i / 4) + 1;
+                    String tienNghi = p.getTienNghi() != null ? p.getTienNghi() : "WiFi";
                     result.add(new Object[]{
                         p.getMaPhong(), p.getTenPhong(), loaiName, "Phòng Đôi",
-                        750_000L, displayStatus, "", "", floor
+                        750_000L, displayStatus, "", "", floor, tienNghi
                     });
                 }
                 return result;

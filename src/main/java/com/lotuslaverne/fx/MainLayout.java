@@ -47,22 +47,23 @@ public class MainLayout {
         new NavEntry("🚪", "Quản Lý Phòng",      "phong",      false),  // 1
         new NavEntry("💰", "Bảng Giá",           "banggia",    false),  // 2
         new NavEntry("🛎", "Dịch Vụ",            "dichvu",     false),  // 3
-        new NavEntry("📋", "Đặt Phòng",          "datphong",   false),  // 4
-        new NavEntry("✅", "Check-in",           "checkin",    false),  // 5
-        new NavEntry("🔄", "Đổi Phòng",          "doiphong",   false),  // 6
-        new NavEntry("➕", "Ghép Phòng",          "ghepphong",  false),  // 7
-        new NavEntry("💳", "Thanh Toán",         "thanhtoan",  false),  // 8
-        new NavEntry("🧾", "Hóa Đơn",            "hoadon",     true),   // 9
-        new NavEntry("🎁", "Khuyến Mãi",         "khuyenmai",  true),   // 10
-        new NavEntry("👤", "Quản Lý Khách",      "khach",      false),  // 11
-        new NavEntry("👥", "Quản Lý Nhân Viên",  "nhanvien",   true),   // 12
-        new NavEntry("📊", "Báo Cáo",            "baocao",     false),  // 13
-        new NavEntry("🔑", "Tài Khoản",          "taikhoan",   true),   // 14
-        new NavEntry("⚙",  "Cài Đặt",            "caidat",     false),  // 15
+        new NavEntry("🔌", "Thiết Bị",           "thietbi",    false),  // 4
+        new NavEntry("📋", "Đặt Phòng",          "datphong",   false),  // 5
+        new NavEntry("✅", "Check-in",           "checkin",    false),  // 6
+        new NavEntry("🔄", "Đổi Phòng",          "doiphong",   false),  // 7
+        new NavEntry("➕", "Ghép Phòng",          "ghepphong",  false),  // 8
+        new NavEntry("💳", "Thanh Toán",         "thanhtoan",  false),  // 9
+        new NavEntry("🧾", "Hóa Đơn",            "hoadon",     true),   // 10
+        new NavEntry("🎁", "Khuyến Mãi",         "khuyenmai",  true),   // 11
+        new NavEntry("👤", "Quản Lý Khách",      "khach",      false),  // 12
+        new NavEntry("👥", "Quản Lý Nhân Viên",  "nhanvien",   true),   // 13
+        new NavEntry("📊", "Báo Cáo",            "baocao",     false),  // 14
+        new NavEntry("🔑", "Tài Khoản",          "taikhoan",   true),   // 15
+        new NavEntry("⚙",  "Cài Đặt",            "caidat",     false),  // 16
     };
 
     // Section break BEFORE which index (0-based in ALL_NAV)
-    private static final int[] SECTION_BREAKS = {0, 1, 4, 9, 11, 13};
+    private static final int[] SECTION_BREAKS = {0, 1, 5, 10, 12, 14};
     private static final String[] SECTION_LABELS = {
         "TỔNG QUAN", "QUẢN LÝ PHÒNG", "LƯU TRÚ",
         "TÀI CHÍNH", "NHÂN SỰ", "HỆ THỐNG"
@@ -290,6 +291,7 @@ public class MainLayout {
             case "phong"     -> new PhongView().build();
             case "banggia"   -> new BangGiaView().build();
             case "dichvu"    -> new DichVuView().build();
+            case "thietbi"   -> new ThietBiView().build();
             case "datphong"  -> new DatPhongView().build();
             case "checkin"   -> new CheckInView().build();
             case "doiphong"  -> new DoiPhongView().build();

@@ -1,11 +1,12 @@
 package com.lotuslaverne.fx.views;
 
 import com.lotuslaverne.dao.KhachHangDAO;
+import com.lotuslaverne.dao.PhieuDatPhongDAO;
 import com.lotuslaverne.entity.KhachHang;
+import com.lotuslaverne.entity.PhieuDatPhong;
 import com.lotuslaverne.fx.UiUtils;
-import com.lotuslaverne.util.ConnectDB;
-import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
@@ -15,27 +16,30 @@ import javafx.scene.layout.*;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.Timestamp;
-import java.text.DecimalFormat;
-import java.time.format.DateTimeFormatter;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 public class KhachView {
 
-    private static final Object[][] DEMO_KHACH = {
-        {"KH001", "Nguyễn Văn An",   "101", "0901234567", "012345678901", "22/04/2026", "26/04/2026", "Đang Lưu Trú"},
-        {"KH002", "Trần Thị Bình",   "205", "0912345678", "098765432100", "20/04/2026", "25/04/2026", "Đang Lưu Trú"},
-        {"KH003", "Lê Hoàng Cường",  "312", "0923456789", "011223344556", "23/04/2026", "27/04/2026", "Đang Lưu Trú"},
-        {"KH004", "Phạm Thị Dung",   "408", "0934567890", "034567890123", "21/04/2026", "28/04/2026", "Đang Lưu Trú"},
-        {"KH005", "Hoàng Minh Đức",  "103", "0945678901", "045678901234", "19/04/2026", "24/04/2026", "Đã Trả Phòng"},
-        {"KH006", "Vũ Thị Lan",      "",    "0956789012", "056789012345", "25/04/2026", "30/04/2026", "Đặt Trước"},
-        {"KH007", "Đặng Quốc Hùng",  "202", "0967890123", "067890123456", "22/04/2026", "26/04/2026", "Đang Lưu Trú"},
-        {"KH008", "Bùi Thị Mai",     "304", "0978901234", "078901234567", "18/04/2026", "23/04/2026", "Đã Trả Phòng"},
+    private static final Object[][] DEMO = {
+        {"KH001","Nguyễn Văn An","0912345678","012345678901","Nam","01/01/1990","123 Lê Lợi, Q1, HCM","Việt Nam"},
+        {"KH002","Trần Thị Bình","0923456789","023456789012","Nữ","15/05/1992","456 Hai Bà Trưng, HN","Việt Nam"},
+        {"KH003","Robert Smith","0934567890","US12345678","Nam","20/03/1985","New York, USA","Mỹ"},
     };
+
+    private ObservableList<Object[]> items;
+    private FlowPane cardsPane;
+    private Label countLbl;
+
+    // ── Form sửa inline ──
+    private Object[] selectedRow;
+    private TextField tfTen, tfSDT, tfCCCD, tfDiaChi, tfNgaySinh, tfQuocTich;
+    private ComboBox<String> cbGioiTinh;
+    private Label formTitle;
+    private Button btnSave, btnCancel;
+    private VBox formCard;
 
     public Node build() {
         VBox root = new VBox(0);
@@ -46,370 +50,391 @@ public class KhachView {
         scroll.setStyle("-fx-background-color: #F0F2F5; -fx-border-color: transparent;");
 
         VBox content = new VBox(20);
-        content.setPadding(new Insets(28, 28, 28, 28));
+        content.setPadding(new Insets(28));
         content.setStyle("-fx-background-color: #F0F2F5;");
 
-        // Page header
+        // Header
         VBox header = new VBox(4);
-        Label title = new Label("Quản Lý Khách");
+        Label title = new Label("Quản Lý Liên Lạc Khách Hàng");
         title.setStyle("-fx-font-size: 22px; -fx-font-weight: bold; -fx-text-fill: #1A1A2E;");
-        long dangLuuTru = countByStatus("Đang Lưu Trú");
-        long datTruoc   = countByStatus("Đặt Trước");
-        Label sub = new Label(dangLuuTru + " khách đang lưu trú • " + datTruoc + " đặt trước");
-        sub.setStyle("-fx-font-size: 13px; -fx-text-fill: #8C8C8C;");
-        header.getChildren().addAll(title, sub);
+        countLbl = new Label("Đang tải...");
+        countLbl.setStyle("-fx-font-size: 13px; -fx-text-fill: #8C8C8C;");
+        header.getChildren().addAll(title, countLbl);
 
-        // Add guest form card
-        Node formCard = buildFormCard();
+        items = FXCollections.observableArrayList(loadData());
+        updateCount();
 
-        // Search bar
-        HBox searchBar = buildSearchBar();
-
-        // Table
-        TableView<Object[]> table = buildTable();
-        table.setPrefHeight(400);
-
-        content.getChildren().addAll(header, formCard, searchBar, table);
+        content.getChildren().addAll(header, buildFormCard(), buildToolbar(), buildCards());
         scroll.setContent(content);
         VBox.setVgrow(scroll, Priority.ALWAYS);
         root.getChildren().add(scroll);
         return root;
     }
 
+    // ── Form Thêm / Sửa (Inline) ──────────────────────────────────────
     private Node buildFormCard() {
-        VBox card = new VBox(14);
-        card.setPadding(new Insets(20));
-        card.setStyle("-fx-background-color: #FFFFFF; -fx-background-radius: 10;"
-                + "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.06), 6, 0, 0, 1);");
+        formCard = new VBox(14);
+        formCard.setPadding(new Insets(20));
+        formCard.setStyle("-fx-background-color: #FFFFFF; -fx-background-radius: 10;"
+                + "-fx-effect: dropshadow(gaussian,rgba(0,0,0,0.06),6,0,0,1);");
 
-        Label cardTitle = new Label("+ Thêm Khách Mới");
-        cardTitle.setStyle("-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: #1A1A2E;"
-                + "-fx-padding: 0 0 10 0; -fx-border-color: transparent transparent #F0F2F5 transparent;"
-                + "-fx-border-width: 0 0 1 0;");
+        formTitle = new Label("+ Thêm Khách Hàng Mới");
+        formTitle.setStyle("-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: #1A1A2E;");
 
         GridPane form = new GridPane();
-        form.setHgap(16);
-        form.setVgap(10);
+        form.setHgap(16); form.setVgap(10);
         for (int i = 0; i < 4; i++) {
-            ColumnConstraints cc = new ColumnConstraints();
-            cc.setPercentWidth(25);
+            ColumnConstraints cc = new ColumnConstraints(); cc.setPercentWidth(25);
             form.getColumnConstraints().add(cc);
         }
 
-        String[] labels = {"Họ Và Tên", "Phòng", "SĐT", "CMND/CCCD",
-                           "Ngày Nhận", "Ngày Trả", "Email", "Trạng Thái"};
-        for (int i = 0; i < labels.length; i++) {
-            int col = i % 4;
-            int row = (i / 4) * 2;
-            Label lbl = new Label(labels[i]);
-            lbl.setStyle("-fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: #595959;");
-            form.add(lbl, col, row);
+        tfTen      = field("Họ và tên *");
+        tfSDT      = field("Số điện thoại *");
+        tfCCCD     = field("CCCD / Hộ chiếu *");
+        tfNgaySinh = field("dd/MM/yyyy");
+        tfDiaChi   = field("Địa chỉ");
+        tfQuocTich = field("Quốc tịch");
+        tfQuocTich.setText("Việt Nam");
 
-            Node input;
-            if (labels[i].equals("Trạng Thái")) {
-                ComboBox<String> cb = new ComboBox<>();
-                cb.getItems().addAll("Đang Lưu Trú", "Đặt Trước", "Đã Trả Phòng");
-                cb.setValue("Đang Lưu Trú");
-                cb.setMaxWidth(Double.MAX_VALUE);
-                cb.setStyle("-fx-background-color: #FFFFFF; -fx-border-color: #D9D9D9;"
-                        + "-fx-border-radius: 6; -fx-background-radius: 6; -fx-border-width: 1;");
-                input = cb;
-            } else {
-                TextField tf = new TextField();
-                tf.setMaxWidth(Double.MAX_VALUE);
-                tf.setStyle("-fx-background-color: #FFFFFF; -fx-border-color: #D9D9D9;"
-                        + "-fx-border-radius: 6; -fx-background-radius: 6; -fx-border-width: 1;"
-                        + "-fx-padding: 7 10 7 10;");
-                input = tf;
+        cbGioiTinh = new ComboBox<>();
+        cbGioiTinh.getItems().addAll("Nam","Nữ");
+        cbGioiTinh.setValue("Nam");
+        cbGioiTinh.setMaxWidth(Double.MAX_VALUE);
+        cbGioiTinh.setStyle("-fx-background-color:#FFF;-fx-border-color:#D9D9D9;"
+                + "-fx-border-radius:6;-fx-background-radius:6;-fx-border-width:1;");
+
+        form.add(lbl("Họ Và Tên *"),   0,0); form.add(tfTen,      0,1);
+        form.add(lbl("SĐT *"),         1,0); form.add(tfSDT,      1,1);
+        form.add(lbl("CCCD *"),        2,0); form.add(tfCCCD,     2,1);
+        form.add(lbl("Giới Tính"),     3,0); form.add(cbGioiTinh, 3,1);
+        form.add(lbl("Ngày Sinh"),     0,2); form.add(tfNgaySinh, 0,3);
+        form.add(lbl("Địa Chỉ"),      1,2); form.add(tfDiaChi,   1,3);
+        form.add(lbl("Quốc Tịch"),    2,2); form.add(tfQuocTich, 2,3);
+
+        Label errLbl = new Label();
+        errLbl.setStyle("-fx-text-fill:#FF4D4F;-fx-font-size:12px;");
+        errLbl.setVisible(false); errLbl.setManaged(false);
+
+        btnSave = new Button("+ Thêm Khách Hàng");
+        btnSave.setStyle("-fx-background-color:#1890FF;-fx-text-fill:white;"
+                + "-fx-background-radius:8;-fx-padding:8 20;-fx-font-weight:bold;-fx-cursor:hand;");
+
+        btnCancel = new Button("✕ Hủy Sửa");
+        btnCancel.setStyle("-fx-background-color:#F5F5F5;-fx-text-fill:#595959;"
+                + "-fx-background-radius:8;-fx-padding:8 14;-fx-cursor:hand;");
+        btnCancel.setVisible(false); btnCancel.setManaged(false);
+        btnCancel.setOnAction(e -> resetForm());
+
+        btnSave.setOnAction(e -> {
+            String ten = tfTen.getText().trim();
+            String sdt = tfSDT.getText().trim();
+            String cccd = tfCCCD.getText().trim();
+            if (ten.isEmpty() || sdt.isEmpty() || cccd.isEmpty()) {
+                errLbl.setText("Vui lòng nhập Họ Tên, SĐT và CCCD!"); errLbl.setVisible(true); errLbl.setManaged(true); return;
             }
-            form.add(input, col, row + 1);
-        }
+            errLbl.setVisible(false); errLbl.setManaged(false);
+            if (selectedRow != null) {
+                // Chế độ SỬA
+                KhachHang kh = buildFromForm(selectedRow[0].toString());
+                try {
+                    boolean ok = new KhachHangDAO().suaKhachHang(kh);
+                    if (ok) {
+                        selectedRow[1] = ten; selectedRow[2] = sdt; selectedRow[3] = cccd;
+                        selectedRow[4] = cbGioiTinh.getValue();
+                        selectedRow[5] = tfNgaySinh.getText().trim();
+                        selectedRow[6] = tfDiaChi.getText().trim();
+                        selectedRow[7] = tfQuocTich.getText().trim();
+                        refreshCards(); resetForm();
+                    } else { errLbl.setText("Cập nhật thất bại! Kiểm tra DB."); errLbl.setVisible(true); errLbl.setManaged(true); }
+                } catch (Exception ex) { errLbl.setText("Lỗi: " + ex.getMessage()); errLbl.setVisible(true); errLbl.setManaged(true); }
+            } else {
+                // Chế độ THÊM
+                String maKH = "KH" + UUID.randomUUID().toString().substring(0,4).toUpperCase();
+                KhachHang kh = buildFromForm(maKH);
+                try {
+                    boolean ok = new KhachHangDAO().themKhachHang(kh);
+                    Object[] row = {maKH, ten, sdt, cccd, cbGioiTinh.getValue(),
+                        tfNgaySinh.getText().trim(), tfDiaChi.getText().trim(), tfQuocTich.getText().trim()};
+                    if (ok) { items.add(row); } else { items.add(row); } // Demo: thêm dù DB fail
+                    refreshCards(); resetForm(); updateCount();
+                } catch (Exception ex) {
+                    // Demo mode
+                    Object[] row = {maKH, ten, sdt, cccd, cbGioiTinh.getValue(),
+                        tfNgaySinh.getText().trim(), tfDiaChi.getText().trim(), tfQuocTich.getText().trim()};
+                    items.add(row); refreshCards(); resetForm(); updateCount();
+                }
+            }
+        });
 
-        Button addBtn = new Button("Thêm Khách");
-        addBtn.setStyle("-fx-background-color: #1890FF; -fx-text-fill: white;"
-                + "-fx-background-radius: 8; -fx-padding: 8 20; -fx-font-weight: bold; -fx-cursor: hand;");
-
-        card.getChildren().addAll(cardTitle, form, addBtn);
-        return card;
+        HBox btnRow = new HBox(10, btnCancel, btnSave);
+        btnRow.setAlignment(Pos.CENTER_RIGHT);
+        formCard.getChildren().addAll(formTitle, form, errLbl, btnRow);
+        return formCard;
     }
 
-    private HBox buildSearchBar() {
+    // ── Toolbar tìm kiếm ──────────────────────────────────────────────
+    private HBox buildToolbar() {
         HBox bar = new HBox(12);
         bar.setAlignment(Pos.CENTER_LEFT);
-        bar.setPadding(new Insets(12, 16, 12, 16));
-        bar.setStyle("-fx-background-color: #FFFFFF; -fx-background-radius: 10;"
-                + "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.06), 6, 0, 0, 1);");
+        bar.setPadding(new Insets(12,16,12,16));
+        bar.setStyle("-fx-background-color:#FFFFFF;-fx-background-radius:10;"
+                + "-fx-effect: dropshadow(gaussian,rgba(0,0,0,0.06),6,0,0,1);");
 
         TextField search = new TextField();
-        search.setPromptText("🔍  Tìm theo tên, phòng, CMND...");
+        search.setPromptText("🔍  Tìm theo tên, SĐT, CCCD, địa chỉ...");
         search.setPrefWidth(300);
-        search.setStyle("-fx-background-color: #F5F5F5; -fx-border-color: #E8E8E8;"
-                + "-fx-border-radius: 8; -fx-background-radius: 8; -fx-border-width: 1;"
-                + "-fx-padding: 8 12 8 12; -fx-font-size: 13px;");
+        search.setStyle("-fx-background-color:#F5F5F5;-fx-border-color:#E8E8E8;"
+                + "-fx-border-radius:8;-fx-background-radius:8;-fx-border-width:1;"
+                + "-fx-padding:8 12;-fx-font-size:13px;");
 
-        Region spacer = new Region();
-        HBox.setHgrow(spacer, Priority.ALWAYS);
+        search.textProperty().addListener((obs,o,n) -> {
+            if (n == null || n.trim().isEmpty()) { renderCards(items); return; }
+            String kw = n.toLowerCase();
+            List<Object[]> f = new ArrayList<>();
+            for (Object[] r : items) {
+                for (Object c : r) if (c != null && c.toString().toLowerCase().contains(kw)) { f.add(r); break; }
+            }
+            renderCards(FXCollections.observableArrayList(f));
+        });
 
-        Label countLbl = new Label(DEMO_KHACH.length + " kết quả");
-        countLbl.setStyle("-fx-font-size: 12px; -fx-text-fill: #8C8C8C;");
+        Region spacer = new Region(); HBox.setHgrow(spacer, Priority.ALWAYS);
 
-        Button addBtn = new Button("+ Thêm Mới");
-        addBtn.setStyle("-fx-background-color: #1890FF; -fx-text-fill: white;"
-                + "-fx-background-radius: 8; -fx-padding: 8 16; -fx-font-weight: bold; -fx-cursor: hand;");
+        Button btnRefresh = new Button("↻  Làm Mới");
+        btnRefresh.setStyle("-fx-background-color:#F5F5F5;-fx-text-fill:#595959;"
+                + "-fx-background-radius:8;-fx-border-color:#D9D9D9;-fx-border-width:1;"
+                + "-fx-border-radius:8;-fx-padding:8 14;-fx-cursor:hand;");
+        btnRefresh.setOnAction(e -> {
+            items.setAll(loadData()); refreshCards(); updateCount();
+            UiUtils.flashButton(btnRefresh, "✓ Đã làm mới");
+        });
 
-        bar.getChildren().addAll(search, spacer, countLbl, addBtn);
+        bar.getChildren().addAll(search, spacer, btnRefresh);
         return bar;
     }
 
-    @SuppressWarnings("unchecked")
-    private TableView<Object[]> buildTable() {
-        TableView<Object[]> table = new TableView<>();
-        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
-        table.setStyle("-fx-background-color: #FFFFFF; -fx-background-radius: 10;"
-                + "-fx-border-radius: 10; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.06), 6, 0, 0, 1);");
+    // ── Cards ──────────────────────────────────────────────────────────
+    private FlowPane buildCards() {
+        cardsPane = new FlowPane(16, 16);
+        cardsPane.setPadding(new Insets(4, 0, 0, 0));
+        renderCards(items);
+        return cardsPane;
+    }
 
-        // STT
-        TableColumn<Object[], String> colStt = new TableColumn<>("STT");
-        colStt.setCellValueFactory(p -> new SimpleStringProperty(
-                String.valueOf(table.getItems().indexOf(p.getValue()) + 1)));
-        colStt.setPrefWidth(45);
+    private void renderCards(ObservableList<Object[]> rows) {
+        cardsPane.getChildren().clear();
+        for (Object[] row : rows) {
+            cardsPane.getChildren().add(makeCard(row));
+        }
+        if (rows.isEmpty()) {
+            Label empty = new Label("Không tìm thấy khách hàng.");
+            empty.setStyle("-fx-text-fill:#8C8C8C;-fx-font-size:14px;");
+            cardsPane.getChildren().add(empty);
+        }
+    }
 
-        // Họ Tên with avatar
-        TableColumn<Object[], String> colTen = new TableColumn<>("Họ Tên");
-        colTen.setCellValueFactory(p -> new SimpleStringProperty((String) p.getValue()[1]));
-        colTen.setCellFactory(tc -> new TableCell<>() {
-            @Override protected void updateItem(String item, boolean empty) {
-                super.updateItem(item, empty);
-                if (empty || item == null) { setGraphic(null); return; }
-                HBox box = new HBox(8);
-                box.setAlignment(Pos.CENTER_LEFT);
-                Node avatar = UiUtils.makeAvatarCircle(item, 14);
-                Label lbl = new Label(item);
-                lbl.setStyle("-fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: #1A1A2E;");
-                box.getChildren().addAll(avatar, lbl);
-                setGraphic(box); setText(null);
-            }
-        });
+    private Node makeCard(Object[] row) {
+        VBox card = new VBox(10);
+        card.setPadding(new Insets(16));
+        card.setPrefWidth(320);
+        card.setStyle("-fx-background-color:#FFFFFF;-fx-background-radius:12;"
+                + "-fx-effect: dropshadow(gaussian,rgba(0,0,0,0.07),8,0,0,2);");
 
-        // Phòng badge
-        TableColumn<Object[], String> colPhong = new TableColumn<>("Phòng");
-        colPhong.setCellValueFactory(p -> new SimpleStringProperty((String) p.getValue()[2]));
-        colPhong.setCellFactory(tc -> new TableCell<>() {
-            @Override protected void updateItem(String item, boolean empty) {
-                super.updateItem(item, empty);
-                if (empty || item == null || item.isEmpty()) { setGraphic(null); setText(null); return; }
-                Label badge = new Label(item);
-                badge.setStyle("-fx-background-color: #E6F4FF; -fx-text-fill: #1890FF;"
-                        + "-fx-padding: 2 8 2 8; -fx-background-radius: 10;"
-                        + "-fx-font-size: 11px; -fx-font-weight: bold;");
-                setGraphic(badge); setText(null);
-            }
-        });
-        colPhong.setPrefWidth(60);
+        // Header: avatar + tên + mã
+        HBox topRow = new HBox(10);
+        topRow.setAlignment(Pos.CENTER_LEFT);
+        String ten = row[1].toString();
+        Node avatar = UiUtils.makeAvatarCircle(ten, 18);
+        VBox nameBox = new VBox(2);
+        Label nameLbl = new Label(ten);
+        nameLbl.setStyle("-fx-font-size:14px;-fx-font-weight:bold;-fx-text-fill:#1A1A2E;");
+        Label maLbl = new Label(row[0].toString());
+        maLbl.setStyle("-fx-font-size:11px;-fx-text-fill:#1890FF;");
+        nameBox.getChildren().addAll(nameLbl, maLbl);
+        Region sp = new Region(); HBox.setHgrow(sp, Priority.ALWAYS);
+        // Badge quốc tịch
+        Label nationBadge = new Label(row[7] != null ? row[7].toString() : "Việt Nam");
+        nationBadge.setStyle("-fx-background-color:#E6F4FF;-fx-text-fill:#1890FF;"
+                + "-fx-padding:2 8;-fx-background-radius:10;-fx-font-size:11px;");
+        topRow.getChildren().addAll(avatar, nameBox, sp, nationBadge);
 
-        TableColumn<Object[], String> colSDT    = simpleCol("Điện Thoại", 3);
-        TableColumn<Object[], String> colCMND   = simpleCol("CMND/CCCD", 4);
-        TableColumn<Object[], String> colNhan   = simpleCol("Nhận Phòng", 5);
-        TableColumn<Object[], String> colTra    = simpleCol("Trả Phòng",  6);
+        Separator sep = new Separator();
 
-        // Trạng thái badge
-        TableColumn<Object[], String> colTT = new TableColumn<>("Trạng Thái");
-        colTT.setCellValueFactory(p -> new SimpleStringProperty((String) p.getValue()[7]));
-        colTT.setCellFactory(tc -> new TableCell<>() {
-            @Override protected void updateItem(String item, boolean empty) {
-                super.updateItem(item, empty);
-                if (empty || item == null) { setGraphic(null); setText(null); return; }
-                Label badge = new Label(item);
-                String bg, fg;
-                switch (item) {
-                    case "Đang Lưu Trú" -> { bg = "#FFF1F0"; fg = "#FF4D4F"; }
-                    case "Đặt Trước"    -> { bg = "#FFFBE6"; fg = "#FAAD14"; }
-                    default             -> { bg = "#F6FFED"; fg = "#52C41A"; }
+        // Thông tin liên lạc
+        VBox infoBox = new VBox(6);
+        infoBox.getChildren().addAll(
+            infoRow("📞", row[2].toString()),
+            infoRow("🪪", "CCCD: " + row[3].toString()),
+            infoRow(row[4] != null && "Nữ".equals(row[4].toString()) ? "👩" : "👨",
+                (row[4] != null ? row[4].toString() : "Nam")
+                + (row[5] != null && !row[5].toString().isEmpty() ? "  •  Sinh: " + row[5] : "")),
+            infoRow("🏠", row[6] != null && !row[6].toString().isEmpty() ? row[6].toString() : "Chưa cập nhật")
+        );
+
+        // Nút hành động
+        Button btnSua = new Button("✏  Sửa");
+        btnSua.setStyle("-fx-background-color:#E6F4FF;-fx-text-fill:#1890FF;"
+                + "-fx-background-radius:8;-fx-font-size:12px;-fx-padding:5 14;-fx-cursor:hand;");
+        Button btnLichSu = new Button("📋  Lịch Sử");
+        btnLichSu.setStyle("-fx-background-color:#F6FFED;-fx-text-fill:#52C41A;"
+                + "-fx-background-radius:8;-fx-font-size:12px;-fx-padding:5 14;-fx-cursor:hand;");
+
+        btnSua.setOnAction(e -> populateForm(row));
+        btnLichSu.setOnAction(e -> showLichSu(row[0].toString(), ten));
+
+        HBox actions = new HBox(8, btnSua, btnLichSu);
+        card.getChildren().addAll(topRow, sep, infoBox, actions);
+
+        // Hover effect
+        card.setOnMouseEntered(e -> card.setStyle("-fx-background-color:#FAFAFA;-fx-background-radius:12;"
+                + "-fx-effect: dropshadow(gaussian,rgba(24,144,255,0.15),12,0,0,3);"));
+        card.setOnMouseExited(e -> card.setStyle("-fx-background-color:#FFFFFF;-fx-background-radius:12;"
+                + "-fx-effect: dropshadow(gaussian,rgba(0,0,0,0.07),8,0,0,2);"));
+        return card;
+    }
+
+    private HBox infoRow(String icon, String text) {
+        HBox row = new HBox(8); row.setAlignment(Pos.CENTER_LEFT);
+        Label ico = new Label(icon);
+        ico.setStyle("-fx-font-size:13px;");
+        Label txt = new Label(text);
+        txt.setStyle("-fx-font-size:12px;-fx-text-fill:#595959;");
+        txt.setWrapText(true); txt.setMaxWidth(270);
+        row.getChildren().addAll(ico, txt);
+        return row;
+    }
+
+    // ── Lịch Sử Đặt Phòng ────────────────────────────────────────────
+    private void showLichSu(String maKH, String tenKH) {
+        Stage dialog = new Stage();
+        dialog.initModality(Modality.APPLICATION_MODAL);
+        dialog.setTitle("Lịch Sử Đặt Phòng — " + tenKH);
+        dialog.setResizable(true);
+
+        VBox root = new VBox(16);
+        root.setPadding(new Insets(20));
+        root.setStyle("-fx-background-color:#F0F2F5;");
+
+        Label hdr = new Label("📋  Lịch sử đặt phòng của: " + tenKH);
+        hdr.setStyle("-fx-font-size:15px;-fx-font-weight:bold;-fx-text-fill:#1A1A2E;");
+
+        ListView<String> listView = new ListView<>();
+        listView.setStyle("-fx-background-color:#FFFFFF;-fx-border-color:#E8E8E8;");
+
+        try {
+            SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy HH:mm");
+            List<PhieuDatPhong> pdps = new PhieuDatPhongDAO().getAll();
+            for (PhieuDatPhong p : pdps) {
+                if (maKH.equals(p.getMaKhachHang())) {
+                    String entry = String.format("[%s]  Nhận: %s  →  Trả: %s  |  Khách: %d  |  %s",
+                        p.getMaPhieuDatPhong(),
+                        p.getThoiGianNhanDuKien() != null ? sdf.format(p.getThoiGianNhanDuKien()) : "—",
+                        p.getThoiGianTraDuKien()  != null ? sdf.format(p.getThoiGianTraDuKien())  : "—",
+                        p.getSoNguoi(),
+                        p.getGhiChu() != null ? p.getGhiChu() : "");
+                    listView.getItems().add(entry);
                 }
-                badge.setStyle("-fx-background-color: " + bg + "; -fx-text-fill: " + fg + ";"
-                        + "-fx-padding: 2 8 2 8; -fx-background-radius: 10;"
-                        + "-fx-font-size: 11px; -fx-font-weight: bold;");
-                setGraphic(badge); setText(null);
             }
-        });
+        } catch (Exception ignored) {}
 
-        // Thao tác
-        TableColumn<Object[], String> colAction = new TableColumn<>("Thao Tác");
-        colAction.setCellFactory(tc -> new TableCell<>() {
-            private final Button historyBtn = new Button("📋 Lịch Sử");
-            private final Button editBtn    = new Button("Sửa");
-            private final Button delBtn     = new Button("Xóa");
-            {
-                historyBtn.setStyle("-fx-background-color: #F9F0FF; -fx-text-fill: #722ED1;"
-                        + "-fx-background-radius: 6; -fx-border-radius: 6;"
-                        + "-fx-font-size: 11px; -fx-padding: 3 8; -fx-cursor: hand;");
-                editBtn.setStyle("-fx-background-color: #E6F4FF; -fx-text-fill: #1890FF;"
-                        + "-fx-background-radius: 6; -fx-border-radius: 6;"
-                        + "-fx-font-size: 11px; -fx-padding: 3 8; -fx-cursor: hand;");
-                delBtn.setStyle("-fx-background-color: #FFF1F0; -fx-text-fill: #FF4D4F;"
-                        + "-fx-background-radius: 6; -fx-border-radius: 6;"
-                        + "-fx-font-size: 11px; -fx-padding: 3 8; -fx-cursor: hand;");
+        if (listView.getItems().isEmpty())
+            listView.getItems().add("Chưa có lịch sử đặt phòng.");
 
-                historyBtn.setOnAction(e -> {
-                    Object[] row = getTableView().getItems().get(getIndex());
-                    String maKH = row[0] != null ? row[0].toString() : "";
-                    String tenKH = row[1] != null ? row[1].toString() : "";
-                    openHistoryDialog(maKH, tenKH);
-                });
-            }
-            @Override protected void updateItem(String item, boolean empty) {
-                super.updateItem(item, empty);
-                if (empty) { setGraphic(null); return; }
-                HBox box = new HBox(6);
-                box.setAlignment(Pos.CENTER_LEFT);
-                box.getChildren().addAll(historyBtn, editBtn, delBtn);
-                setGraphic(box);
-            }
-        });
-        colAction.setPrefWidth(220);
+        Button btnClose = new Button("Đóng");
+        btnClose.setStyle("-fx-background-color:#1890FF;-fx-text-fill:white;"
+                + "-fx-background-radius:8;-fx-padding:8 20;-fx-cursor:hand;");
+        btnClose.setOnAction(e -> dialog.close());
+        HBox btnRow = new HBox(btnClose); btnRow.setAlignment(Pos.CENTER_RIGHT);
 
-        table.getColumns().addAll(colStt, colTen, colPhong, colSDT, colCMND, colNhan, colTra, colTT, colAction);
-        table.setItems(FXCollections.observableArrayList(loadKhach()));
-        return table;
+        root.getChildren().addAll(hdr, listView, btnRow);
+        dialog.setScene(new Scene(root, 600, 400));
+        dialog.showAndWait();
     }
 
-    private TableColumn<Object[], String> simpleCol(String title, int idx) {
-        TableColumn<Object[], String> col = new TableColumn<>(title);
-        col.setCellValueFactory(p -> new SimpleStringProperty((String) p.getValue()[idx]));
-        return col;
+    // ── Helpers ───────────────────────────────────────────────────────
+    private void populateForm(Object[] row) {
+        selectedRow = row;
+        formTitle.setText("✏  Sửa Thông Tin: " + row[1]);
+        tfTen.setText      (row[1].toString());
+        tfSDT.setText      (row[2].toString());
+        tfCCCD.setText     (row[3].toString());
+        cbGioiTinh.setValue(row[4] != null ? row[4].toString() : "Nam");
+        tfNgaySinh.setText (row[5] != null ? row[5].toString() : "");
+        tfDiaChi.setText   (row[6] != null ? row[6].toString() : "");
+        tfQuocTich.setText (row[7] != null ? row[7].toString() : "Việt Nam");
+        btnSave.setText("💾  Lưu Thay Đổi");
+        btnSave.setStyle("-fx-background-color:#FA8C16;-fx-text-fill:white;"
+                + "-fx-background-radius:8;-fx-padding:8 20;-fx-font-weight:bold;-fx-cursor:hand;");
+        btnCancel.setVisible(true); btnCancel.setManaged(true);
+        formCard.setStyle("-fx-background-color:#FFFBE6;-fx-background-radius:10;"
+                + "-fx-border-color:#FAAD14;-fx-border-width:1;-fx-border-radius:10;"
+                + "-fx-effect: dropshadow(gaussian,rgba(0,0,0,0.08),8,0,0,2);");
     }
 
-    private List<Object[]> loadKhach() {
+    private void resetForm() {
+        selectedRow = null;
+        formTitle.setText("+ Thêm Khách Hàng Mới");
+        tfTen.clear(); tfSDT.clear(); tfCCCD.clear();
+        tfNgaySinh.clear(); tfDiaChi.clear();
+        tfQuocTich.setText("Việt Nam"); cbGioiTinh.setValue("Nam");
+        btnSave.setText("+ Thêm Khách Hàng");
+        btnSave.setStyle("-fx-background-color:#1890FF;-fx-text-fill:white;"
+                + "-fx-background-radius:8;-fx-padding:8 20;-fx-font-weight:bold;-fx-cursor:hand;");
+        btnCancel.setVisible(false); btnCancel.setManaged(false);
+        formCard.setStyle("-fx-background-color:#FFFFFF;-fx-background-radius:10;"
+                + "-fx-effect: dropshadow(gaussian,rgba(0,0,0,0.06),6,0,0,1);");
+    }
+
+    private KhachHang buildFromForm(String maKH) {
+        KhachHang kh = new KhachHang();
+        kh.setMaKH       (maKH);
+        kh.setHoTenKH    (tfTen.getText().trim());
+        kh.setSoDienThoai(tfSDT.getText().trim());
+        kh.setCmnd       (tfCCCD.getText().trim());
+        kh.setGioiTinh   ("Nam".equals(cbGioiTinh.getValue()));
+        kh.setNgaySinh   (tfNgaySinh.getText().trim());
+        kh.setDiaChi     (tfDiaChi.getText().trim());
+        kh.setQuocTich   (tfQuocTich.getText().trim());
+        return kh;
+    }
+
+    private void refreshCards() { renderCards(items); }
+
+    private void updateCount() {
+        if (countLbl != null) countLbl.setText("Tổng cộng " + items.size() + " khách hàng trong hệ thống");
+    }
+
+    private List<Object[]> loadData() {
         List<Object[]> result = new ArrayList<>();
         try {
-            KhachHangDAO dao = new KhachHangDAO();
-            List<KhachHang> list = dao.getAll();
+            List<KhachHang> list = new KhachHangDAO().getAll();
             if (!list.isEmpty()) {
-                String[] statuses = {"Đang Lưu Trú", "Đặt Trước", "Đã Trả Phòng"};
-                for (int i = 0; i < list.size(); i++) {
-                    KhachHang kh = list.get(i);
+                for (KhachHang kh : list) {
                     result.add(new Object[]{
-                        kh.getMaKH(), kh.getHoTenKH(), "",
-                        kh.getSoDienThoai(), kh.getCmnd(),
-                        "N/A", "N/A",
-                        statuses[i % statuses.length]
+                        kh.getMaKH(), kh.getHoTenKH(), kh.getSoDienThoai(), kh.getCmnd(),
+                        kh.isGioiTinh() ? "Nam" : "Nữ",
+                        kh.getNgaySinh() != null ? kh.getNgaySinh() : "",
+                        kh.getDiaChi()   != null ? kh.getDiaChi()   : "",
+                        kh.getQuocTich() != null ? kh.getQuocTich() : "Việt Nam"
                     });
                 }
                 return result;
             }
         } catch (Exception ignored) {}
-        for (Object[] r : DEMO_KHACH) result.add(r);
+        for (Object[] r : DEMO) result.add(r);
         return result;
     }
 
-    private long countByStatus(String status) {
-        int count = 0;
-        for (Object[] r : DEMO_KHACH) {
-            if (status.equals(r[7])) count++;
-        }
-        return count;
+    private Label lbl(String text) {
+        Label l = new Label(text);
+        l.setStyle("-fx-font-size:12px;-fx-font-weight:bold;-fx-text-fill:#595959;");
+        return l;
     }
 
-    /** Hiện dialog xem lịch sử lưu trú của 1 khách. */
-    private void openHistoryDialog(String maKH, String tenKH) {
-        Stage dialog = new Stage();
-        dialog.initModality(Modality.APPLICATION_MODAL);
-        dialog.setTitle("Lịch Sử Lưu Trú - " + tenKH);
-
-        VBox root = new VBox(12);
-        root.setPadding(new Insets(20));
-        root.setStyle("-fx-background-color: #F0F2F5;");
-
-        Label title = new Label("📋 Lịch sử của " + tenKH + " (" + maKH + ")");
-        title.setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #1A1A2E;");
-
-        TableView<Object[]> table = new TableView<>();
-        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
-        table.setStyle("-fx-background-color: #FFFFFF; -fx-background-radius: 8;"
-                + "-fx-border-color: #E8E8E8; -fx-border-width: 1; -fx-border-radius: 8;");
-        table.setPrefHeight(380);
-
-        String[] heads = {"Mã Phiếu", "Phòng", "Loại", "Nhận", "Trả", "Đơn Giá", "Trạng Thái"};
-        for (int i = 0; i < heads.length; i++) {
-            final int idx = i;
-            TableColumn<Object[], String> col = new TableColumn<>(heads[i]);
-            col.setCellValueFactory(p -> {
-                Object v = idx < p.getValue().length ? p.getValue()[idx] : "";
-                return new SimpleStringProperty(v != null ? v.toString() : "");
-            });
-            table.getColumns().add(col);
-        }
-        table.setItems(FXCollections.observableArrayList(loadLichSu(maKH)));
-        table.setPlaceholder(new Label("Khách chưa có lịch sử lưu trú nào."));
-
-        Label countLbl = new Label(table.getItems().size() + " phiếu đặt phòng");
-        countLbl.setStyle("-fx-font-size: 12px; -fx-text-fill: #8C8C8C;");
-
-        Button btnClose = new Button("Đóng");
-        btnClose.setStyle("-fx-background-color: #1890FF; -fx-text-fill: white;"
-                + "-fx-background-radius: 6; -fx-padding: 8 20; -fx-cursor: hand;");
-        btnClose.setOnAction(e -> dialog.close());
-        HBox bottom = new HBox(countLbl, new Region(), btnClose);
-        bottom.setAlignment(Pos.CENTER_LEFT);
-        Region sp = new Region(); HBox.setHgrow(sp, Priority.ALWAYS);
-        bottom.getChildren().set(1, sp);
-
-        root.getChildren().addAll(title, table, bottom);
-
-        dialog.setScene(new Scene(root, 780, 480));
-        dialog.showAndWait();
-    }
-
-    private List<Object[]> loadLichSu(String maKH) {
-        List<Object[]> result = new ArrayList<>();
-        Connection con = ConnectDB.getInstance().getConnection();
-        if (con == null || maKH == null || maKH.isEmpty()) return result;
-        String sql =
-            "SELECT pdp.maPhieuDatPhong, ct.maPhong, lp.tenLoaiPhong, " +
-            "       pdp.thoiGianNhanDuKien, pdp.thoiGianNhanThucTe, " +
-            "       pdp.thoiGianTraDuKien,  pdp.thoiGianTraThucTe, " +
-            "       pdp.trangThai, ct.donGia " +
-            "FROM PhieuDatPhong pdp " +
-            "JOIN ChiTietPhieuDatPhong ct ON ct.maPhieuDatPhong = pdp.maPhieuDatPhong " +
-            "JOIN Phong p     ON p.maPhong = ct.maPhong " +
-            "JOIN LoaiPhong lp ON lp.maLoaiPhong = p.maLoaiPhong " +
-            "WHERE pdp.maKhachHang = ? " +
-            "ORDER BY pdp.ngayDat DESC";
-        DateTimeFormatter fmt = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
-        DecimalFormat money = new DecimalFormat("#,###");
-
-        try (PreparedStatement pst = con.prepareStatement(sql)) {
-            pst.setString(1, maKH);
-            try (ResultSet rs = pst.executeQuery()) {
-                while (rs.next()) {
-                    Timestamp tNhan = rs.getTimestamp("thoiGianNhanThucTe");
-                    if (tNhan == null) tNhan = rs.getTimestamp("thoiGianNhanDuKien");
-                    Timestamp tTra  = rs.getTimestamp("thoiGianTraThucTe");
-                    if (tTra == null)  tTra  = rs.getTimestamp("thoiGianTraDuKien");
-
-                    String nhanStr = tNhan != null ? tNhan.toLocalDateTime().format(fmt) : "—";
-                    String traStr  = tTra  != null ? tTra.toLocalDateTime().format(fmt)  : "—";
-                    String tt = rs.getString("trangThai");
-                    String ttDisplay = switch (tt != null ? tt : "") {
-                        case "DaDat"      -> "Đã đặt";
-                        case "DaCheckIn"  -> "Đang ở";
-                        case "DaCheckOut" -> "Đã trả";
-                        case "DaHuy"      -> "Đã hủy";
-                        default -> tt;
-                    };
-
-                    result.add(new Object[]{
-                        rs.getString("maPhieuDatPhong"),
-                        rs.getString("maPhong"),
-                        rs.getString("tenLoaiPhong"),
-                        nhanStr,
-                        traStr,
-                        money.format(rs.getDouble("donGia")) + "đ",
-                        ttDisplay
-                    });
-                }
-            }
-        } catch (Exception ignored) {}
-        return result;
+    private TextField field(String prompt) {
+        TextField tf = new TextField();
+        tf.setPromptText(prompt); tf.setMaxWidth(Double.MAX_VALUE);
+        tf.setStyle("-fx-background-color:#FFF;-fx-border-color:#D9D9D9;"
+                + "-fx-border-radius:6;-fx-background-radius:6;-fx-border-width:1;-fx-padding:7 10;");
+        return tf;
     }
 }

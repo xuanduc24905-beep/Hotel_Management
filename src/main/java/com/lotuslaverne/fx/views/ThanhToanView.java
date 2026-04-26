@@ -113,8 +113,8 @@ public class ThanhToanView {
         kmRow.setAlignment(Pos.CENTER_LEFT);
 
         cbPhuongThuc = new ComboBox<>();
-        cbPhuongThuc.getItems().addAll("TienMat", "ChuyenKhoan");
-        cbPhuongThuc.setValue("TienMat");
+        cbPhuongThuc.getItems().addAll("Tiền Mặt", "Chuyển Khoản");
+        cbPhuongThuc.setValue("Tiền Mặt");
         cbPhuongThuc.setMaxWidth(Double.MAX_VALUE);
         cbPhuongThuc.setStyle("-fx-background-color: #FFFFFF; -fx-border-color: #D9D9D9;"
                 + "-fx-border-radius: 6; -fx-background-radius: 6; -fx-border-width: 1;");
@@ -316,37 +316,65 @@ public class ThanhToanView {
 
     private void handleCheckOut() {
         if (currentTotal == 0) {
-            alert(Alert.AlertType.WARNING, "Chưa tính tiền", "Vui lòng nhấn 'Tính Toán Tiền' trước!"); return;
+            alert(Alert.AlertType.WARNING, "Chưa Tính Tiền",
+                    "Vui lòng nhập mã phiếu và nhấn 'Tính Toán Tiền' trước khi thanh toán!"); return;
         }
-        String maPDP     = txtMaPhieuDP.getText().trim();
+        String maPDP      = txtMaPhieuDP.getText().trim();
+        if (maPDP.isEmpty()) {
+            alert(Alert.AlertType.WARNING, "Thiếu Thông Tin", "Vui lòng nhập mã phiếu đặt phòng!"); return;
+        }
         String maHD      = "HD" + UUID.randomUUID().toString().substring(0, 6).toUpperCase();
-        String phuongThuc = cbPhuongThuc.getValue();
+        // Map tiếng Việt -> giá trị DB
+        String phuongThucDB = switch (cbPhuongThuc.getValue()) {
+            case "Chuyển Khoản" -> "ChuyenKhoan";
+            default -> "TienMat";
+        };
 
-        HoaDon hd = new HoaDon(maHD, "NV001", maPDP, discountAmount, currentTotal,
-                phuongThuc, "Checkout " + phuongThuc);
-        try {
-            if (new HoaDonDAO().taoHoaDon(hd)) {
-                String maPhong = layMaPhong(maPDP);
-                if (!maPhong.isEmpty()) new PhongDAO().capNhatTrangThai(maPhong, "PhongCanDon");
-                alert(Alert.AlertType.INFORMATION, "Thanh Toán Hoàn Tất",
-                        "Thanh toán thành công!\nMã hóa đơn: " + maHD
-                        + "\nTổng tiền: " + new DecimalFormat("#,### VNĐ").format(currentTotal)
-                        + "\nTrạng thái phòng → Cần dọn.");
-                currentTotal = 0; discountAmount = 0;
-                tamTinhPhong = 0; phatSinhDV = 0;
-                lblTongTien.setText("0 VNĐ");
-                lblTamTinhPhong.setText("—");
-                lblPhatSinhDV.setText("—");
-                lblKhuyenMaiVal.setText("—");
-                if (dvItems != null) dvItems.clear();
-                txtMaPhieuDP.clear();
-                txtKhuyenMai.clear();
-            } else {
-                alert(Alert.AlertType.ERROR, "Lỗi", "Lỗi tạo hóa đơn. Kiểm tra Database.");
+        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION,
+                "Xác nhận thanh toán phiếu: " + maPDP
+                + "\nTổng tiền: " + new java.text.DecimalFormat("#,### VNĐ").format(currentTotal)
+                + "\nPhương thức: " + cbPhuongThuc.getValue()
+                + "\n\nSau khi xác nhận, hệ thống sẽ xuất hóa đơn và trả phòng.");
+        confirm.setHeaderText("Xác Nhận Thanh Toán & Check-out");
+        confirm.setTitle("Thanh Toán");
+        confirm.showAndWait().ifPresent(btn -> {
+            if (btn != ButtonType.OK) return;
+            HoaDon hd = new HoaDon(maHD, "NV001", maPDP, discountAmount, currentTotal,
+                    phuongThucDB, "Checkout - " + cbPhuongThuc.getValue());
+            try {
+                boolean hdOk = new HoaDonDAO().taoHoaDon(hd);
+                if (hdOk) {
+                    // Cập nhật phiếu đặt phòng sang DaCheckOut
+                    new PhieuDatPhongDAO().checkOut(maPDP);
+                    // Cập nhật trạng thái phòng sang Cần Dọn
+                    String maPhong = layMaPhong(maPDP);
+                    if (!maPhong.isEmpty()) new PhongDAO().capNhatTrangThai(maPhong, "PhongCanDon");
+                    alert(Alert.AlertType.INFORMATION, "Thanh Toán Hoàn Tất ✅",
+                            "Thanh toán thành công!\nMã hóa đơn: " + maHD
+                            + "\nTổng tiền: " + new java.text.DecimalFormat("#,###").format(currentTotal) + " VNĐ"
+                            + "\nPhiếu đặt phòng: Đã Check-out"
+                            + "\nTrạng thái phòng → Cần dọn.");
+                    resetForm();
+                } else {
+                    alert(Alert.AlertType.ERROR, "Lỗi",
+                            "Lỗi tạo hóa đơn!\nKiểm tra mã phiếu hoặc cấu hình Database.");
+                }
+            } catch (Exception ex) {
+                alert(Alert.AlertType.ERROR, "Lỗi Kết Nối", "Lỗi kết nối cơ sở dữ liệu: " + ex.getMessage());
             }
-        } catch (Exception ex) {
-            alert(Alert.AlertType.ERROR, "Lỗi", "Lỗi kết nối DB: " + ex.getMessage());
-        }
+        });
+    }
+
+    private void resetForm() {
+        currentTotal = 0; discountAmount = 0;
+        tamTinhPhong = 0; phatSinhDV = 0;
+        lblTongTien.setText("0 VNĐ");
+        lblTamTinhPhong.setText("—");
+        lblPhatSinhDV.setText("—");
+        lblKhuyenMaiVal.setText("—");
+        if (dvItems != null) dvItems.clear();
+        txtMaPhieuDP.clear();
+        txtKhuyenMai.clear();
     }
 
     private String layMaPhong(String maPDP) {

@@ -41,6 +41,19 @@ CREATE TABLE LoaiDichVu (
 );
 GO
 
+-- 2.5 Thiết Bị
+CREATE TABLE ThietBi (
+    maThietBi    NVARCHAR(10)  NOT NULL,
+    tenThietBi   NVARCHAR(100) NOT NULL,
+    loaiThietBi  NVARCHAR(50)  NOT NULL,
+    soLuong      INT           NOT NULL DEFAULT 0,
+    donGia       DECIMAL(18,2) NOT NULL DEFAULT 0,
+    trangThai    NVARCHAR(20)  NOT NULL DEFAULT N'Tot',
+    CONSTRAINT PK_ThietBi PRIMARY KEY (maThietBi),
+    CONSTRAINT CHK_ThietBi_TrangThai CHECK (trangThai IN (N'Tot', N'CanBaoTri', N'HuHong'))
+);
+GO
+
 -- 3. Nhân Viên   (đổi hoTenNhanVien → tenNhanVien để khớp entity Java)
 CREATE TABLE NhanVien (
     maNhanVien          NVARCHAR(10)   NOT NULL,
@@ -108,11 +121,14 @@ GO
 
 -- 7. Phòng  (trangThai dùng enum khớp Java: 'PhongTrong','PhongDat','PhongCanDon','DangDon','BaoTri')
 CREATE TABLE Phong (
-    maPhong     NVARCHAR(10)  NOT NULL,
-    tenPhong    NVARCHAR(50)  NOT NULL,
-    maLoaiPhong NVARCHAR(10)  NOT NULL,
-    trangThai   NVARCHAR(20)  NOT NULL DEFAULT N'PhongTrong',
-    CONSTRAINT PK_Phong          PRIMARY KEY (maPhong),
+    maPhong      NVARCHAR(10)   NOT NULL,
+    tenPhong     NVARCHAR(50)   NOT NULL,
+    maLoaiPhong  NVARCHAR(10)   NOT NULL,
+    trangThai    NVARCHAR(20)   NOT NULL DEFAULT N'PhongTrong',
+    tienNghi     NVARCHAR(500)  NULL,        -- "WiFi,TV,Điều Hòa,Bồn Tắm,..."
+    soNguoiToiDa INT            NULL DEFAULT 2,
+    moTa         NVARCHAR(1000) NULL,
+    CONSTRAINT PK_Phong           PRIMARY KEY (maPhong),
     CONSTRAINT FK_Phong_LoaiPhong FOREIGN KEY (maLoaiPhong) REFERENCES LoaiPhong (maLoaiPhong),
     CONSTRAINT CHK_Phong_TrangThai CHECK (trangThai IN (N'PhongTrong', N'PhongDat', N'PhongCanDon', N'DangDon', N'BaoTri'))
 );
@@ -560,6 +576,14 @@ INSERT INTO LoaiDichVu (maLoaiDichVu, tenLoaiDichVu) VALUES
     ('LDV02', N'Đồ Uống'),
     ('LDV03', N'Tiện Ích');
 
+INSERT INTO ThietBi (maThietBi, tenThietBi, loaiThietBi, soLuong, donGia, trangThai) VALUES
+    ('TB001', N'Tivi Samsung 43 inch', N'Điện tử', 20, 5000000, N'Tot'),
+    ('TB002', N'Điều hòa Panasonic 1HP', N'Điện lạnh', 25, 8000000, N'Tot'),
+    ('TB003', N'Tủ lạnh Mini', N'Điện lạnh', 20, 2500000, N'Tot'),
+    ('TB004', N'Giường đôi', N'Nội thất', 15, 3000000, N'Tot'),
+    ('TB005', N'Tủ quần áo gỗ', N'Nội thất', 15, 2000000, N'Tot'),
+    ('TB006', N'Máy sấy tóc Panasonic', N'Điện tử', 30, 400000, N'Tot');
+
 INSERT INTO NhanVien
     (maNhanVien, tenNhanVien, soDienThoai, cccd, ngaySinh, ngayBatDauLam, diaChi, email, vaiTro, caLamViec) VALUES
     ('NV001', N'Nguyễn Văn Anh',  '0912345678', '001099012345', '1990-05-15', '2022-01-01', N'Hà Nội', 'anh.nv@lotus.vn',   'QuanLy', N'HanhChinh'),
@@ -592,15 +616,15 @@ INSERT INTO BangGia (maBangGia, maLoaiPhong, loaiThue, donGia, ngayBatDau, ngayK
     ('BG007', 'LP04', N'QuaDem',  2000000, '2026-01-01', '2026-12-31'),
     ('BG008', 'LP04', N'TheoGio',  300000, '2026-01-01', '2026-12-31');
 
-INSERT INTO Phong (maPhong, tenPhong, maLoaiPhong, trangThai) VALUES
-    ('P101', N'Phòng 101', 'LP01', N'PhongTrong'),
-    ('P102', N'Phòng 102', 'LP01', N'PhongTrong'),
-    ('P103', N'Phòng 103', 'LP01', N'PhongTrong'),
-    ('P201', N'Phòng 201', 'LP02', N'PhongTrong'),
-    ('P202', N'Phòng 202', 'LP02', N'PhongTrong'),
-    ('P301', N'Phòng 301', 'LP03', N'PhongTrong'),
-    ('P302', N'Phòng 302', 'LP03', N'PhongTrong'),
-    ('P401', N'Suite Hoàng Gia', 'LP04', N'PhongTrong');
+INSERT INTO Phong (maPhong, tenPhong, maLoaiPhong, trangThai, tienNghi, soNguoiToiDa, moTa) VALUES
+    ('P101', N'Phòng 101',      'LP01', N'PhongTrong', N'WiFi,TV',                        2, N'Phòng tiêu chuẩn tầng 1, view sân vườn'),
+    ('P102', N'Phòng 102',      'LP01', N'PhongTrong', N'WiFi,TV,Điều Hòa',               2, N'Phòng tiêu chuẩn tầng 1, điều hòa mới'),
+    ('P103', N'Phòng 103',      'LP01', N'PhongTrong', N'WiFi,TV,Điều Hòa',               2, N'Phòng tiêu chuẩn tầng 1, hướng Đông'),
+    ('P201', N'Phòng 201',      'LP02', N'PhongTrong', N'WiFi,TV,Điều Hòa,Bồn Tắm',      2, N'Phòng Deluxe tầng 2, view thành phố'),
+    ('P202', N'Phòng 202',      'LP02', N'PhongTrong', N'WiFi,TV,Điều Hòa,Ban Công',      2, N'Phòng Deluxe tầng 2, ban công rộng'),
+    ('P301', N'Phòng 301',      'LP03', N'PhongTrong', N'WiFi,TV,Điều Hòa,Bồn Tắm',      3, N'Phòng Superior tầng 3, phòng gia đình'),
+    ('P302', N'Phòng 302',      'LP03', N'PhongTrong', N'WiFi,TV,Điều Hòa,Ban Công',      3, N'Phòng Superior tầng 3, ban công ngắm cảnh'),
+    ('P401', N'Suite Hoàng Gia','LP04', N'PhongTrong', N'WiFi,TV,Điều Hòa,Bồn Tắm,Ban Công,Mini Bar', 4, N'Phòng Suite VIP, phòng khách riêng, view toàn cảnh');
 
 INSERT INTO DichVu (maDichVu, tenDichVu, maLoaiDichVu, donGia, trangThai) VALUES
     ('DV001', N'Nước suối Lavie 500ml',  'LDV02',  15000, N'DangKinhDoanh'),

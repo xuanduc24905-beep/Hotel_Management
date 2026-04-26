@@ -50,23 +50,28 @@ public class DashboardView {
     // ---------------------------------------------------------------- STAT CARDS
     private GridPane buildStatCards() {
         // Load data
-        int phongTrong = 0, phongDangThue = 0, phongCanDon = 0, tongNhanVien = 0;
+        int phongTrong = 0, phongDangThue = 0, phongCanDon = 0, tongNhanVien = 0, khachLuuTru = 0;
         double doanhThu = 0;
+        boolean dbOnline = false;
         try {
             ThongKeDAO dao = new ThongKeDAO();
-            phongTrong     = dao.demSoPhongTheoTrangThai("Trống");
-            phongDangThue  = dao.demSoPhongTheoTrangThai("Đang Thuê");
-            phongCanDon    = dao.demSoPhongTheoTrangThai("Chưa Dọn");
-            tongNhanVien   = dao.demTongNhanSu();
-            doanhThu       = dao.layDoanhThuHomNay();
+            // Truyền đúng giá trị trangThai lưu trong DB
+            phongTrong    = dao.demSoPhongTheoTrangThai("PhongTrong");
+            phongDangThue = dao.demSoPhongTheoTrangThai("PhongDat");
+            phongCanDon   = dao.demSoPhongTheoTrangThai("PhongCanDon");
+            tongNhanVien  = dao.demTongNhanSu();
+            khachLuuTru   = dao.demKhachDangLuuTru();
+            doanhThu      = dao.layDoanhThuHomNay();
+            dbOnline      = true;
         } catch (Exception ignored) {}
 
-        // Fallback demo data when DB is offline
-        if (phongTrong == 0 && phongDangThue == 0 && tongNhanVien == 0) {
+        // Dữ liệu demo khi DB offline
+        if (!dbOnline) {
             phongTrong    = 12;
             phongDangThue = 8;
             phongCanDon   = 3;
             tongNhanVien  = 24;
+            khachLuuTru   = 9;
             doanhThu      = 15_500_000;
         }
 
@@ -83,8 +88,8 @@ public class DashboardView {
 
         grid.add(makeStatCard("Phòng Trống",       String.valueOf(phongTrong),    "phòng sẵn sàng",   "#52C41A", "🏠"), 0, 0);
         grid.add(makeStatCard("Phòng Đang Thuê",   String.valueOf(phongDangThue), "khách đang ở",     "#FF4D4F", "🔑"), 1, 0);
-        grid.add(makeStatCard("Doanh Thu Hôm Nay", doanhThuFmt,                  "tổng thu hôm nay", "#1890FF", "$"),  2, 0);
-        grid.add(makeStatCard("Khách Lưu Trú",     "9",                           "đang ở khách sạn", "#722ED1", "👤"), 0, 1);
+        grid.add(makeStatCard("Doanh Thu Hôm Nay", doanhThuFmt,                  "tổng thu hôm nay", "#1890FF", "💰"),  2, 0);
+        grid.add(makeStatCard("Khách Lưu Trú",     String.valueOf(khachLuuTru),   "đang ở khách sạn", "#722ED1", "👤"), 0, 1);
         grid.add(makeStatCard("Tổng Nhân Viên",    String.valueOf(tongNhanVien),  "đang làm việc",    "#FA8C16", "👥"), 1, 1);
         grid.add(makeStatCard("Phòng Cần Dọn",     String.valueOf(phongCanDon),   "cần vệ sinh",      "#FAAD14", "🧹"), 2, 1);
 

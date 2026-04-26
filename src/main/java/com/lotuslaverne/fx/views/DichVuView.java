@@ -236,8 +236,8 @@ public class DichVuView {
         });
 
         ComboBox<String> cbTT = new ComboBox<>();
-        cbTT.getItems().addAll("DangKinhDoanh", "NgungKinhDoanh");
-        cbTT.setValue("DangKinhDoanh");
+        cbTT.getItems().addAll("Đang Kinh Doanh", "Ngưng Kinh Doanh");
+        cbTT.setValue("Đang Kinh Doanh");
         cbTT.setMaxWidth(Double.MAX_VALUE);
         cbTT.setStyle("-fx-background-color: #FFFFFF; -fx-border-color: #D9D9D9;"
                 + "-fx-border-radius: 6; -fx-background-radius: 6; -fx-border-width: 1;");
@@ -262,8 +262,10 @@ public class DichVuView {
             String maDV = generateNextMaDV(maLoai);
             try {
                 DichVu dv = new DichVu(maDV, txtTen.getText().trim(),
-                        maLoai, Double.parseDouble(txtGia.getText().trim()),
-                        cbTT.getValue());
+                        maLoai,
+                        Double.parseDouble(txtGia.getText().trim()),
+                        // Map hiển thị → DB
+                        "Đang Kinh Doanh".equals(cbTT.getValue()) ? "DangKinhDoanh" : "NgungKinhDoanh");
                 if (new DichVuDAO().themDichVu(dv)) {
                     refresh();
                     txtTen.clear(); txtGia.setText("0");
@@ -304,8 +306,10 @@ public class DichVuView {
         TextField txtLoai = field(row[2].toString());
         TextField txtGia  = field(row[3].toString().replaceAll("[^0-9.]", ""));
         ComboBox<String> cbTT = new ComboBox<>();
-        cbTT.getItems().addAll("DangKinhDoanh", "NgungKinhDoanh");
-        cbTT.setValue(row[4].toString());
+        cbTT.getItems().addAll("Đang Kinh Doanh", "Ngưng Kinh Doanh");
+        // Map DB enum → hiển thị
+        String displayTT = "DangKinhDoanh".equals(row[4].toString()) ? "Đang Kinh Doanh" : "Ngưng Kinh Doanh";
+        cbTT.setValue(displayTT);
         cbTT.setMaxWidth(Double.MAX_VALUE);
 
         form.add(lbl("Mã Dịch Vụ:"),     0, 0); form.add(lblMa,  1, 0);
@@ -324,9 +328,12 @@ public class DichVuView {
 
         btnSave.setOnAction(e -> {
             try {
+                // Map hiển thị → DB
+                String trangThaiDB = "Đang Kinh Doanh".equals(cbTT.getValue())
+                        ? "DangKinhDoanh" : "NgungKinhDoanh";
                 DichVu dv = new DichVu(row[0].toString(), txtTen.getText().trim(),
                         txtLoai.getText().trim(), Double.parseDouble(txtGia.getText().trim()),
-                        cbTT.getValue());
+                        trangThaiDB);
                 if (new DichVuDAO().capNhatDichVu(dv)) { dialog.close(); refresh(); }
                 else new Alert(Alert.AlertType.ERROR, "Lỗi cập nhật dịch vụ!").showAndWait();
             } catch (NumberFormatException ex) {
@@ -399,8 +406,9 @@ public class DichVuView {
                     @Override protected void updateItem(String item, boolean empty) {
                         super.updateItem(item, empty);
                         if (empty || item == null) { setGraphic(null); setText(null); return; }
-                        Label badge = new Label(item);
                         boolean active = "DangKinhDoanh".equals(item);
+                        String display = active ? "Đang Kinh Doanh" : "Ngưng Kinh Doanh";
+                        Label badge = new Label(display);
                         badge.setStyle("-fx-background-color: " + (active ? "#F6FFED" : "#FFF1F0")
                                 + "; -fx-text-fill: " + (active ? "#52C41A" : "#FF4D4F")
                                 + "; -fx-padding: 2 8 2 8; -fx-background-radius: 10;"
