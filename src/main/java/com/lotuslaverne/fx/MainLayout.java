@@ -43,24 +43,37 @@ public class MainLayout {
 
     // All nav items in display order
     private final NavEntry[] ALL_NAV = {
-        new NavEntry("\u2296",  "Tổng Quan",         "dashboard",    false),  // 0
-        new NavEntry("🚪", "Quản Lý Phòng",    "phong",        false),  // 1
-        new NavEntry("🧹", "Buồng Phòng",       "housekeeping", false),  // 2
-        new NavEntry("📋", "Đặt Phòng",         "datphong",     false),  // 3
-        new NavEntry("🏨", "Lưu Trú",           "luutru",       false),  // 4
-        new NavEntry("💳", "Thanh Toán",        "thanhtoan",    false),  // 5
-        new NavEntry("👤", "Quản Lý Khách",    "khach",        false),  // 6
-        new NavEntry("📝", "Yêu Cầu Khách",    "yeucau",       false),  // 7
-        new NavEntry("📊", "Báo Cáo",           "baocao",       false),  // 8
-        new NavEntry("⚙",  "Cấu Hình",         "cauhinh",      true),   // 9
-        new NavEntry("👥", "Nhân Sự",           "nhansu",       true),   // 10
+        new NavEntry("⊖",  "Tổng Quan",             "dashboard",    false),  // 0
+        new NavEntry("🚪", "Quản Lý Phòng",         "phong",        false),  // 1
+        new NavEntry("🧹", "Buồng Phòng",            "housekeeping", false),  // 2
+        new NavEntry("🔧", "Thiết Bị",               "thietbi",      false),  // 3
+        new NavEntry("📋", "Đặt Phòng",              "datphong",     false),  // 4
+        new NavEntry("✅", "Check-in",               "checkin",      false),  // 5
+        new NavEntry("🔄", "Đổi Phòng",              "doiphong",     false),  // 6
+        new NavEntry("🏁", "Check-out / Trả Phòng", "checkout",     false),  // 7
+        new NavEntry("🛎", "Dịch Vụ Phòng",          "dichvuphong",  false),  // 9
+        new NavEntry("🍽", "Danh Mục Dịch Vụ",       "dichvu",       false),  // 10
+        new NavEntry("📝", "Yêu Cầu Khách",          "yeucau",       false),  // 11
+        new NavEntry("👤", "Quản Lý Khách",          "khach",        false),  // 12
+        new NavEntry("💳", "Hóa Đơn / Thanh Toán",  "thanhtoan",    false),  // 13
+        new NavEntry("🧾", "Phiếu Thu",              "phieuthu",     false),  // 14
+        new NavEntry("🏷", "Khuyến Mãi",             "khuyenmai",    false),  // 15
+        new NavEntry("💰", "Bảng Giá",               "banggia",      false),  // 16
+        new NavEntry("📊", "Báo Cáo",                "baocao",       false),  // 17
+        new NavEntry("👥", "Nhân Viên",              "nhanvien",     true),   // 18
+        new NavEntry("⏱", "Chấm Công",              "chamcong",     true),   // 19
+        new NavEntry("🔑", "Tài Khoản",              "taikhoan",     true),   // 20
+        new NavEntry("⚙",  "Cài Đặt",               "caidat",       true),   // 21
     };
 
-    // Section break BEFORE which index (0-based in ALL_NAV)
-    private static final int[] SECTION_BREAKS = {0, 1, 3, 6, 8};
+    // Section break BEFORE which index
+    private static final int[] SECTION_BREAKS  = {0, 1, 4, 11, 12, 16, 17};
     private static final String[] SECTION_LABELS = {
-        "TỔNG QUAN", "PHÒNG", "NGHIỆP VỤ", "KHÁCH HÀNG", "QUẢN LÝ"
+        "TỔNG QUAN", "PHÒNG", "NGHIỆP VỤ", "KHÁCH HÀNG",
+        "TÀI CHÍNH", "BÁO CÁO", "NHÂN SỰ & HỆ THỐNG"
     };
+
+
 
     public MainLayout(Stage stage, String username, String vaiTro) {
         this.stage    = stage;
@@ -306,28 +319,30 @@ public class MainLayout {
             case "datphong"     -> prefill != null
                                     ? new DatPhongView(prefill).build()
                                     : new DatPhongView().build();
-            case "luutru"       -> new LuuTruView().build();
+            case "checkin"      -> new CheckInView().build();
+            case "checkout"     -> new CheckoutView().build();
+            case "dichvuphong"  -> new DichVuPhongView().build();
+            case "yeucau"       -> new YeuCauKhachView().build();
+            case "khach"        -> new KhachView().build();
+            case "baocao"       -> new BaoCaoView().build();
+            case "nhanvien"     -> new NhanVienView().build();
+            case "chamcong"     -> new ChamCongView().build();
+            case "taikhoan"     -> new TaiKhoanView(username).build();
+            case "caidat"       -> new CaiDatView().build();
             case "thanhtoan"    -> prefill != null
                                     ? new ThanhToanView(prefill).build()
                                     : new ThanhToanView().build();
-            case "khach"        -> new KhachView().build();
-            case "yeucau"       -> new YeuCauKhachView().build();
-            case "baocao"       -> new BaoCaoView().build();
-            case "cauhinh"      -> new CauHinhView().build();
-            case "nhansu"       -> new NhanSuView().build();
-            // Legacy keys (still navigable from other views)
-            case "checkin"      -> new CheckInView().build();
             case "doiphong"     -> new DoiPhongView().build();
-            case "dichvuphong"  -> new DichVuPhongView().build();
+            // Legacy / sub-views
+            case "luutru"       -> new LuuTruView().build();
             case "hoadon"       -> new HoaDonView().build();
             case "phieuthu"     -> new PhieuThuView().build();
             case "khuyenmai"    -> new KhuyenMaiView().build();
             case "banggia"      -> new BangGiaView().build();
             case "dichvu"       -> new DichVuView().build();
             case "thietbi"      -> new ThietBiView().build();
-            case "nhanvien"     -> new NhanVienView().build();
-            case "taikhoan"     -> new TaiKhoanView(username).build();
-            case "caidat"       -> new CaiDatView().build();
+            case "nhansu"       -> new NhanSuView().build();
+            case "cauhinh"      -> new CauHinhView().build();
             default             -> new DashboardView().build();
         };
 
