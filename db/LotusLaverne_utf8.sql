@@ -134,17 +134,19 @@ CREATE TABLE Phong (
 );
 GO
 
--- 8. Bảng Giá
+-- 8. Bảng Giá  (thêm cột kyGia: NgayThuong/CuoiTuan/LeTet/CaoDiem)
 CREATE TABLE BangGia (
     maBangGia   NVARCHAR(10)   NOT NULL,
     maLoaiPhong NVARCHAR(10)   NOT NULL,
     loaiThue    NVARCHAR(10)   NOT NULL,
+    kyGia       NVARCHAR(15)   NOT NULL DEFAULT N'NgayThuong',
     donGia      DECIMAL(18,2)  NOT NULL,
     ngayBatDau  DATE           NOT NULL,
     ngayKetThuc DATE           NOT NULL,
     CONSTRAINT PK_BangGia           PRIMARY KEY (maBangGia),
     CONSTRAINT FK_BangGia_LoaiPhong FOREIGN KEY (maLoaiPhong) REFERENCES LoaiPhong (maLoaiPhong),
     CONSTRAINT CHK_BangGia_LoaiThue CHECK (loaiThue IN (N'QuaDem', N'TheoNgay', N'TheoGio')),
+    CONSTRAINT CHK_BangGia_KyGia   CHECK (kyGia IN (N'NgayThuong', N'CuoiTuan', N'LeTet', N'CaoDiem')),
     CONSTRAINT CHK_BangGia_DonGia   CHECK (donGia > 0),
     CONSTRAINT CHK_BangGia_Ngay     CHECK (ngayKetThuc > ngayBatDau)
 );
@@ -314,6 +316,7 @@ FROM Phong p
 JOIN LoaiPhong lp ON p.maLoaiPhong = lp.maLoaiPhong
 LEFT JOIN BangGia bg ON lp.maLoaiPhong = bg.maLoaiPhong
     AND bg.loaiThue = N'QuaDem'
+    AND bg.kyGia = N'NgayThuong'
     AND CAST(GETDATE() AS DATE) BETWEEN bg.ngayBatDau AND bg.ngayKetThuc;
 GO
 
@@ -606,15 +609,43 @@ INSERT INTO KhuyenMai
     ('KM001', N'Khuyến Mãi Hè',   10.00, '2026-06-01', '2026-08-31', N'Áp dụng mùa hè 2026'),
     ('KM002', N'Giảm Cuối Tuần',   5.00, '2026-01-01', '2026-12-31', N'Thứ 7 và Chủ nhật');
 
-INSERT INTO BangGia (maBangGia, maLoaiPhong, loaiThue, donGia, ngayBatDau, ngayKetThuc) VALUES
-    ('BG001', 'LP01', N'QuaDem',   500000, '2026-01-01', '2026-12-31'),
-    ('BG002', 'LP01', N'TheoGio',   80000, '2026-01-01', '2026-12-31'),
-    ('BG003', 'LP02', N'QuaDem',   800000, '2026-01-01', '2026-12-31'),
-    ('BG004', 'LP02', N'TheoGio',  120000, '2026-01-01', '2026-12-31'),
-    ('BG005', 'LP03', N'QuaDem',  1000000, '2026-01-01', '2026-12-31'),
-    ('BG006', 'LP03', N'TheoGio',  150000, '2026-01-01', '2026-12-31'),
-    ('BG007', 'LP04', N'QuaDem',  2000000, '2026-01-01', '2026-12-31'),
-    ('BG008', 'LP04', N'TheoGio',  300000, '2026-01-01', '2026-12-31');
+INSERT INTO BangGia (maBangGia, maLoaiPhong, loaiThue, kyGia, donGia, ngayBatDau, ngayKetThuc) VALUES
+    -- Standard (LP01)
+    ('BG001', 'LP01', N'QuaDem',  N'NgayThuong',  500000, '2026-01-01', '2026-12-31'),
+    ('BG002', 'LP01', N'TheoGio', N'NgayThuong',   80000, '2026-01-01', '2026-12-31'),
+    ('BG003', 'LP01', N'QuaDem',  N'CuoiTuan',    600000, '2026-01-01', '2026-12-31'),
+    ('BG004', 'LP01', N'TheoGio', N'CuoiTuan',    100000, '2026-01-01', '2026-12-31'),
+    ('BG005', 'LP01', N'QuaDem',  N'LeTet',       750000, '2026-01-01', '2026-12-31'),
+    ('BG006', 'LP01', N'TheoGio', N'LeTet',       120000, '2026-01-01', '2026-12-31'),
+    ('BG007', 'LP01', N'QuaDem',  N'CaoDiem',     700000, '2026-01-01', '2026-12-31'),
+    ('BG008', 'LP01', N'TheoGio', N'CaoDiem',     110000, '2026-01-01', '2026-12-31'),
+    -- Deluxe (LP02)
+    ('BG009', 'LP02', N'QuaDem',  N'NgayThuong',  800000, '2026-01-01', '2026-12-31'),
+    ('BG010', 'LP02', N'TheoGio', N'NgayThuong',  120000, '2026-01-01', '2026-12-31'),
+    ('BG011', 'LP02', N'QuaDem',  N'CuoiTuan',    960000, '2026-01-01', '2026-12-31'),
+    ('BG012', 'LP02', N'TheoGio', N'CuoiTuan',    150000, '2026-01-01', '2026-12-31'),
+    ('BG013', 'LP02', N'QuaDem',  N'LeTet',      1200000, '2026-01-01', '2026-12-31'),
+    ('BG014', 'LP02', N'TheoGio', N'LeTet',       180000, '2026-01-01', '2026-12-31'),
+    ('BG015', 'LP02', N'QuaDem',  N'CaoDiem',    1100000, '2026-01-01', '2026-12-31'),
+    ('BG016', 'LP02', N'TheoGio', N'CaoDiem',     170000, '2026-01-01', '2026-12-31'),
+    -- Superior (LP03)
+    ('BG017', 'LP03', N'QuaDem',  N'NgayThuong', 1000000, '2026-01-01', '2026-12-31'),
+    ('BG018', 'LP03', N'TheoGio', N'NgayThuong',  150000, '2026-01-01', '2026-12-31'),
+    ('BG019', 'LP03', N'QuaDem',  N'CuoiTuan',   1200000, '2026-01-01', '2026-12-31'),
+    ('BG020', 'LP03', N'TheoGio', N'CuoiTuan',    180000, '2026-01-01', '2026-12-31'),
+    ('BG021', 'LP03', N'QuaDem',  N'LeTet',      1500000, '2026-01-01', '2026-12-31'),
+    ('BG022', 'LP03', N'TheoGio', N'LeTet',       220000, '2026-01-01', '2026-12-31'),
+    ('BG023', 'LP03', N'QuaDem',  N'CaoDiem',    1400000, '2026-01-01', '2026-12-31'),
+    ('BG024', 'LP03', N'TheoGio', N'CaoDiem',     200000, '2026-01-01', '2026-12-31'),
+    -- Suite (LP04)
+    ('BG025', 'LP04', N'QuaDem',  N'NgayThuong', 2000000, '2026-01-01', '2026-12-31'),
+    ('BG026', 'LP04', N'TheoGio', N'NgayThuong',  300000, '2026-01-01', '2026-12-31'),
+    ('BG027', 'LP04', N'QuaDem',  N'CuoiTuan',   2400000, '2026-01-01', '2026-12-31'),
+    ('BG028', 'LP04', N'TheoGio', N'CuoiTuan',    360000, '2026-01-01', '2026-12-31'),
+    ('BG029', 'LP04', N'QuaDem',  N'LeTet',      3000000, '2026-01-01', '2026-12-31'),
+    ('BG030', 'LP04', N'TheoGio', N'LeTet',       450000, '2026-01-01', '2026-12-31'),
+    ('BG031', 'LP04', N'QuaDem',  N'CaoDiem',    2800000, '2026-01-01', '2026-12-31'),
+    ('BG032', 'LP04', N'TheoGio', N'CaoDiem',     420000, '2026-01-01', '2026-12-31');
 
 INSERT INTO Phong (maPhong, tenPhong, maLoaiPhong, trangThai, tienNghi, soNguoiToiDa, moTa) VALUES
     ('P101', N'Phòng 101',      'LP01', N'PhongTrong', N'WiFi,TV',                        2, N'Phòng tiêu chuẩn tầng 1, view sân vườn'),
