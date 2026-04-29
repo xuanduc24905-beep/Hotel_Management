@@ -7,12 +7,12 @@ import java.sql.SQLException;
 public class ConnectDB {
     private static ConnectDB instance;
     private Connection connection;
-    
+
     // Cấu hình chuỗi kết nối dựa trên thiết lập máy cá nhân
     // Người dùng cần đổi localhost, port, hoặc user/password nếu có
     private final String url = "jdbc:sqlserver://localhost:1433;databaseName=QuanLyKhachSan;encrypt=true;trustServerCertificate=true;";
-    private final String user = "sa"; 
-    private final String password = "sapassword"; // THAY BẬT SQL SERVER SA PASSWORD Ở ĐÂY
+    private final String user = "sa";
+    private final String password = "123456"; // THAY BẬT SQL SERVER SA PASSWORD Ở ĐÂY
 
     private ConnectDB() {
         try {
@@ -42,7 +42,7 @@ public class ConnectDB {
         }
         return connection;
     }
-    
+
     public void disconnect() {
         try {
             if (connection != null && !connection.isClosed()) {

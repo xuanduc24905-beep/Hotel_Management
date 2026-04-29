@@ -15,14 +15,11 @@ import javafx.scene.layout.*;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-import com.lotuslaverne.util.ConnectDB;
+
 
 public class NhanVienView {
 
@@ -154,13 +151,16 @@ public class NhanVienView {
             String caDB   = caToDB(cbCa.getValue());
             NhanVien nv = new NhanVien(maNV, ten, sdt, vaiTro);
             nv.setCaLamViec(caDB);
-            // Lưu email và CCCD nếu DAO hỗ trợ
+            // Truyền CCCD và Email vào entity
+            String cccd = tfCCCD.getText().trim();
+            nv.setCccd(cccd.isEmpty() ? null : cccd);
+            String email = tfEmail.getText().trim();
+            nv.setEmail(email.isEmpty() ? null : email);
             try {
                 boolean ok = new NhanVienDAO().themNhanVien(nv);
                 if (ok) {
-                    // Thêm trực tiếp vào Observable để refresh ngay
                     items.add(new Object[]{maNV, ten, vaiTroDisplay(vaiTro), sdt,
-                            tfEmail.getText().trim(), "N/A", "Đang Làm", caToDisplay(caDB)});
+                            email.isEmpty() ? "—" : email, "N/A", "Đang Làm", caToDisplay(caDB)});
                     updateCountLabel();
                     tfTen.clear(); tfSDT.clear(); tfCCCD.clear(); tfEmail.clear();
                     errLbl.setVisible(false); errLbl.setManaged(false);
@@ -170,7 +170,7 @@ public class NhanVienView {
                     errLbl.setVisible(true); errLbl.setManaged(true);
                 }
             } catch (Exception ex) {
-                errLbl.setText("Lỗi kết nối CSDL: " + ex.getMessage());
+                errLbl.setText("Lỗi: " + ex.getMessage());
                 errLbl.setVisible(true); errLbl.setManaged(true);
             }
         });
@@ -421,15 +421,17 @@ public class NhanVienView {
             NhanVienDAO dao = new NhanVienDAO();
             List<NhanVien> list = dao.getAll();
             if (!list.isEmpty()) {
+                java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("dd/MM/yyyy");
                 for (NhanVien nv : list) {
-                    String email = layEmail(nv.getMaNhanVien());
+                    String email = nv.getEmail() != null ? nv.getEmail() : "—";
+                    String ngayVao = nv.getNgayBatDauLam() != null ? sdf.format(nv.getNgayBatDauLam()) : "N/A";
                     result.add(new Object[]{
                         nv.getMaNhanVien(),
                         nv.getTenNhanVien(),
                         vaiTroDisplay(nv.getVaiTro()),
                         nv.getSoDienThoai() != null ? nv.getSoDienThoai() : "—",
                         email,
-                        "N/A",
+                        ngayVao,
                         "Đang Làm",
                         caToDisplay(nv.getCaLamViec())
                     });
@@ -444,22 +446,7 @@ public class NhanVienView {
         return result;
     }
 
-    /** Lấy email từ DB (cột email) */
-    private String layEmail(String maNV) {
-        Connection con = ConnectDB.getInstance().getConnection();
-        if (con == null) return "—";
-        try (PreparedStatement pst = con.prepareStatement(
-                "SELECT email FROM NhanVien WHERE maNhanVien = ?")) {
-            pst.setString(1, maNV);
-            try (ResultSet rs = pst.executeQuery()) {
-                if (rs.next()) {
-                    String e = rs.getString("email");
-                    return e != null ? e : "—";
-                }
-            }
-        } catch (Exception ignored) {}
-        return "—";
-    }
+
 
     private void updateCountLabel() {
         if (countLbl != null) {

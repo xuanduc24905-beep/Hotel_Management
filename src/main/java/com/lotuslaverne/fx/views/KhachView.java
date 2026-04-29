@@ -151,17 +151,28 @@ public class KhachView {
                 // Chế độ THÊM
                 String maKH = "KH" + UUID.randomUUID().toString().substring(0,4).toUpperCase();
                 KhachHang kh = buildFromForm(maKH);
+                System.out.println("[DEBUG] Thêm KH: ma=" + kh.getMaKH()
+                    + ", ten=" + kh.getHoTenKH()
+                    + ", cmnd=" + kh.getCmnd()
+                    + ", sdt=" + kh.getSoDienThoai());
+                KhachHangDAO dao = new KhachHangDAO();
                 try {
-                    boolean ok = new KhachHangDAO().themKhachHang(kh);
-                    Object[] row = {maKH, ten, sdt, cccd, cbGioiTinh.getValue(),
-                        tfNgaySinh.getText().trim(), tfDiaChi.getText().trim(), tfQuocTich.getText().trim()};
-                    if (ok) { items.add(row); } else { items.add(row); } // Demo: thêm dù DB fail
-                    refreshCards(); resetForm(); updateCount();
+                    boolean ok = dao.themKhachHang(kh);
+                    if (ok) {
+                        Object[] row = {maKH, ten, sdt, cccd, cbGioiTinh.getValue(),
+                            tfNgaySinh.getText().trim(), tfDiaChi.getText().trim(), tfQuocTich.getText().trim()};
+                        items.add(row);
+                        refreshCards(); resetForm(); updateCount();
+                        new Alert(Alert.AlertType.INFORMATION, "Thêm khách hàng thành công!\nMã: " + maKH).showAndWait();
+                    } else {
+                        String errMsg = dao.getLastError() != null ? dao.getLastError() : "Thêm thất bại! Kiểm tra dữ liệu.";
+                        errLbl.setText(errMsg); errLbl.setVisible(true); errLbl.setManaged(true);
+                        new Alert(Alert.AlertType.ERROR, errMsg).showAndWait();
+                    }
                 } catch (Exception ex) {
-                    // Demo mode
-                    Object[] row = {maKH, ten, sdt, cccd, cbGioiTinh.getValue(),
-                        tfNgaySinh.getText().trim(), tfDiaChi.getText().trim(), tfQuocTich.getText().trim()};
-                    items.add(row); refreshCards(); resetForm(); updateCount();
+                    String errMsg = "Lỗi: " + ex.getMessage();
+                    errLbl.setText(errMsg); errLbl.setVisible(true); errLbl.setManaged(true);
+                    new Alert(Alert.AlertType.ERROR, errMsg).showAndWait();
                 }
             }
         });
