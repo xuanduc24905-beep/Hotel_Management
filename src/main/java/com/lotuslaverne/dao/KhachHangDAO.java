@@ -12,6 +12,11 @@ import java.util.List;
 
 public class KhachHangDAO {
 
+    private String lastError;
+
+    /** Lấy thông báo lỗi cuối cùng (null nếu không có lỗi) */
+    public String getLastError() { return lastError; }
+
     public List<KhachHang> getAll() {
         List<KhachHang> list = new ArrayList<>();
         Connection con = ConnectDB.getInstance().getConnection();
@@ -48,20 +53,45 @@ public class KhachHangDAO {
             kh.setMaKH("KH" + (System.currentTimeMillis() % 100000));
         }
         Connection con = ConnectDB.getInstance().getConnection();
-        if (con == null) return false;
+        if (con == null) {
+            lastError = "Không kết nối được CSDL!";
+            return false;
+        }
         try {
             PreparedStatement pst = con.prepareStatement(
-                "INSERT INTO KhachHang (maKH,hoTenKH,cmnd,soDienThoai,gioiTinh,diaChi,quocTich) "
-                + "VALUES (?,?,?,?,?,?,?)");
+                "INSERT INTO KhachHang (maKH,hoTenKH,cmnd,soDienThoai,gioiTinh,ngaySinh,diaChi,quocTich) "
+                + "VALUES (?,?,?,?,?,?,?,?)");
             pst.setString (1, kh.getMaKH());
             pst.setString (2, kh.getHoTenKH());
             pst.setString (3, kh.getCmnd() != null ? kh.getCmnd() : "");
             pst.setString (4, kh.getSoDienThoai());
             pst.setBoolean(5, kh.isGioiTinh());
-            pst.setString (6, kh.getDiaChi());
-            pst.setString (7, kh.getQuocTich() != null ? kh.getQuocTich() : "Việt Nam");
+            // Xử lý ngày sinh: chuyển String -> Date nếu có
+            if (kh.getNgaySinh() != null && !kh.getNgaySinh().trim().isEmpty()) {
+                try {
+                    java.util.Date d = new SimpleDateFormat("dd/MM/yyyy").parse(kh.getNgaySinh());
+                    pst.setDate(6, new java.sql.Date(d.getTime()));
+                } catch (Exception pe) {
+                    pst.setNull(6, java.sql.Types.DATE);
+                }
+            } else {
+                pst.setNull(6, java.sql.Types.DATE);
+            }
+            pst.setString (7, kh.getDiaChi());
+            pst.setString (8, kh.getQuocTich() != null ? kh.getQuocTich() : "Việt Nam");
+            lastError = null;
             return pst.executeUpdate() > 0;
         } catch (Exception e) {
+            String msg = e.getMessage();
+            if (msg != null && msg.contains("UQ_KhachHang_CMND")) {
+                lastError = "CCCD/Hộ chiếu đã tồn tại trong hệ thống!";
+            } else if (msg != null && msg.contains("UQ_KhachHang_SDT")) {
+                lastError = "Số điện thoại đã tồn tại trong hệ thống!";
+            } else if (msg != null && msg.contains("PK_KhachHang")) {
+                lastError = "Mã khách hàng đã tồn tại!";
+            } else {
+                lastError = "Lỗi DB: " + msg;
+            }
             e.printStackTrace();
             return false;
         }

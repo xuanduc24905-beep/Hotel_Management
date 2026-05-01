@@ -84,7 +84,7 @@ public class LoginView {
         // Username field
         Label userLbl = new Label("Tên đăng nhập");
         userLbl.setStyle("-fx-font-size: 12px; -fx-text-fill: #595959;");
-        TextField userField = new TextField("admin");
+        TextField userField = new TextField();
         userField.setPromptText("Nhập tên đăng nhập...");
         styleField(userField);
         Region sp1 = new Region(); sp1.setPrefHeight(14);
@@ -93,24 +93,9 @@ public class LoginView {
         Label passLbl = new Label("Mật khẩu");
         passLbl.setStyle("-fx-font-size: 12px; -fx-text-fill: #595959;");
         PasswordField passField = new PasswordField();
-        passField.setText("123456");
         passField.setPromptText("Nhập mật khẩu...");
         styleField(passField);
-        Region sp2 = new Region(); sp2.setPrefHeight(14);
-
-        // Vai trò
-        Label roleLbl = new Label("Đăng nhập với vai trò:");
-        roleLbl.setStyle("-fx-font-size: 12px; -fx-text-fill: #595959;");
-        ComboBox<String> roleCombo = new ComboBox<>();
-        roleCombo.getItems().addAll("Lễ Tân", "Quản Lý");
-        roleCombo.setValue("Lễ Tân");
-        roleCombo.setMaxWidth(Double.MAX_VALUE);
-        roleCombo.setPrefHeight(42);
-        roleCombo.setStyle(
-            "-fx-background-color: #FFFFFF; -fx-border-color: #D9D9D9;"
-            + "-fx-border-radius: 8; -fx-background-radius: 8; -fx-border-width: 1;"
-            + "-fx-font-size: 13px;");
-        Region sp3 = new Region(); sp3.setPrefHeight(20);
+        Region sp2 = new Region(); sp2.setPrefHeight(20);
 
         // Error label
         Label errorLbl = new Label();
@@ -152,8 +137,7 @@ public class LoginView {
 
         // Xử lý đăng nhập
         loginBtn.setOnAction(e ->
-            handleLogin(userField.getText().trim(), passField.getText(),
-                        roleCombo.getValue(), errorLbl));
+            handleLogin(userField.getText().trim(), passField.getText(), errorLbl));
         passField.setOnAction(e -> loginBtn.fire());
         userField.setOnAction(e -> passField.requestFocus());
 
@@ -161,7 +145,6 @@ public class LoginView {
             logoRow, subLbl, spacer1,
             userLbl, userField, sp1,
             passLbl, passField, sp2,
-            roleLbl, roleCombo, sp3,
             errorLbl, loginBtn, sp4,
             forgotLbl
         );
@@ -201,8 +184,7 @@ public class LoginView {
             + "-fx-padding: 8 12 8 12; -fx-font-size: 13px;"));
     }
 
-    private void handleLogin(String username, String password,
-                             String selectedRole, Label errorLbl) {
+    private void handleLogin(String username, String password, Label errorLbl) {
         if (username.isEmpty() || password.isEmpty()) {
             show(errorLbl, "Vui lòng nhập đầy đủ tên đăng nhập và mật khẩu.");
             return;
@@ -210,20 +192,18 @@ public class LoginView {
 
         TaiKhoan tk = null;
         try { tk = new TaiKhoanDAO().checkLogin(username, password); }
-        catch (Exception ignored) {}
+        catch (Exception ex) {
+            show(errorLbl, "Không thể kết nối cơ sở dữ liệu! Kiểm tra kết nối SQL Server.");
+            return;
+        }
 
-        String resolvedRole = null;
-        if (tk != null) {
-            resolvedRole = tk.getVaiTro().equalsIgnoreCase("QuanLy") ? "Quản Lý" : "Lễ Tân";
-        } else if ("admin".equals(username)     && "123456".equals(password)) resolvedRole = "Quản Lý";
-        else if ("letanthu".equals(username)    && "123456".equals(password)) resolvedRole = "Lễ Tân";
-        else if ("letancuong".equals(username)  && "123456".equals(password)) resolvedRole = "Lễ Tân";
-
-        if (resolvedRole == null) {
+        if (tk == null) {
             show(errorLbl, "Sai tên đăng nhập hoặc mật khẩu. Vui lòng thử lại.");
             return;
         }
 
+        // Vai trò xác định từ DB, KHÔNG cho user tự chọn
+        String resolvedRole = tk.getVaiTro().equalsIgnoreCase("QuanLy") ? "Quản Lý" : "Lễ Tân";
         new MainLayout(stage, username, resolvedRole).show();
     }
 

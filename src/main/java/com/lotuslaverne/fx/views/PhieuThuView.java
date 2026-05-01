@@ -54,17 +54,27 @@ public class PhieuThuView {
         sub.setStyle("-fx-font-size: 13px; -fx-text-fill: #8C8C8C;");
         header.getChildren().addAll(title, sub);
 
-        HBox mainRow = new HBox(20);
-        mainRow.setAlignment(Pos.TOP_LEFT);
-        VBox.setVgrow(mainRow, Priority.ALWAYS);
+        // TabPane — mỗi tab 1 chức năng
+        TabPane tabPane = new TabPane();
+        tabPane.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
+        tabPane.setStyle("-fx-background-color: transparent;");
 
-        VBox leftCard  = buildFormCard();
-        VBox rightCard = buildListCard();
-        HBox.setHgrow(leftCard,  Priority.ALWAYS);
-        HBox.setHgrow(rightCard, Priority.ALWAYS);
-        mainRow.getChildren().addAll(leftCard, rightCard);
+        Tab tabList = new Tab("📋  Danh Sách Phiếu Thu");
+        VBox listWrapper = new VBox(buildListCard());
+        listWrapper.setPadding(new Insets(10, 0, 0, 0));
+        VBox.setVgrow(listWrapper, Priority.ALWAYS);
+        tabList.setContent(listWrapper);
 
-        content.getChildren().addAll(header, mainRow);
+        Tab tabCreate = new Tab("➕  Tạo Phiếu Thu Cọc");
+        VBox formWrapper = new VBox(buildFormCard());
+        formWrapper.setPadding(new Insets(10, 0, 0, 0));
+        formWrapper.setAlignment(Pos.TOP_CENTER);
+        tabCreate.setContent(formWrapper);
+
+        tabPane.getTabs().addAll(tabList, tabCreate);
+        VBox.setVgrow(tabPane, Priority.ALWAYS);
+
+        content.getChildren().addAll(header, tabPane);
         root.getChildren().add(content);
         VBox.setVgrow(root, Priority.ALWAYS);
 

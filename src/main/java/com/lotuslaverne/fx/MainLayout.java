@@ -30,55 +30,55 @@ public class MainLayout {
 
     // Nav entry: { icon, label, viewKey, quanLyOnly }
     // viewKey used in navigate() switch
-    private record NavEntry(String icon, String label, String key, boolean quanLyOnly) {}
+    private record NavEntry(String icon, String label, String key, boolean quanLyOnly) {
+    }
 
     private static final String[][] SECTIONS = {
-        {"TỔNG QUAN"},
-        {"QUẢN LÝ PHÒNG"},
-        {"LƯU TRÚ"},
-        {"TÀI CHÍNH"},
-        {"NHÂN SỰ"},
-        {"HỆ THỐNG"},
+            { "TỔNG QUAN" },
+            { "QUẢN LÝ PHÒNG" },
+            { "LƯU TRÚ" },
+            { "TÀI CHÍNH" },
+            { "NHÂN SỰ" },
+            { "HỆ THỐNG" },
     };
 
     // All nav items in display order
     private final NavEntry[] ALL_NAV = {
-        new NavEntry("⊖",  "Tổng Quan",             "dashboard",    false),  // 0
-        new NavEntry("🚪", "Quản Lý Phòng",         "phong",        false),  // 1
-        new NavEntry("🧹", "Buồng Phòng",            "housekeeping", false),  // 2
-        new NavEntry("🔧", "Thiết Bị",               "thietbi",      false),  // 3
-        new NavEntry("📋", "Đặt Phòng",              "datphong",     false),  // 4
-        new NavEntry("✅", "Check-in",               "checkin",      false),  // 5
-        new NavEntry("🔄", "Đổi Phòng",              "doiphong",     false),  // 6
-        new NavEntry("🏁", "Check-out / Trả Phòng", "checkout",     false),  // 7
-        new NavEntry("🛎", "Dịch Vụ Phòng",          "dichvuphong",  false),  // 9
-        new NavEntry("🍽", "Danh Mục Dịch Vụ",       "dichvu",       false),  // 10
-        new NavEntry("📝", "Yêu Cầu Khách",          "yeucau",       false),  // 11
-        new NavEntry("👤", "Quản Lý Khách",          "khach",        false),  // 12
-        new NavEntry("💳", "Hóa Đơn / Thanh Toán",  "thanhtoan",    false),  // 13
-        new NavEntry("🧾", "Phiếu Thu",              "phieuthu",     false),  // 14
-        new NavEntry("🏷", "Khuyến Mãi",             "khuyenmai",    false),  // 15
-        new NavEntry("💰", "Bảng Giá",               "banggia",      false),  // 16
-        new NavEntry("📊", "Báo Cáo",                "baocao",       false),  // 17
-        new NavEntry("👥", "Nhân Viên",              "nhanvien",     true),   // 18
-        new NavEntry("⏱", "Chấm Công",              "chamcong",     true),   // 19
-        new NavEntry("🔑", "Tài Khoản",              "taikhoan",     true),   // 20
-        new NavEntry("⚙",  "Cài Đặt",               "caidat",       true),   // 21
+            new NavEntry("⊖", "Tổng Quan", "dashboard", false), // 0
+            new NavEntry("🚪", "Quản Lý Phòng", "phong", false), // 1
+            new NavEntry("🧹", "Phòng", "housekeeping", false), // 2
+            new NavEntry("🔧", "Thiết Bị", "thietbi", false), // 3
+            new NavEntry("📋", "Đặt Phòng", "datphong", false), // 4
+            new NavEntry("✅", "Check-in", "checkin", false), // 5
+            new NavEntry("🔄", "Đổi Phòng", "doiphong", false), // 6
+            new NavEntry("🏁", "Check-out / Trả Phòng", "checkout", false), // 7
+            new NavEntry("🛎", "Dịch Vụ Phòng", "dichvuphong", false), // 8
+            new NavEntry("🍽", "Danh Mục Dịch Vụ", "dichvu", false), // 9
+            new NavEntry("📝", "Yêu Cầu Khách", "yeucau", false), // 10
+            new NavEntry("👤", "Quản Lý Khách", "khach", false), // 11
+            new NavEntry("💳", "Thanh Toán", "thanhtoan", false), // 12
+            new NavEntry("📑", "Lịch Sử Hóa Đơn", "hoadon", false), // 13
+            new NavEntry("🧾", "Phiếu Thu", "phieuthu", false), // 14
+            new NavEntry("🏷", "Khuyến Mãi", "khuyenmai", false), // 15
+            new NavEntry("💰", "Bảng Giá", "banggia", false), // 16
+            new NavEntry("📊", "Báo Cáo", "baocao", false), // 17
+            new NavEntry("👥", "Nhân Viên", "nhanvien", true), // 18
+            new NavEntry("⏱", "Chấm Công", "chamcong", true), // 19
+            new NavEntry("🔑", "Tài Khoản", "taikhoan", true), // 20
+            new NavEntry("⚙", "Cài Đặt", "caidat", true), // 21
     };
 
     // Section break BEFORE which index
-    private static final int[] SECTION_BREAKS  = {0, 1, 4, 11, 12, 16, 17};
+    private static final int[] SECTION_BREAKS = { 0, 1, 4, 11, 12, 17, 18 };
     private static final String[] SECTION_LABELS = {
-        "TỔNG QUAN", "PHÒNG", "NGHIỆP VỤ", "KHÁCH HÀNG",
-        "TÀI CHÍNH", "BÁO CÁO", "NHÂN SỰ & HỆ THỐNG"
+            "TỔNG QUAN", "PHÒNG", "NGHIỆP VỤ", "KHÁCH HÀNG",
+            "TÀI CHÍNH", "BÁO CÁO", "NHÂN SỰ & HỆ THỐNG"
     };
 
-
-
     public MainLayout(Stage stage, String username, String vaiTro) {
-        this.stage    = stage;
+        this.stage = stage;
         this.username = username;
-        this.vaiTro   = vaiTro;
+        this.vaiTro = vaiTro;
         this.isQuanLy = "Quản Lý".equals(vaiTro) || "QuanLy".equals(vaiTro);
     }
 
@@ -86,8 +86,8 @@ public class MainLayout {
         BorderPane root = new BorderPane();
 
         VBox sidebar = buildSidebar();
-        HBox header  = buildHeader();
-        contentArea  = new StackPane();
+        HBox header = buildHeader();
+        contentArea = new StackPane();
         contentArea.setStyle("-fx-background-color: #F0F2F5;");
 
         root.setLeft(sidebar);
@@ -100,7 +100,8 @@ public class MainLayout {
         try {
             scene.getStylesheets().add(
                     getClass().getResource("/com/lotuslaverne/fx/style.css").toExternalForm());
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) {
+        }
 
         stage.setTitle("Lotus Laverne Hotel Management");
         stage.setScene(scene);
@@ -144,7 +145,8 @@ public class MainLayout {
         int sectionPtr = 0;
         for (int i = 0; i < ALL_NAV.length; i++) {
             NavEntry entry = ALL_NAV[i];
-            if (entry.quanLyOnly() && !isQuanLy) continue;
+            if (entry.quanLyOnly() && !isQuanLy)
+                continue;
 
             // Section header if needed
             while (sectionPtr < SECTION_BREAKS.length && SECTION_BREAKS[sectionPtr] == i) {
@@ -290,7 +292,8 @@ public class MainLayout {
     }
 
     private String resolveKey(int navIdx) {
-        if (navIdx < 0 || navIdx >= navItems.size()) navIdx = 0;
+        if (navIdx < 0 || navIdx >= navItems.size())
+            navIdx = 0;
         int allIdx = (int) navItems.get(navIdx).getUserData();
         return ALL_NAV[allIdx].key();
     }
@@ -298,8 +301,10 @@ public class MainLayout {
     /**
      * Navigate to a view by key, with optional pre-fill data.
      * Called from PhongView (and other views) to trigger cross-screen navigation.
-     * @param key       the view key (e.g. "datphong", "thanhtoan")
-     * @param prefill   pre-fill string passed to the view (e.g. maPhong or maPDP), or null
+     * 
+     * @param key     the view key (e.g. "datphong", "thanhtoan")
+     * @param prefill pre-fill string passed to the view (e.g. maPhong or maPDP), or
+     *                null
      */
     public void navigateToView(String key, String prefill) {
         // Sync sidebar highlight
@@ -313,37 +318,37 @@ public class MainLayout {
         updateNavStyles();
 
         Node view = switch (key) {
-            case "dashboard"    -> new DashboardView().build();
-            case "phong"        -> new PhongView(this).build();
+            case "dashboard" -> new DashboardView().build();
+            case "phong" -> new PhongView(this).build();
             case "housekeeping" -> new HousekeepingView().build();
-            case "datphong"     -> prefill != null
-                                    ? new DatPhongView(prefill).build()
-                                    : new DatPhongView().build();
-            case "checkin"      -> new CheckInView().build();
-            case "checkout"     -> new CheckoutView().build();
-            case "dichvuphong"  -> new DichVuPhongView().build();
-            case "yeucau"       -> new YeuCauKhachView().build();
-            case "khach"        -> new KhachView().build();
-            case "baocao"       -> new BaoCaoView().build();
-            case "nhanvien"     -> new NhanVienView().build();
-            case "chamcong"     -> new ChamCongView().build();
-            case "taikhoan"     -> new TaiKhoanView(username).build();
-            case "caidat"       -> new CaiDatView().build();
-            case "thanhtoan"    -> prefill != null
-                                    ? new ThanhToanView(prefill).build()
-                                    : new ThanhToanView().build();
-            case "doiphong"     -> new DoiPhongView().build();
+            case "datphong" -> prefill != null
+                    ? new DatPhongView(prefill).build()
+                    : new DatPhongView().build();
+            case "checkin" -> new CheckInView().build();
+            case "checkout" -> new CheckoutView().build();
+            case "dichvuphong" -> new DichVuPhongView().build();
+            case "yeucau" -> new YeuCauKhachView().build();
+            case "khach" -> new KhachView().build();
+            case "baocao" -> new BaoCaoView().build();
+            case "nhanvien" -> new NhanVienView().build();
+            case "chamcong" -> new ChamCongView().build();
+            case "taikhoan" -> new TaiKhoanView(username, vaiTro).build();
+            case "caidat" -> new CaiDatView().build();
+            case "thanhtoan" -> prefill != null
+                    ? new ThanhToanView(prefill).build()
+                    : new ThanhToanView().build();
+            case "doiphong" -> new DoiPhongView().build();
             // Legacy / sub-views
-            case "luutru"       -> new LuuTruView().build();
-            case "hoadon"       -> new HoaDonView().build();
-            case "phieuthu"     -> new PhieuThuView().build();
-            case "khuyenmai"    -> new KhuyenMaiView().build();
-            case "banggia"      -> new BangGiaView().build();
-            case "dichvu"       -> new DichVuView().build();
-            case "thietbi"      -> new ThietBiView().build();
-            case "nhansu"       -> new NhanSuView().build();
-            case "cauhinh"      -> new CauHinhView().build();
-            default             -> new DashboardView().build();
+            case "luutru" -> new LuuTruView().build();
+            case "hoadon" -> new HoaDonView().build();
+            case "phieuthu" -> new PhieuThuView().build();
+            case "khuyenmai" -> new KhuyenMaiView().build();
+            case "banggia" -> new BangGiaView().build();
+            case "dichvu" -> new DichVuView().build();
+            case "thietbi" -> new ThietBiView().build();
+            case "nhansu" -> new NhanSuView().build();
+            case "cauhinh" -> new CauHinhView().build();
+            default -> new DashboardView().build();
         };
 
         contentArea.getChildren().setAll(view);
