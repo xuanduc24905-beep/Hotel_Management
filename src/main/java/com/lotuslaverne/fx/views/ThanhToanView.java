@@ -21,6 +21,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.text.DecimalFormat;
+import java.text.SimpleDateFormat;
 import java.util.List;
 import java.util.UUID;
 
@@ -261,14 +262,30 @@ public class ThanhToanView {
             alert(Alert.AlertType.WARNING, "Thiếu thông tin", "Vui lòng nhập mã phiếu đặt phòng!"); return;
         }
         try {
-            List<PhieuDatPhong> list = new PhieuDatPhongDAO().getDangSuDung();
+            // Tìm phiếu ở mọi trạng thái chưa hoàn tất (DaDat, DaCheckIn)
+            PhieuDatPhongDAO pdpDAO = new PhieuDatPhongDAO();
             PhieuDatPhong pdp = null;
-            for (PhieuDatPhong p : list) {
+
+            // Ưu tiên tìm phiếu đang sử dụng (DaCheckIn)
+            for (PhieuDatPhong p : pdpDAO.getDangSuDung()) {
                 if (p.getMaPhieuDatPhong().equalsIgnoreCase(maPDP)) { pdp = p; break; }
+            }
+            // Nếu không tìm thấy, tìm phiếu đã đặt (DaDat) 
+            if (pdp == null) {
+                for (PhieuDatPhong p : pdpDAO.getChuaCheckIn()) {
+                    if (p.getMaPhieuDatPhong().equalsIgnoreCase(maPDP)) { pdp = p; break; }
+                }
+            }
+            // Cuối cùng, tìm trong tất cả phiếu
+            if (pdp == null) {
+                for (PhieuDatPhong p : pdpDAO.getAll()) {
+                    if (p.getMaPhieuDatPhong().equalsIgnoreCase(maPDP)) { pdp = p; break; }
+                }
             }
             if (pdp == null) {
                 alert(Alert.AlertType.WARNING, "Không tìm thấy",
-                        "Không tìm thấy phiếu đang sử dụng!\nKiểm tra mã phiếu hoặc khách chưa check-in.");
+                        "Không tìm thấy phiếu đặt phòng với mã: " + maPDP
+                        + "\nKiểm tra lại mã phiếu trong hệ thống.");
                 return;
             }
 
@@ -348,12 +365,11 @@ public class ThanhToanView {
             alert(Alert.AlertType.WARNING, "Chưa Tính Tiền",
                     "Vui lòng nhập mã phiếu và nhấn 'Tính Toán Tiền' trước khi thanh toán!"); return;
         }
-        String maPDP      = txtMaPhieuDP.getText().trim();
+        String maPDP = txtMaPhieuDP.getText().trim();
         if (maPDP.isEmpty()) {
             alert(Alert.AlertType.WARNING, "Thiếu Thông Tin", "Vui lòng nhập mã phiếu đặt phòng!"); return;
         }
-        String maHD      = "HD" + UUID.randomUUID().toString().substring(0, 6).toUpperCase();
-        // Map tiếng Việt -> giá trị DB
+        String maHD = "HD" + UUID.randomUUID().toString().substring(0, 6).toUpperCase();
         String phuongThucDB = switch (cbPhuongThuc.getValue()) {
             case "Chuyển Khoản" -> "ChuyenKhoan";
             default -> "TienMat";
@@ -361,9 +377,9 @@ public class ThanhToanView {
 
         Alert confirm = new Alert(Alert.AlertType.CONFIRMATION,
                 "Xác nhận thanh toán phiếu: " + maPDP
-                + "\nTổng tiền: " + new java.text.DecimalFormat("#,### VNĐ").format(currentTotal)
+                + "\nTổng tiền: " + new DecimalFormat("#,### VNĐ").format(currentTotal)
                 + "\nPhương thức: " + cbPhuongThuc.getValue()
-                + "\n\nSau khi xác nhận, hệ thống sẽ xuất hóa đơn và trả phòng.");
+                + "\n\nSau khi xác nhận, hệ thống sẽ xuất hóa đơn PDF và trả phòng.");
         confirm.setHeaderText("Xác Nhận Thanh Toán & Check-out");
         confirm.setTitle("Thanh Toán");
         confirm.showAndWait().ifPresent(btn -> {
@@ -373,16 +389,16 @@ public class ThanhToanView {
             try {
                 boolean hdOk = new HoaDonDAO().taoHoaDon(hd);
                 if (hdOk) {
-                    // Cập nhật phiếu đặt phòng sang DaCheckOut
                     new PhieuDatPhongDAO().checkOut(maPDP);
-                    // Cập nhật trạng thái phòng sang Cần Dọn
                     String maPhong = layMaPhong(maPDP);
                     if (!maPhong.isEmpty()) new PhongDAO().capNhatTrangThai(maPhong, "PhongCanDon");
+                    xuatPDF(maHD, maPDP, maPhong);
                     alert(Alert.AlertType.INFORMATION, "Thanh Toán Hoàn Tất ✅",
                             "Thanh toán thành công!\nMã hóa đơn: " + maHD
-                            + "\nTổng tiền: " + new java.text.DecimalFormat("#,###").format(currentTotal) + " VNĐ"
+                            + "\nTổng tiền: " + new DecimalFormat("#,###").format(currentTotal) + " VNĐ"
                             + "\nPhiếu đặt phòng: Đã Check-out"
-                            + "\nTrạng thái phòng → Cần dọn.");
+                            + "\nTrạng thái phòng → Cần dọn."
+                            + "\n\n📄 Hóa đơn PDF đã được lưu!");
                     resetForm();
                 } else {
                     alert(Alert.AlertType.ERROR, "Lỗi",
@@ -392,6 +408,60 @@ public class ThanhToanView {
                 alert(Alert.AlertType.ERROR, "Lỗi Kết Nối", "Lỗi kết nối cơ sở dữ liệu: " + ex.getMessage());
             }
         });
+    }
+
+    private void xuatPDF(String maHD, String maPDP, String maPhong) {
+        try {
+            String tenKH = "Khach le", tenPhong = maPhong, loaiPhong = "", tgNhan = "", tgTra = "";
+            long soNgay = 1; double donGia = 0;
+            Connection con = ConnectDB.getInstance().getConnection();
+            if (con != null) {
+                String sql = "SELECT kh.hoTenKH, p.tenPhong, lp.tenLoaiPhong, "
+                    + "pdp.thoiGianNhanThucTe, pdp.thoiGianNhanDuKien, pdp.thoiGianTraThucTe, ct.donGia "
+                    + "FROM PhieuDatPhong pdp "
+                    + "JOIN KhachHang kh ON pdp.maKhachHang = kh.maKH "
+                    + "JOIN ChiTietPhieuDatPhong ct ON pdp.maPhieuDatPhong = ct.maPhieuDatPhong "
+                    + "JOIN Phong p ON ct.maPhong = p.maPhong "
+                    + "JOIN LoaiPhong lp ON p.maLoaiPhong = lp.maLoaiPhong "
+                    + "WHERE pdp.maPhieuDatPhong = ?";
+                try (PreparedStatement pst = con.prepareStatement(sql)) {
+                    pst.setString(1, maPDP);
+                    try (ResultSet rs = pst.executeQuery()) {
+                        if (rs.next()) {
+                            tenKH = rs.getString("hoTenKH");
+                            tenPhong = rs.getString("tenPhong");
+                            loaiPhong = rs.getString("tenLoaiPhong");
+                            java.sql.Timestamp tsNhan = rs.getTimestamp("thoiGianNhanThucTe");
+                            if (tsNhan == null) tsNhan = rs.getTimestamp("thoiGianNhanDuKien");
+                            java.sql.Timestamp tsTra = rs.getTimestamp("thoiGianTraThucTe");
+                            SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy HH:mm");
+                            tgNhan = tsNhan != null ? sdf.format(tsNhan) : "N/A";
+                            tgTra = tsTra != null ? sdf.format(tsTra) : sdf.format(new java.util.Date());
+                            donGia = rs.getDouble("donGia");
+                            if (tsNhan != null) { long ms = System.currentTimeMillis() - tsNhan.getTime(); soNgay = Math.max(1, ms / (24 * 3600000)); }
+                        }
+                    }
+                }
+            }
+            if (donGia == 0 && tamTinhPhong > 0 && soNgay > 0) donGia = tamTinhPhong / soNgay;
+            javafx.stage.FileChooser fc = new javafx.stage.FileChooser();
+            fc.setTitle("Lưu Hóa Đơn PDF");
+            fc.setInitialFileName(maHD + ".pdf");
+            fc.getExtensionFilters().add(new javafx.stage.FileChooser.ExtensionFilter("PDF Files", "*.pdf"));
+            fc.setInitialDirectory(new java.io.File(System.getProperty("user.home") + "/Desktop"));
+            java.io.File file = fc.showSaveDialog(null);
+            if (file == null) return;
+            java.util.List<Object[]> dvList = new java.util.ArrayList<>();
+            if (dvItems != null) for (Object[] item : dvItems) dvList.add(item);
+            com.lotuslaverne.util.PdfExporter.xuatHoaDon(file.getAbsolutePath(), maHD, maPDP,
+                tenKH, maPhong, tenPhong, loaiPhong, tgNhan, tgTra, soNgay, donGia,
+                tamTinhPhong, dvList, phatSinhDV, discountAmount, currentTotal,
+                cbPhuongThuc.getValue(), "NV001");
+            if (java.awt.Desktop.isDesktopSupported()) java.awt.Desktop.getDesktop().open(file);
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            alert(Alert.AlertType.WARNING, "Xuất PDF", "Thanh toán OK nhưng lỗi xuất PDF:\n" + ex.getMessage());
+        }
     }
 
     private void resetForm() {
