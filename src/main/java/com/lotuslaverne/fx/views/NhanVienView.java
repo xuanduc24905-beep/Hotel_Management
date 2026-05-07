@@ -80,7 +80,27 @@ public class NhanVienView {
         items = FXCollections.observableArrayList(loadNhanVien());
         updateCountLabel();
 
-        content.getChildren().addAll(header, buildFormCard(), buildFilterToolbar(), buildTable());
+        // TabPane — mỗi tab 1 chức năng
+        TabPane tabPane = new TabPane();
+        tabPane.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
+        tabPane.setStyle("-fx-background-color: transparent;");
+
+        Tab tabList = new Tab("📋  Danh Sách Nhân Viên");
+        VBox listContent = new VBox(14, buildFilterToolbar(), buildTable());
+        listContent.setPadding(new Insets(10, 0, 0, 0));
+        VBox.setVgrow(listContent, Priority.ALWAYS);
+        tabList.setContent(listContent);
+
+        Tab tabAdd = new Tab("➕  Thêm Nhân Viên");
+        VBox addWrapper = new VBox(buildFormCard());
+        addWrapper.setPadding(new Insets(10, 0, 0, 0));
+        addWrapper.setAlignment(Pos.TOP_CENTER);
+        tabAdd.setContent(addWrapper);
+
+        tabPane.getTabs().addAll(tabList, tabAdd);
+        VBox.setVgrow(tabPane, Priority.ALWAYS);
+
+        content.getChildren().addAll(header, tabPane);
         scroll.setContent(content);
         VBox.setVgrow(scroll, Priority.ALWAYS);
         root.getChildren().add(scroll);

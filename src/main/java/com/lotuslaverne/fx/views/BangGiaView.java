@@ -28,6 +28,8 @@ public class BangGiaView {
     private ObservableList<Object[]> items;
     private TableView<Object[]> table;
     private String[] lpArr = {"LP01","LP02","LP03","LP04"};
+    // Map mã loại phòng → tên loại phòng (VD: LP01 → Standard)
+    private final LinkedHashMap<String,String> lpNameMap = new LinkedHashMap<>();
     private String fKG=null, fLP=null, fLT=null, sCol="maBangGia";
     private boolean sAsc=true;
     private double kmPct=0; private String kmMa=null, kmTen=null;
@@ -45,7 +47,18 @@ public class BangGiaView {
     }
 
     public Node build(){
-        try{List<LoaiPhong> l=new LoaiPhongDAO().getAll();if(!l.isEmpty())lpArr=l.stream().map(LoaiPhong::getMaLoaiPhong).toArray(String[]::new);}catch(Exception ignored){}
+        try{
+            List<LoaiPhong> l = new LoaiPhongDAO().getAll();
+            if (!l.isEmpty()) {
+                lpArr = l.stream().map(LoaiPhong::getMaLoaiPhong).toArray(String[]::new);
+                for (LoaiPhong lp : l) lpNameMap.put(lp.getMaLoaiPhong(), lp.getTenLoaiPhong());
+            }
+        } catch(Exception ignored) {}
+        // Fallback nếu không load được từ DB
+        if (lpNameMap.isEmpty()) {
+            lpNameMap.put("LP01", "Standard"); lpNameMap.put("LP02", "Deluxe");
+            lpNameMap.put("LP03", "Superior"); lpNameMap.put("LP04", "Suite");
+        }
         loadKM();
 
         VBox root=new VBox(0); root.setStyle("-fx-background-color:#F0F2F5;");
@@ -132,7 +145,16 @@ public class BangGiaView {
         GridPane f=new GridPane();f.setHgap(12);f.setVgap(12);f.setPadding(new Insets(20));
         ColumnConstraints c1=new ColumnConstraints();c1.setPrefWidth(150);ColumnConstraints c2=new ColumnConstraints();c2.setPrefWidth(200);f.getColumnConstraints().addAll(c1,c2);
         TextField tMa=new TextField(row!=null?row[0].toString():"");tMa.setEditable(isNew);tMa.setStyle(fldS());
-        ComboBox<String> cLP=new ComboBox<>();cLP.getItems().addAll(lpArr);cLP.setValue(row!=null?row[1].toString():lpArr[0]);cLP.setMaxWidth(1e9);
+        // ComboBox loại phòng hiện TÊN nhưng lưu MÃ
+        ComboBox<String> cLP=new ComboBox<>();
+        for (String ma : lpArr) cLP.getItems().add(lpNameMap.getOrDefault(ma, ma));
+        if (row != null) {
+            // row[1] đã là tên loại phòng, set trực tiếp
+            cLP.setValue(row[1].toString());
+        } else {
+            cLP.setValue(lpNameMap.getOrDefault(lpArr[0], lpArr[0]));
+        }
+        cLP.setMaxWidth(1e9);
         ComboBox<String> cLT=new ComboBox<>();cLT.getItems().addAll("QuaDem","TheoNgay","TheoGio");cLT.setValue(row!=null?row[2].toString():"QuaDem");cLT.setMaxWidth(1e9);
         ComboBox<String> cKG=new ComboBox<>();KG.values().forEach(v->cKG.getItems().add(v));cKG.setValue(row!=null?row[3].toString():"Ngày Thường");cKG.setMaxWidth(1e9);
         TextField tG=new TextField(row!=null?row[4].toString().replaceAll("[^0-9.]",""):"");tG.setStyle(fldS());
@@ -147,7 +169,14 @@ public class BangGiaView {
             double g;try{g=Double.parseDouble(tG.getText().trim());if(g<=0)throw new Exception();}catch(Exception x){new Alert(Alert.AlertType.ERROR,"Đơn giá phải > 0!").showAndWait();return;}
             if(dK.getValue()==null||dB.getValue()==null||!dK.getValue().isAfter(dB.getValue())){new Alert(Alert.AlertType.WARNING,"Ngày KT phải sau ngày BĐ!").showAndWait();return;}
             String kg=rKey(KG,cKG.getValue());if(kg==null)kg="NgayThuong";
-            try{BangGia b=new BangGia(tMa.getText().trim(),cLP.getValue(),cLT.getValue(),kg,g,java.sql.Date.valueOf(dB.getValue()),java.sql.Date.valueOf(dK.getValue()));
+            try{
+                // Chuyển tên loại phòng ngược lại thành mã
+                String tenLP = cLP.getValue();
+                String maLP = tenLP;
+                for (Map.Entry<String,String> en : lpNameMap.entrySet()) {
+                    if (en.getValue().equals(tenLP)) { maLP = en.getKey(); break; }
+                }
+                BangGia b=new BangGia(tMa.getText().trim(),maLP,cLT.getValue(),kg,g,java.sql.Date.valueOf(dB.getValue()),java.sql.Date.valueOf(dK.getValue()));
                 boolean ok=isNew?new BangGiaDAO().them(b):new BangGiaDAO().sua(b);if(ok){d.close();refresh();}else new Alert(Alert.AlertType.ERROR,"Lỗi dữ liệu.").showAndWait();
             }catch(Exception x){new Alert(Alert.AlertType.ERROR,"Lỗi DB: "+x.getMessage()).showAndWait();}});
         HBox br=new HBox(10,bC,bS);br.setAlignment(Pos.CENTER_RIGHT);br.setPadding(new Insets(0,20,16,20));
@@ -165,7 +194,8 @@ public class BangGiaView {
             if(fLP!=null)list=list.stream().filter(b->fLP.equals(b.getMaLoaiPhong())).collect(Collectors.toList());
             if(fLT!=null)list=list.stream().filter(b->fLT.equals(b.getLoaiThue())).collect(Collectors.toList());
             if(!list.isEmpty()){for(BangGia b:list){String tk=KG.getOrDefault(b.getKyGia(),b.getKyGia());String gm=kmPct>0?String.format("-%.0f%%",kmPct):"—";double sau=b.getDonGia()*(1-kmPct/100);
-                res.add(new Object[]{b.getMaBangGia(),b.getMaLoaiPhong(),b.getLoaiThue(),tk,df.format(b.getDonGia()),gm,kmPct>0?df.format(sau):df.format(b.getDonGia()),b.getNgayBatDau()!=null?sdf.format(b.getNgayBatDau()):"",b.getNgayKetThuc()!=null?sdf.format(b.getNgayKetThuc()):""});}return res;}
+                String tenLP = lpNameMap.getOrDefault(b.getMaLoaiPhong(), b.getMaLoaiPhong());
+                res.add(new Object[]{b.getMaBangGia(),tenLP,b.getLoaiThue(),tk,df.format(b.getDonGia()),gm,kmPct>0?df.format(sau):df.format(b.getDonGia()),b.getNgayBatDau()!=null?sdf.format(b.getNgayBatDau()):"",b.getNgayKetThuc()!=null?sdf.format(b.getNgayKetThuc()):""});}return res;}
         }catch(Exception ignored){}
         res.add(new Object[]{"BG001","LP01","QuaDem","Ngày Thường","500,000 VNĐ","—","500,000 VNĐ","01/01/2026","31/12/2026"});return res;
     }
@@ -174,8 +204,26 @@ public class BangGiaView {
     @SuppressWarnings("unchecked")
     private ComboBox<String> makeCB(String ph,Collection<String> vals,javafx.event.EventHandler<javafx.event.ActionEvent> handler){
         ComboBox<String> cb=new ComboBox<>();cb.getItems().add(ph);cb.getItems().addAll(vals);cb.setValue(ph);cb.setStyle(CB_STYLE);cb.setOnAction(handler);return cb;}
-    private ComboBox<String> makeLPCB(){ComboBox<String> cb=new ComboBox<>();cb.getItems().add("Tất cả");cb.getItems().addAll(lpArr);cb.setValue("Tất cả");cb.setStyle(CB_STYLE);
-        cb.setOnAction(e->{fLP=cb.getValue().equals("Tất cả")?null:cb.getValue();updClear();refresh();});return cb;}
+    private ComboBox<String> makeLPCB(){
+        ComboBox<String> cb=new ComboBox<>();
+        cb.getItems().add("Tất cả");
+        for (String ma : lpArr) cb.getItems().add(lpNameMap.getOrDefault(ma, ma));
+        cb.setValue("Tất cả");
+        cb.setStyle(CB_STYLE);
+        cb.setOnAction(e->{
+            String sel = cb.getValue();
+            if ("Tất cả".equals(sel)) { fLP = null; }
+            else {
+                // Tìm mã từ tên
+                fLP = sel;
+                for (Map.Entry<String,String> en : lpNameMap.entrySet()) {
+                    if (en.getValue().equals(sel)) { fLP = en.getKey(); break; }
+                }
+            }
+            updClear(); refresh();
+        });
+        return cb;
+    }
     private String rKey(Map<String,String> m,String v){if(v==null||v.startsWith("Tất"))return null;for(Map.Entry<String,String> e:m.entrySet())if(e.getValue().equals(v))return e.getKey();return null;}
     private Button actBtn(String t,String c){Button b=new Button(t);b.setStyle("-fx-background-color:"+c+";-fx-text-fill:white;-fx-background-radius:8;-fx-padding:8 16;-fx-cursor:hand;-fx-font-size:12px;");return b;}
     private Label lbl(String t){Label l=new Label(t);l.setStyle("-fx-font-size:12px;-fx-font-weight:bold;-fx-text-fill:#595959;");return l;}

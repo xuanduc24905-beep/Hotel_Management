@@ -50,13 +50,23 @@ public class ChamCongView {
         // ── Stats cards ──
         HBox stats = buildStatsRow();
 
-        // ── Quick action: Check-in/out nhân viên ──
-        VBox quickCard = buildQuickCheckCard();
+        // TabPane — mỗi tab 1 chức năng
+        TabPane tabPane = new TabPane();
+        tabPane.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
+        tabPane.setStyle("-fx-background-color: transparent;");
 
-        // ── Bảng lịch sử chấm công ──
-        VBox tableCard = buildTableCard();
+        Tab tabHistory = new Tab("📋  Lịch Sử Chấm Công");
+        tabHistory.setContent(buildTableCard());
 
-        content.getChildren().addAll(hdr, stats, quickCard, tableCard);
+        Tab tabQuick = new Tab("⚡  Check-in / Check-out");
+        VBox quickWrapper = new VBox(buildQuickCheckCard());
+        quickWrapper.setPadding(new Insets(10, 0, 0, 0));
+        tabQuick.setContent(quickWrapper);
+
+        tabPane.getTabs().addAll(tabHistory, tabQuick);
+        VBox.setVgrow(tabPane, Priority.ALWAYS);
+
+        content.getChildren().addAll(hdr, stats, tabPane);
         scroll.setContent(content);
         root.getChildren().add(scroll);
         VBox.setVgrow(root, Priority.ALWAYS);
