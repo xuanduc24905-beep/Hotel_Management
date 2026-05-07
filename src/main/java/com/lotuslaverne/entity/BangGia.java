@@ -6,6 +6,7 @@ public class BangGia {
     private String maBangGia;
     private String maLoaiPhong;
     private String loaiThue;
+    private String kyGia;       // NgayThuong, CuoiTuan, LeTet, CaoDiem
     private double donGia;
     private Date ngayBatDau;
     private Date ngayKetThuc;
@@ -13,10 +14,11 @@ public class BangGia {
     public BangGia() {}
 
     public BangGia(String maBangGia, String maLoaiPhong, String loaiThue,
-                   double donGia, Date ngayBatDau, Date ngayKetThuc) {
+                   String kyGia, double donGia, Date ngayBatDau, Date ngayKetThuc) {
         this.maBangGia = maBangGia;
         this.maLoaiPhong = maLoaiPhong;
         this.loaiThue = loaiThue;
+        this.kyGia = kyGia;
         this.donGia = donGia;
         this.ngayBatDau = ngayBatDau;
         this.ngayKetThuc = ngayKetThuc;
@@ -28,6 +30,8 @@ public class BangGia {
     public void setMaLoaiPhong(String v) { this.maLoaiPhong = v; }
     public String getLoaiThue() { return loaiThue; }
     public void setLoaiThue(String v) { this.loaiThue = v; }
+    public String getKyGia() { return kyGia; }
+    public void setKyGia(String v) { this.kyGia = v; }
     public double getDonGia() { return donGia; }
     public void setDonGia(double v) { this.donGia = v; }
     public Date getNgayBatDau() { return ngayBatDau; }

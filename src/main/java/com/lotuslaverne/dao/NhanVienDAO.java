@@ -27,6 +27,12 @@ public class NhanVienDAO {
                     rs.getString("vaiTro")
                 );
                 try { nv.setCaLamViec(rs.getString("caLamViec")); } catch (Exception ignored) {}
+                try { nv.setCccd(rs.getString("cccd")); } catch (Exception ignored) {}
+                try { nv.setEmail(rs.getString("email")); } catch (Exception ignored) {}
+                try { nv.setDiaChi(rs.getString("diaChi")); } catch (Exception ignored) {}
+                try { nv.setNgaySinh(rs.getDate("ngaySinh")); } catch (Exception ignored) {}
+                try { nv.setNgayBatDauLam(rs.getDate("ngayBatDauLam")); } catch (Exception ignored) {}
+                try { nv.setNgayKetThucHopDong(rs.getDate("ngayKetThucHopDong")); } catch (Exception ignored) {}
                 list.add(nv);
             }
         } catch (Exception e) {
@@ -39,17 +45,31 @@ public class NhanVienDAO {
         Connection con = ConnectDB.getInstance().getConnection();
         if (con == null) return false;
         try {
-            String sql = "INSERT INTO NhanVien (maNhanVien, tenNhanVien, soDienThoai, vaiTro, caLamViec) VALUES (?, ?, ?, ?, ?)";
+            String sql = "INSERT INTO NhanVien (maNhanVien, tenNhanVien, soDienThoai, cccd, email, diaChi, vaiTro, caLamViec, ngayBatDauLam) "
+                       + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, GETDATE())";
             PreparedStatement pst = con.prepareStatement(sql);
             pst.setString(1, nv.getMaNhanVien());
             pst.setString(2, nv.getTenNhanVien());
             pst.setString(3, nv.getSoDienThoai());
-            pst.setString(4, nv.getVaiTro());
-            pst.setString(5, nv.getCaLamViec());
+            // cccd: nếu trống thì set NULL (tránh UNIQUE constraint conflict khi nhiều dòng null)
+            String cccd = nv.getCccd();
+            if (cccd != null && cccd.trim().isEmpty()) cccd = null;
+            pst.setString(4, cccd);
+            // email
+            String email = nv.getEmail();
+            if (email != null && email.trim().isEmpty()) email = null;
+            pst.setString(5, email);
+            // diaChi
+            String diaChi = nv.getDiaChi();
+            if (diaChi != null && diaChi.trim().isEmpty()) diaChi = null;
+            pst.setString(6, diaChi);
+            pst.setString(7, nv.getVaiTro());
+            pst.setString(8, nv.getCaLamViec());
             return pst.executeUpdate() > 0;
         } catch (Exception e) {
+            System.err.println("Thêm nhân viên lỗi: " + e.getMessage());
             e.printStackTrace();
-            return false;
+            throw new RuntimeException("Lỗi thêm nhân viên: " + e.getMessage(), e);
         }
     }
 
@@ -57,17 +77,27 @@ public class NhanVienDAO {
         Connection con = ConnectDB.getInstance().getConnection();
         if (con == null) return false;
         try {
-            String sql = "UPDATE NhanVien SET tenNhanVien = ?, soDienThoai = ?, vaiTro = ?, caLamViec = ? WHERE maNhanVien = ?";
+            String sql = "UPDATE NhanVien SET tenNhanVien=?, soDienThoai=?, cccd=?, email=?, diaChi=?, vaiTro=?, caLamViec=? WHERE maNhanVien=?";
             PreparedStatement pst = con.prepareStatement(sql);
             pst.setString(1, nv.getTenNhanVien());
             pst.setString(2, nv.getSoDienThoai());
-            pst.setString(3, nv.getVaiTro());
-            pst.setString(4, nv.getCaLamViec());
-            pst.setString(5, nv.getMaNhanVien());
+            String cccd = nv.getCccd();
+            if (cccd != null && cccd.trim().isEmpty()) cccd = null;
+            pst.setString(3, cccd);
+            String email = nv.getEmail();
+            if (email != null && email.trim().isEmpty()) email = null;
+            pst.setString(4, email);
+            String diaChi = nv.getDiaChi();
+            if (diaChi != null && diaChi.trim().isEmpty()) diaChi = null;
+            pst.setString(5, diaChi);
+            pst.setString(6, nv.getVaiTro());
+            pst.setString(7, nv.getCaLamViec());
+            pst.setString(8, nv.getMaNhanVien());
             return pst.executeUpdate() > 0;
         } catch (Exception e) {
+            System.err.println("Sửa nhân viên lỗi: " + e.getMessage());
             e.printStackTrace();
-            return false;
+            throw new RuntimeException("Lỗi sửa nhân viên: " + e.getMessage(), e);
         }
     }
 
@@ -75,6 +105,17 @@ public class NhanVienDAO {
         Connection con = ConnectDB.getInstance().getConnection();
         if (con == null) return false;
         try {
+            // Kiểm tra ràng buộc FK: TaiKhoan, PhieuDatPhong, HoaDon
+            String checkSQL = "SELECT COUNT(*) FROM TaiKhoan WHERE maNhanVien = ?";
+            try (PreparedStatement chk = con.prepareStatement(checkSQL)) {
+                chk.setString(1, maNhanVien);
+                try (ResultSet rs = chk.executeQuery()) {
+                    if (rs.next() && rs.getInt(1) > 0) {
+                        System.err.println("Không thể xóa: nhân viên còn tài khoản liên kết.");
+                        return false;
+                    }
+                }
+            }
             String sql = "DELETE FROM NhanVien WHERE maNhanVien = ?";
             PreparedStatement pst = con.prepareStatement(sql);
             pst.setString(1, maNhanVien);

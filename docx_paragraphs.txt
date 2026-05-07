@@ -1,0 +1,28 @@
+﻿[P0] UC001 ÔÇô ─É─âng nhß║¡p
+[P4] UC002 ÔÇô ─É─âng xuß║Ñt
+[P7] UC003 ÔÇô ─Éß╗òi mß║¡t khß║®u
+[P11] UC004 ÔÇô Tß║ío t├ái khoß║ún nh├ón vi├¬n
+[P14] UC005 ÔÇô Chß╗ënh sß╗¡a t├ái khoß║ún nh├ón vi├¬n
+[P17] UC006 ÔÇô Quß║ún l├¢ th├┤ng tin ph├▓ng
+[P21] UC007 ÔÇô Th├¬m ph├▓ng mß╗øi
+[P25] UC008 ÔÇô Quß║ún l├¢ loß║íi ph├▓ng
+[P29] UC009 ÔÇô Quß║ún l├¢ bß║úng gi├í ph├▓ng
+[P33] UC010 ÔÇô Th├¬m dß╗ïch vß╗Ñ
+[P37] UC011 ÔÇô Sß╗¡a dß╗ïch vß╗Ñ
+[P41] UC012 ÔÇô Tß║ío chã░ãíng tr├¼nh khuyß║┐n m├úi
+[P45] UC013 ÔÇô Chß╗ënh sß╗¡a chã░ãíng tr├¼nh khuyß║┐n m├úi
+[P49] UC014 ÔÇô  Khuyß║┐n m├úi
+[P53] UC015 ÔÇô Quß║ún l├¢ th├┤ng tin kh├ích h├áng
+[P57] UC016 ÔÇô Tß║ío ─æß║Àt ph├▓ng mß╗øi
+[P62] UC017 ÔÇô Tß║ío phiß║┐u thu tiß╗ün cß╗ìc
+[P66] UC018 ÔÇô Chß╗ënh sß╗¡a th├┤ng tin ─æß║Àt ph├▓ng
+[P71] UC019 ÔÇô Cß║¡p nhß║¡t trß║íng th├íi ─æß║Àt ph├▓ng
+[P75] UC020 ÔÇô ─Éß╗òi ph├▓ng
+[P79] UC021 ÔÇô Dß╗ïch vß╗Ñ ph├ít sinh
+[P83] UC022 ÔÇô Trß║ú ph├▓ng (Check-out)
+[P87] UC023 ÔÇô X├íc nhß║¡n phã░ãíng thß╗®c thanh to├ín
+[P89] UC024 ÔÇô Tß║ío h├│a ─æãín
+[P93] UC025 ÔÇô Quß║ún l├¢ th├┤ng tin h├│a ─æãín thanh to├ín
+[P96] UC026 ÔÇô Tra cß╗®u th├┤ng tin
+[P100] UC027 ÔÇô Thß╗æng k├¬ doanh thu
+[P104] UC028 ÔÇô Thß╗æng k├¬ hiß╗çu suß║Ñt sß╗¡ dß╗Ñng ph├▓ng
