@@ -265,20 +265,34 @@ public class NhanVienView {
             @Override protected void updateItem(String s, boolean empty) {
                 super.updateItem(s, empty);
                 setText(empty || s == null ? null : s);
-                setStyle(empty ? "" : "-fx-font-weight: bold; -fx-text-fill: #1890FF;");
+                refresh();
+            }
+            @Override public void updateSelected(boolean sel) {
+                super.updateSelected(sel); if (!isEmpty()) refresh();
+            }
+            private void refresh() {
+                setStyle(isEmpty() ? "" : (isSelected()
+                    ? "-fx-font-weight:bold;-fx-text-fill:white;"
+                    : "-fx-font-weight:bold;-fx-text-fill:#1890FF;"));
             }
         });
 
         TableColumn<Object[], String> colTen = col("Họ Tên", 1);
         colTen.setCellFactory(tc -> new TableCell<>() {
+            private Label nameLbl = null;
             @Override protected void updateItem(String item, boolean empty) {
                 super.updateItem(item, empty);
-                if (empty || item == null) { setGraphic(null); return; }
+                if (empty || item == null) { setGraphic(null); setText(null); nameLbl = null; return; }
+                nameLbl = new Label(item);
+                nameLbl.setStyle("-fx-font-size:12px;-fx-font-weight:bold;-fx-text-fill:#1A1A2E;");
                 HBox box = new HBox(8); box.setAlignment(Pos.CENTER_LEFT);
-                Label name = new Label(item);
-                name.setStyle("-fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: #1A1A2E;");
-                box.getChildren().addAll(UiUtils.makeAvatarCircle(item, 14), name);
+                box.getChildren().addAll(UiUtils.makeAvatarCircle(item, 14), nameLbl);
                 setGraphic(box); setText(null);
+            }
+            @Override public void updateSelected(boolean sel) {
+                super.updateSelected(sel);
+                if (nameLbl != null)
+                    nameLbl.setStyle("-fx-font-size:12px;-fx-font-weight:bold;-fx-text-fill:" + (sel ? "white" : "#1A1A2E") + ";");
             }
         });
 

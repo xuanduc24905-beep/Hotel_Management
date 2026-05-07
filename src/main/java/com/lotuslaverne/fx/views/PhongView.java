@@ -41,7 +41,7 @@ public class PhongView {
     public PhongView(MainLayout mainLayout) { this.mainLayout = mainLayout; }
 
     private static final String[] LOAI_FILTER_FALLBACK = {"Standard", "Deluxe", "Suite", "Family"};
-    private static final String[] TRANG_THAI_FILTER = {"Tất Cả", "Trống", "Chờ Check-in", "Đang Thuê", "Cần Dọn", "Đang Dọn", "Bảo Trì"};
+    private static final String[] TRANG_THAI_FILTER = {"Tất Cả", "Trống", "Chờ Thanh Toán", "Chờ Check-in", "Đang Thuê", "Cần Dọn", "Đang Dọn", "Bảo Trì"};
     private static final String[] TIEN_NGHI_FILTER  = {"Tất Cả", "WiFi", "TV", "Điều Hòa", "Bồn Tắm", "Ban Công", "Mini Bar"};
 
     /** Lấy danh sách loại phòng động từ DB (fallback về list cứng nếu DB offline). */
@@ -527,15 +527,16 @@ public class PhongView {
         switch (trangThai) {
             case "Trống" -> {
                 if (mainLayout != null) {
-                    mainLayout.navigateToView("datphong", maPhong);
+                    openDatPhongPopup(maPhong);
                 } else {
                     openNhanPhongDialog(maPhong);
                 }
             }
+            case "Chờ Thanh Toán" -> showXacNhanThanhToanDialog(maPhong);
             case "Chờ Check-in" -> showCheckInConfirmDialog(maPhong);
             case "Đang Thuê" -> {
                 if (mainLayout != null) {
-                    mainLayout.navigateToView("checkout", maPhong);
+                    openCheckoutPopup(maPhong);
                 } else {
                     Alert confirm = confirm("Trả Phòng",
                             "Xác nhận trả phòng " + maPhong + "?\nTrạng thái sẽ chuyển sang 'Cần Dọn'.");
@@ -1134,8 +1135,15 @@ public class PhongView {
         colPhong.setCellFactory(tc -> new TableCell<>() {
             @Override protected void updateItem(String s, boolean empty) {
                 super.updateItem(s, empty);
-                setText(empty || s == null ? null : s);
-                setStyle(empty ? "" : "-fx-font-weight: bold; -fx-font-size: 13px; -fx-text-fill: #1A1A2E;");
+                setText(empty || s == null ? null : s); refresh();
+            }
+            @Override public void updateSelected(boolean sel) {
+                super.updateSelected(sel); if (!isEmpty()) refresh();
+            }
+            private void refresh() {
+                setStyle(isEmpty() ? "" : (isSelected()
+                    ? "-fx-font-weight:bold;-fx-font-size:13px;-fx-text-fill:white;"
+                    : "-fx-font-weight:bold;-fx-font-size:13px;-fx-text-fill:#1A1A2E;"));
             }
         });
 
@@ -1158,14 +1166,24 @@ public class PhongView {
         colTT.setCellValueFactory(p -> new SimpleStringProperty((String) p.getValue()[5]));
         colTT.setCellFactory(tc -> new TableCell<>() {
             @Override protected void updateItem(String item, boolean empty) {
-                super.updateItem(item, empty); setText(null);
-                if (empty || item == null) { setGraphic(null); return; }
+                super.updateItem(item, empty);
+                if (empty || item == null) { setGraphic(null); setText(null); setStyle(""); return; }
+                if (isSelected()) { setGraphic(null); setText(item); setStyle("-fx-text-fill:white;-fx-font-weight:bold;-fx-font-size:11px;"); }
+                else { setBadge(item); }
+            }
+            @Override public void updateSelected(boolean sel) {
+                super.updateSelected(sel);
+                String item = getItem();
+                if (item == null || isEmpty()) return;
+                if (sel) { setGraphic(null); setText(item); setStyle("-fx-text-fill:white;-fx-font-weight:bold;-fx-font-size:11px;"); }
+                else { setBadge(item); }
+            }
+            private void setBadge(String item) {
                 Label badge = new Label(item);
-                badge.setStyle("-fx-background-color: " + statusBadgeBg(item)
-                        + "; -fx-text-fill: " + statusBadgeText(item)
-                        + "; -fx-padding: 3 10 3 10; -fx-background-radius: 12;"
-                        + " -fx-font-size: 11px; -fx-font-weight: bold;");
-                setGraphic(badge);
+                badge.setStyle("-fx-background-color:" + statusBadgeBg(item)
+                        + ";-fx-text-fill:" + statusBadgeText(item)
+                        + ";-fx-padding:3 10;-fx-background-radius:12;-fx-font-size:11px;-fx-font-weight:bold;");
+                setGraphic(badge); setText(null); setStyle("");
             }
         });
 
@@ -1361,18 +1379,42 @@ public class PhongView {
     // ─────────────────────────────────────────── DATA
 
     /** Trả về tập maPhong đang có phiếu đặt chờ check-in (trangThai='DaDat'). */
-    private java.util.Set<String> loadPhongDaDat() {
-        java.util.Set<String> set = new java.util.HashSet<>();
+    /** Trả về map maPhong → trangThaiPDP cho các phiếu chờ check-in hoặc chờ thanh toán */
+    private Map<String, String> loadPhongDaDat() {
+        Map<String, String> map = new HashMap<>();
         Connection con = ConnectDB.getInstance().getConnection();
-        if (con == null) return set;
-        String sql = "SELECT ct.maPhong FROM ChiTietPhieuDatPhong ct "
+        if (con == null) return map;
+        String sql = "SELECT ct.maPhong, pdp.trangThai FROM ChiTietPhieuDatPhong ct "
                    + "JOIN PhieuDatPhong pdp ON pdp.maPhieuDatPhong=ct.maPhieuDatPhong "
-                   + "WHERE pdp.trangThai='DaDat'";
+                   + "WHERE pdp.trangThai IN (N'DaDat', N'ChoThanhToan')";
         try (PreparedStatement pst = con.prepareStatement(sql);
              ResultSet rs = pst.executeQuery()) {
-            while (rs.next()) set.add(rs.getString(1));
+            while (rs.next()) map.put(rs.getString(1), rs.getString(2));
         } catch (Exception ignored) {}
-        return set;
+        return map;
+    }
+
+    /** Trả về map maPhong → [tenKhach, ngayTraDK] cho phòng có booking đang hoạt động */
+    private Map<String, String[]> loadGuestInfo() {
+        Map<String, String[]> map = new HashMap<>();
+        Connection con = ConnectDB.getInstance().getConnection();
+        if (con == null) return map;
+        String sql = "SELECT ct.maPhong, kh.hoTenKH,"
+                   + " CONVERT(varchar,pdp.thoiGianTraDuKien,103)"
+                   + " FROM ChiTietPhieuDatPhong ct"
+                   + " JOIN PhieuDatPhong pdp ON pdp.maPhieuDatPhong=ct.maPhieuDatPhong"
+                   + " JOIN KhachHang kh ON kh.maKH=pdp.maKhachHang"
+                   + " WHERE pdp.trangThai IN (N'DaDat', N'DaCheckIn')";
+        try (PreparedStatement pst = con.prepareStatement(sql);
+             ResultSet rs = pst.executeQuery()) {
+            while (rs.next()) {
+                String maPhong  = rs.getString(1);
+                String tenKhach = rs.getString(2) != null ? rs.getString(2) : "";
+                String ngayTra  = rs.getString(3) != null ? rs.getString(3) : "";
+                map.put(maPhong, new String[]{tenKhach, ngayTra});
+            }
+        } catch (Exception ignored) {}
+        return map;
     }
 
     private List<Object[]> loadRooms() {
@@ -1386,12 +1428,16 @@ public class PhongView {
             for (LoaiPhong lp : loais) loaiMap.put(lp.getMaLoaiPhong(), lp.getTenLoaiPhong());
 
             if (!phongs.isEmpty()) {
-                java.util.Set<String> phongDaDat = loadPhongDaDat();
+                Map<String, String> phongDaDat = loadPhongDaDat();
+                Map<String, String[]> guestInfo = loadGuestInfo();
                 for (int i = 0; i < phongs.size(); i++) {
                     Phong p = phongs.get(i);
                     String loaiName = loaiMap.getOrDefault(p.getMaLoaiPhong(), "Standard");
+                    String pdpStatus = phongDaDat.get(p.getMaPhong());
                     String displayStatus = switch (p.getTrangThai() != null ? p.getTrangThai() : "") {
-                        case "PhongTrong"  -> phongDaDat.contains(p.getMaPhong()) ? "Chờ Check-in" : "Trống";
+                        case "PhongTrong"  -> "DaDat".equals(pdpStatus) ? "Chờ Check-in"
+                                           : "ChoThanhToan".equals(pdpStatus) ? "Chờ Thanh Toán"
+                                           : "Trống";
                         case "PhongDat"    -> "Đang Thuê";
                         case "PhongCanDon" -> "Cần Dọn";
                         case "DangDon"     -> "Đang Dọn";
@@ -1400,9 +1446,10 @@ public class PhongView {
                     };
                     int floor = (i / 4) + 1;
                     String tienNghi = p.getTienNghi() != null ? p.getTienNghi() : "WiFi";
+                    String[] guest  = guestInfo.getOrDefault(p.getMaPhong(), new String[]{"", ""});
                     result.add(new Object[]{
                         p.getMaPhong(), p.getTenPhong(), loaiName, "Phòng Đôi",
-                        750_000L, displayStatus, "", "", floor, tienNghi
+                        750_000L, displayStatus, guest[0], guest[1], floor, tienNghi
                     });
                 }
                 return result;
@@ -1474,6 +1521,7 @@ public class PhongView {
 
     private String statusBorderColor(String tt) {
         return switch (tt) {
+            case "Chờ Thanh Toán" -> "#FA8C16";
             case "Chờ Check-in" -> "#722ED1";
             case "Đang Thuê" -> "#FF4D4F";
             case "Cần Dọn"  -> "#FAAD14";
@@ -1485,6 +1533,7 @@ public class PhongView {
 
     private String statusBadgeBg(String tt) {
         return switch (tt) {
+            case "Chờ Thanh Toán" -> "#FFF7E6";
             case "Chờ Check-in" -> "#F9F0FF";
             case "Đang Thuê" -> "#FFF1F0";
             case "Cần Dọn"  -> "#FFFBE6";
@@ -1496,6 +1545,7 @@ public class PhongView {
 
     private String statusBadgeText(String tt) {
         return switch (tt) {
+            case "Chờ Thanh Toán" -> "#FA8C16";
             case "Chờ Check-in" -> "#722ED1";
             case "Đang Thuê" -> "#FF4D4F";
             case "Cần Dọn"  -> "#FAAD14";
@@ -1507,6 +1557,7 @@ public class PhongView {
 
     private String actionLabel(String tt) {
         return switch (tt) {
+            case "Chờ Thanh Toán" -> "Xác Nhận TT";
             case "Chờ Check-in" -> "Check In";
             case "Đang Thuê" -> "Trả Phòng";
             case "Cần Dọn"  -> "Giao Dọn";
@@ -1516,8 +1567,149 @@ public class PhongView {
         };
     }
 
+    /** Mở cửa sổ nổi Đặt Phòng cho phòng cụ thể, giữ nguyên màn Quản Lý Phòng ở sau */
+    private void openDatPhongPopup(String maPhong) {
+        Stage popup = new Stage();
+        popup.setTitle("Đặt Phòng — Phòng " + maPhong);
+        popup.setWidth(1150); popup.setHeight(760);
+        popup.setMinWidth(860); popup.setMinHeight(580);
+        popup.setResizable(true);
+
+        javafx.scene.Node view = new DatPhongView(maPhong).build();
+        ScrollPane scroll = new ScrollPane(view);
+        scroll.setFitToWidth(true);
+        scroll.setStyle("-fx-background-color:#F0F2F5;-fx-border-color:transparent;");
+
+        javafx.scene.Scene scene = new javafx.scene.Scene(scroll, 1150, 760);
+        try { scene.getStylesheets().add(
+                getClass().getResource("/com/lotuslaverne/fx/style.css").toExternalForm());
+        } catch (Exception ignored) {}
+
+        popup.setScene(scene);
+        popup.setOnHidden(e -> { refreshRoomCards(); refreshTable(); });
+        popup.show();
+        popup.centerOnScreen();
+    }
+
+    /** Mở cửa sổ nổi Check-out / Trả Phòng cho phòng cụ thể */
+    private void openCheckoutPopup(String maPhong) {
+        Stage popup = new Stage();
+        popup.setTitle("Trả Phòng — Phòng " + maPhong);
+        popup.setWidth(1150); popup.setHeight(760);
+        popup.setMinWidth(860); popup.setMinHeight(580);
+        popup.setResizable(true);
+
+        javafx.scene.Node view = new CheckoutView(maPhong).build();
+        ScrollPane scroll = new ScrollPane(view);
+        scroll.setFitToWidth(true);
+        scroll.setStyle("-fx-background-color:#F0F2F5;-fx-border-color:transparent;");
+
+        javafx.scene.Scene scene = new javafx.scene.Scene(scroll, 1150, 760);
+        try { scene.getStylesheets().add(
+                getClass().getResource("/com/lotuslaverne/fx/style.css").toExternalForm());
+        } catch (Exception ignored) {}
+
+        popup.setScene(scene);
+        popup.setOnHidden(e -> { refreshRoomCards(); refreshTable(); });
+        popup.show();
+        popup.centerOnScreen();
+    }
+
+    /** Xác nhận thanh toán cọc cho phòng đang ở trạng thái Chờ Thanh Toán */
+    private void showXacNhanThanhToanDialog(String maPhong) {
+        // Lấy thông tin phiếu ChoThanhToan của phòng
+        String maPDP = null, tenKH = null, gioNhan = null, gioTra = null;
+        Connection con = ConnectDB.getInstance().getConnection();
+        if (con != null) {
+            String sql = "SELECT TOP 1 pdp.maPhieuDatPhong, kh.hoTenKH,"
+                    + " CONVERT(varchar,pdp.thoiGianNhanDuKien,120),"
+                    + " CONVERT(varchar,pdp.thoiGianTraDuKien,120)"
+                    + " FROM ChiTietPhieuDatPhong ct"
+                    + " JOIN PhieuDatPhong pdp ON pdp.maPhieuDatPhong=ct.maPhieuDatPhong"
+                    + " JOIN KhachHang kh ON kh.maKH=pdp.maKhachHang"
+                    + " WHERE ct.maPhong=? AND pdp.trangThai=N'ChoThanhToan'"
+                    + " ORDER BY pdp.thoiGianNhanDuKien ASC";
+            try (PreparedStatement pst = con.prepareStatement(sql)) {
+                pst.setString(1, maPhong);
+                try (java.sql.ResultSet rs = pst.executeQuery()) {
+                    if (rs.next()) {
+                        maPDP   = rs.getString(1);
+                        tenKH   = rs.getString(2);
+                        gioNhan = rs.getString(3);
+                        gioTra  = rs.getString(4);
+                    }
+                }
+            } catch (Exception ignored) {}
+        }
+        if (maPDP == null) {
+            Alert err = new Alert(Alert.AlertType.WARNING,
+                    "Không tìm thấy phiếu chờ thanh toán cho phòng " + maPhong + ".");
+            err.setHeaderText(null); err.setTitle("Không Tìm Thấy"); err.showAndWait(); return;
+        }
+
+        GridPane grid = new GridPane();
+        grid.setHgap(20); grid.setVgap(9);
+        grid.setPadding(new Insets(14, 4, 6, 4));
+        String[][] rows = {
+            {"Mã Phiếu:", maPDP}, {"Phòng:", maPhong},
+            {"Khách Hàng:", tenKH  != null ? tenKH  : "—"},
+            {"Giờ Nhận DK:", gioNhan != null ? gioNhan : "—"},
+            {"Giờ Trả DK:",  gioTra  != null ? gioTra  : "—"},
+        };
+        for (int i = 0; i < rows.length; i++) {
+            Label k = new Label(rows[i][0]);
+            k.setStyle("-fx-font-size:12px;-fx-text-fill:#595959;-fx-font-weight:bold;");
+            Label v = new Label(rows[i][1]);
+            v.setStyle("-fx-font-size:13px;-fx-text-fill:#1A1A2E;"
+                    + (i == 2 ? "-fx-font-weight:bold;" : ""));
+            grid.add(k, 0, i); grid.add(v, 1, i);
+        }
+
+        ButtonType btnXacNhan = new ButtonType("✅ Xác Nhận Đã Nhận Tiền", ButtonBar.ButtonData.OK_DONE);
+        ButtonType btnHuy     = new ButtonType("🗑 Hủy Đặt Chỗ", ButtonBar.ButtonData.OTHER);
+        ButtonType btnCancel  = new ButtonType("Đóng", ButtonBar.ButtonData.CANCEL_CLOSE);
+
+        Alert dlg = new Alert(Alert.AlertType.CONFIRMATION);
+        dlg.setTitle("Xác Nhận Thanh Toán Cọc");
+        dlg.setHeaderText("Phòng " + maPhong + " — Chờ Chuyển Khoản");
+        dlg.getDialogPane().setContent(grid);
+        dlg.getDialogPane().setPrefWidth(420);
+        dlg.getButtonTypes().setAll(btnXacNhan, btnHuy, btnCancel);
+
+        final String fMaPDP = maPDP, fTenKH = tenKH;
+        dlg.showAndWait().ifPresent(btn -> {
+            if (btn == btnXacNhan) {
+                Connection c = ConnectDB.getInstance().getConnection();
+                if (c == null) { alert("Lỗi", "Không kết nối DB."); return; }
+                try (PreparedStatement pst = c.prepareStatement(
+                        "UPDATE PhieuDatPhong SET trangThai=N'DaDat' WHERE maPhieuDatPhong=?")) {
+                    pst.setString(1, fMaPDP); pst.executeUpdate();
+                } catch (Exception ex) { alert("Lỗi", ex.getMessage()); return; }
+                refreshRoomCards(); refreshTable();
+                Alert ok = new Alert(Alert.AlertType.INFORMATION,
+                        "✅ Xác nhận thành công!\nKhách: " + fTenKH + "\nPhiếu: " + fMaPDP
+                        + "\nPhòng → Chờ Check-in.");
+                ok.setHeaderText(null); ok.setTitle("Đã Xác Nhận"); ok.showAndWait();
+            } else if (btn == btnHuy) {
+                Alert confirmHuy = confirm("Hủy Đặt Chỗ",
+                        "Hủy giữ chỗ phòng " + maPhong + " cho khách " + fTenKH + "?\nPhòng sẽ trở về trạng thái Trống.");
+                confirmHuy.showAndWait().ifPresent(b2 -> {
+                    if (b2 != ButtonType.OK) return;
+                    Connection c = ConnectDB.getInstance().getConnection();
+                    if (c == null) { alert("Lỗi", "Không kết nối DB."); return; }
+                    try (PreparedStatement pst = c.prepareStatement(
+                            "UPDATE PhieuDatPhong SET trangThai=N'HuyDat' WHERE maPhieuDatPhong=?")) {
+                        pst.setString(1, fMaPDP); pst.executeUpdate();
+                    } catch (Exception ex) { alert("Lỗi", ex.getMessage()); return; }
+                    refreshRoomCards(); refreshTable();
+                });
+            }
+        });
+    }
+
     private String actionStyle(String tt) {
         String bg = switch (tt) {
+            case "Chờ Thanh Toán" -> "#FA8C16";
             case "Chờ Check-in" -> "#722ED1";
             case "Đang Thuê" -> "#FF4D4F";
             case "Cần Dọn"  -> "#FAAD14";

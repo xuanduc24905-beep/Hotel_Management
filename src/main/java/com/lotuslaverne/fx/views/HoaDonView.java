@@ -298,7 +298,15 @@ public class HoaDonView {
                     @Override protected void updateItem(String s, boolean empty) {
                         super.updateItem(s, empty);
                         setText(empty || s == null ? null : s);
-                        setStyle(empty ? "" : "-fx-font-weight: bold; -fx-text-fill: #1890FF;");
+                        refresh();
+                    }
+                    @Override public void updateSelected(boolean sel) {
+                        super.updateSelected(sel); if (!isEmpty()) refresh();
+                    }
+                    private void refresh() {
+                        setStyle(isEmpty() ? "" : (isSelected()
+                            ? "-fx-font-weight:bold;-fx-text-fill:white;"
+                            : "-fx-font-weight:bold;-fx-text-fill:#1890FF;"));
                     }
                 });
             }

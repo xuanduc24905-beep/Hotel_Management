@@ -509,7 +509,11 @@
 }
 
 .table-view .table-row-cell:selected {
-    -fx-background-color: #E6F4FF;
+    -fx-background-color: #BAE0FF;
+}
+
+.table-view .table-row-cell:selected .table-cell {
+    -fx-text-fill: #1A1A2E;
 }
 
 .table-view .table-row-cell:hover {

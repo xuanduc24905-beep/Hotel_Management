@@ -315,15 +315,25 @@ public class ThietBiView {
                 col.setCellFactory(tc -> new TableCell<>() {
                     @Override protected void updateItem(String item, boolean empty) {
                         super.updateItem(item, empty);
-                        if (empty || item == null) { setGraphic(null); setText(null); return; }
-                        Label badge = new Label(item);
+                        if (empty || item == null) { setGraphic(null); setText(null); setStyle(""); return; }
+                        if (isSelected()) { setGraphic(null); setText(item); setStyle("-fx-text-fill:white;-fx-font-weight:bold;-fx-font-size:11px;"); }
+                        else { setBadge(item); }
+                    }
+                    @Override public void updateSelected(boolean sel) {
+                        super.updateSelected(sel);
+                        String item = getItem();
+                        if (item == null || isEmpty()) return;
+                        if (sel) { setGraphic(null); setText(item); setStyle("-fx-text-fill:white;-fx-font-weight:bold;-fx-font-size:11px;"); }
+                        else { setBadge(item); }
+                    }
+                    private void setBadge(String item) {
                         boolean ok = "Tot".equals(item);
                         boolean hu = "HuHong".equals(item);
-                        badge.setStyle("-fx-background-color: " + (ok ? "#F6FFED" : (hu ? "#FFF1F0" : "#FFF7E6"))
-                                + "; -fx-text-fill: " + (ok ? "#52C41A" : (hu ? "#FF4D4F" : "#FAAD14"))
-                                + "; -fx-padding: 2 8 2 8; -fx-background-radius: 10;"
-                                + " -fx-font-size: 11px; -fx-font-weight: bold;");
-                        setGraphic(badge); setText(null);
+                        Label badge = new Label(item);
+                        badge.setStyle("-fx-background-color:" + (ok ? "#F6FFED" : (hu ? "#FFF1F0" : "#FFF7E6"))
+                                + ";-fx-text-fill:" + (ok ? "#52C41A" : (hu ? "#FF4D4F" : "#FAAD14"))
+                                + ";-fx-padding:2 8;-fx-background-radius:10;-fx-font-size:11px;-fx-font-weight:bold;");
+                        setGraphic(badge); setText(null); setStyle("");
                     }
                 });
             }

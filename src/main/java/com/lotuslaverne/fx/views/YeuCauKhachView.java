@@ -201,14 +201,23 @@ public class YeuCauKhachView {
                 col.setCellFactory(tc -> new TableCell<>() {
                     @Override protected void updateItem(String s, boolean empty) {
                         super.updateItem(s, empty);
-                        if (empty || s == null) { setGraphic(null); return; }
+                        if (empty || s == null) { setGraphic(null); setText(null); setStyle(""); return; }
+                        if (isSelected()) { setGraphic(null); setText(s); setStyle("-fx-text-fill:white;-fx-font-weight:bold;-fx-font-size:11px;"); }
+                        else { setBadge(s); }
+                    }
+                    @Override public void updateSelected(boolean sel) {
+                        super.updateSelected(sel);
+                        String s = getItem();
+                        if (s == null || isEmpty()) return;
+                        if (sel) { setGraphic(null); setText(s); setStyle("-fx-text-fill:white;-fx-font-weight:bold;-fx-font-size:11px;"); }
+                        else { setBadge(s); }
+                    }
+                    private void setBadge(String s) {
                         String[] colors = statusColors(s);
                         Label badge = new Label(s);
-                        badge.setStyle("-fx-background-color:" + colors[0]
-                            + ";-fx-text-fill:" + colors[1]
-                            + ";-fx-padding:3 10;-fx-background-radius:10;"
-                            + "-fx-font-size:11px;-fx-font-weight:bold;");
-                        setGraphic(badge); setText(null);
+                        badge.setStyle("-fx-background-color:" + colors[0] + ";-fx-text-fill:" + colors[1]
+                            + ";-fx-padding:3 10;-fx-background-radius:10;-fx-font-size:11px;-fx-font-weight:bold;");
+                        setGraphic(badge); setText(null); setStyle("");
                     }
                 });
             }

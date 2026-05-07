@@ -68,10 +68,10 @@ public class MainLayout {
     };
 
     // Section break BEFORE which index
-    private static final int[] SECTION_BREAKS = { 0, 1, 4, 11, 12, 16, 17 };
+    private static final int[] SECTION_BREAKS = { 0, 1, 4, 8, 11, 12, 16, 17 };
     private static final String[] SECTION_LABELS = {
-            "TỔNG QUAN", "PHÒNG", "NGHIỆP VỤ", "KHÁCH HÀNG",
-            "TÀI CHÍNH", "BÁO CÁO", "NHÂN SỰ & HỆ THỐNG"
+            "TỔNG QUAN", "QUẢN LÝ PHÒNG", "LƯU TRÚ", "DỊCH VỤ",
+            "KHÁCH HÀNG", "TÀI CHÍNH", "BÁO CÁO", "NHÂN SỰ & HỆ THỐNG"
     };
 
     public MainLayout(Stage stage, String username, String vaiTro) {
@@ -150,8 +150,9 @@ public class MainLayout {
             // Section header if needed
             while (sectionPtr < SECTION_BREAKS.length && SECTION_BREAKS[sectionPtr] == i) {
                 Label sectionLbl = new Label(SECTION_LABELS[sectionPtr]);
-                sectionLbl.setStyle("-fx-font-size: 10px; -fx-text-fill: #BFBFBF;"
-                        + "-fx-font-weight: bold; -fx-padding: 10 16 2 16;");
+                sectionLbl.setStyle("-fx-font-size: 10.5px; -fx-text-fill: #8C8C8C;"
+                        + "-fx-font-weight: bold; -fx-padding: 14 16 4 16;"
+                        + (sectionPtr > 0 ? "-fx-border-color:#F0F0F0 transparent transparent transparent;-fx-border-width:1 0 0 0;" : ""));
                 navBox.getChildren().add(sectionLbl);
                 sectionPtr++;
             }

@@ -330,6 +330,8 @@ public class DatPhongView {
 
         DatePicker dpNhan = datePicker(LocalDate.now());
         DatePicker dpTra  = datePicker(LocalDate.now().plusDays(1));
+        Label lblDemHint = new Label("1 đêm");
+        lblDemHint.setStyle("-fx-font-size:11px;-fx-text-fill:#1890FF;");
         TextField txtSoKhach = field("2");
 
         ComboBox<String> cbLoai = new ComboBox<>();
@@ -347,8 +349,9 @@ public class DatPhongView {
         HBox amenRow = new HBox(10, cbWifi, cbTv, cbDh, cbBt, cbBc, cbMb);
         amenRow.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
 
+        VBox dpTraBox = new VBox(2, dpTra, lblDemHint);
         g1.add(lbl("Ngày Nhận *"),      0,0); g1.add(dpNhan,    0,1);
-        g1.add(lbl("Ngày Trả *"),       1,0); g1.add(dpTra,     1,1);
+        g1.add(lbl("Ngày Trả *"),       1,0); g1.add(dpTraBox,  1,1);
         g1.add(lbl("Số Khách *"),       2,0); g1.add(txtSoKhach,2,1);
         g1.add(lbl("Loại Phòng"),       0,2); g1.add(cbLoai,    0,3);
         g1.add(lbl("Hình Thức Đặt"),   1,2); g1.add(cbHinhThuc,1,3);
@@ -492,6 +495,34 @@ public class DatPhongView {
                 lblTong.setText("Tổng: " + df.format(baseTotal[0]) + " đ");
             }
         };
+
+        // Listener cập nhật số đêm + tính lại chi phí khi đổi ngày
+        Runnable updateDemHint = () -> {
+            LocalDate nd = dpNhan.getValue(), nt = dpTra.getValue();
+            if (nd != null && nt != null && nt.isAfter(nd)) {
+                long dem = java.time.temporal.ChronoUnit.DAYS.between(nd, nt);
+                lblDemHint.setText(dem + " đêm");
+                lblDemHint.setStyle("-fx-font-size:11px;-fx-text-fill:#1890FF;");
+            } else if (nd != null && nt != null) {
+                lblDemHint.setText("⚠ Ngày trả phải sau ngày nhận");
+                lblDemHint.setStyle("-fx-font-size:11px;-fx-text-fill:#FF4D4F;");
+            } else {
+                lblDemHint.setText("");
+            }
+        };
+        Runnable recalcAfterDate = () -> {
+            updateDemHint.run();
+            if (selectedMaPhong[0] != null) {
+                tinhUocTinh(selectedMaPhong[0], dpNhan.getValue(), dpTra.getValue(), lblGia, lblDem, lblTong);
+                try {
+                    String raw = lblTong.getText().replaceAll("[^\\d]", "");
+                    baseTotal[0] = raw.isEmpty() ? 0 : Double.parseDouble(raw);
+                } catch (Exception ex) { baseTotal[0] = 0; }
+                recalcTotal.run();
+            }
+        };
+        dpNhan.valueProperty().addListener((obs, ov, nv) -> recalcAfterDate.run());
+        dpTra.valueProperty().addListener((obs, ov, nv)  -> recalcAfterDate.run());
 
         // Áp mã KM
         btnKM.setOnAction(e -> {
@@ -696,12 +727,21 @@ public class DatPhongView {
                 }
             }
             errLbl.setVisible(false); errLbl.setManaged(false);
+
+            // Chọn hình thức đặt cọc trước khi lưu
+            String[] payResult = showChonThanhToan();
+            if (payResult == null) return; // user cancelled
+            String payMethod = payResult[0];
+            boolean isPending = "pending".equals(payResult[1]);
+
+            final String finalMaKH2 = maKH;
+            final String finalTenKH = txtTenKH.getText().trim().isEmpty() ? maKH : txtTenKH.getText().trim();
             try {
                 Timestamp tNhan = Timestamp.valueOf(dpNhan.getValue().atStartOfDay());
                 Timestamp tTra  = Timestamp.valueOf(dpTra.getValue().atStartOfDay());
                 String maPDP = "PDP" + UUID.randomUUID().toString().substring(0,5).toUpperCase();
                 String maNV = SessionContext.getInstance().getMaNhanVien();
-                PhieuDatPhong pdp = new PhieuDatPhong(maPDP, maKH, maNV,
+                PhieuDatPhong pdp = new PhieuDatPhong(maPDP, finalMaKH2, maNV,
                         soNguoi, tNhan, tTra, txtGhiChu.getText().trim());
                 if (new PhieuDatPhongDAO().lapPhieuDat(pdp)) {
                     Connection ctCon = ConnectDB.getInstance().getConnection();
@@ -713,21 +753,34 @@ public class DatPhongView {
                             pstCT.setDouble(3, selectedDonGia[0]);
                             pstCT.executeUpdate();
                         } catch (Exception exCT) { exCT.printStackTrace(); }
-                        try (PreparedStatement pstP = ctCon.prepareStatement(
-                                "UPDATE Phong SET trangThai=N'PhongDat' WHERE maPhong=?")) {
-                            pstP.setString(1, maPhong);
-                            pstP.executeUpdate();
-                        } catch (Exception exP) { exP.printStackTrace(); }
+                        // Nếu chờ chuyển khoản → cập nhật trạng thái phiếu
+                        if (isPending) {
+                            try (PreparedStatement pstS = ctCon.prepareStatement(
+                                    "UPDATE PhieuDatPhong SET trangThai=N'ChoThanhToan' WHERE maPhieuDatPhong=?")) {
+                                pstS.setString(1, maPDP); pstS.executeUpdate();
+                            } catch (Exception exS) { exS.printStackTrace(); }
+                        }
+                        // NOTE: Phòng giữ nguyên PhongTrong — PhongView tự detect qua loadPhongDaDat()
                     }
-                    alert(Alert.AlertType.INFORMATION, "Thành công",
-                            "✅ Đặt phòng thành công!\nMã phiếu: " + maPDP
-                            + "\nPhòng: " + maPhong + "\nKhách: " + maKH);
+                    // Tính tổng cho phiếu thu
+                    long soDem = ChronoUnit.DAYS.between(dpNhan.getValue(), dpTra.getValue());
+                    double total = soDem * selectedDonGia[0];
+                    if (discountPct[0] > 0) total = total * (1 - discountPct[0]);
+                    final String fMaPDP   = maPDP;
+                    final String fMaPhong = maPhong;
+                    final long   fSoDem   = soDem;
+                    final double fTotal   = total;
+                    // Hiện phiếu thu cọc
+                    showPhieuThuCoc(fMaPDP, fMaPhong, finalTenKH, fSoDem,
+                            dpNhan.getValue(), dpTra.getValue(),
+                            selectedDonGia[0], fTotal, payMethod, isPending);
                     // Reset về bước 1
                     selectedMaPhong[0] = null; resolvedMaKH[0] = null;
                     txtSDT.clear(); txtTenKH.clear(); txtCmnd.clear(); txtGhiChu.clear();
                     txtSoKhach.setText("2"); cbLoai.setValue("Tất cả");
                     dpNhan.setValue(LocalDate.now()); dpTra.setValue(LocalDate.now().plusDays(1));
-                                                            if (historyItems != null) historyItems.setAll(loadHistory());
+                    if (historyItems != null) historyItems.setAll(loadHistory());
+                    javafx.application.Platform.runLater(() -> scrollToStep(outer, step1));
                 } else {
                     showError(errLbl, "Lỗi! Kiểm tra DB hoặc phòng đã bị đặt.");
                 }
@@ -1126,5 +1179,150 @@ public class DatPhongView {
         a.setHeaderText(null);
         a.setTitle(title);
         a.showAndWait();
+    }
+
+    /** Dialog chọn hình thức đặt cọc — trả về [payMethod, "confirmed"|"pending"] hoặc null nếu hủy */
+    private String[] showChonThanhToan() {
+        ButtonType btnTM     = new ButtonType("💵  Tiền Mặt");
+        ButtonType btnCKDone = new ButtonType("🏦  CK Đã Nhận");
+        ButtonType btnCKWait = new ButtonType("⏳  Chờ Chuyển Khoản");
+        ButtonType btnCancel = new ButtonType("Hủy", ButtonBar.ButtonData.CANCEL_CLOSE);
+
+        Alert dlg = new Alert(Alert.AlertType.NONE);
+        dlg.setTitle("Hình Thức Đặt Cọc");
+        dlg.setHeaderText("Chọn hình thức xác nhận thanh toán cọc");
+
+        VBox desc = new VBox(6);
+        desc.setPadding(new Insets(4, 0, 4, 0));
+        Label l1 = new Label("• Tiền Mặt / CK Đã Nhận: Booking xác nhận ngay → phòng vào trạng thái Chờ Check-in");
+        Label l2 = new Label("• Chờ Chuyển Khoản: Giữ chỗ tạm 2 tiếng, chờ tiền nổi rồi xác nhận thủ công");
+        for (Label l : new Label[]{l1, l2})
+            l.setStyle("-fx-font-size:12px;-fx-text-fill:#595959;");
+        l1.setWrapText(true); l2.setWrapText(true);
+        desc.getChildren().addAll(l1, l2);
+        dlg.getDialogPane().setContent(desc);
+        dlg.getDialogPane().setPrefWidth(430);
+        dlg.getButtonTypes().setAll(btnTM, btnCKDone, btnCKWait, btnCancel);
+
+        java.util.Optional<ButtonType> res = dlg.showAndWait();
+        if (!res.isPresent() || res.get() == btnCancel) return null;
+        if (res.get() == btnTM)     return new String[]{"Tiền mặt", "confirmed"};
+        if (res.get() == btnCKDone) return new String[]{"Chuyển khoản (đã xác nhận)", "confirmed"};
+        return new String[]{"Chuyển khoản (chờ xác nhận)", "pending"};
+    }
+
+    /** Hiển thị phiếu thu cọc sau khi đặt phòng thành công */
+    private void showPhieuThuCoc(String maPDP, String maPhong, String tenKH, long soDem,
+            LocalDate ngayNhan, LocalDate ngayTra, double donGia, double tongTien,
+            String payMethod, boolean isPending) {
+
+        double tienCoc = Math.round(tongTien * 0.5);
+        double conLai  = tongTien - tienCoc;
+        DecimalFormat df = new DecimalFormat("#,###");
+        DateTimeFormatter dtf = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+
+        javafx.stage.Stage dialog = new javafx.stage.Stage();
+        dialog.initModality(javafx.stage.Modality.APPLICATION_MODAL);
+        dialog.setTitle("Phiếu Thu Cọc — " + maPDP);
+        dialog.setResizable(false);
+
+        VBox root = new VBox(0);
+        root.setStyle("-fx-background-color:#FFFFFF;");
+        root.setPrefWidth(440);
+
+        // ── Header
+        VBox hdr = new VBox(5);
+        hdr.setPadding(new Insets(18, 24, 14, 24));
+        hdr.setStyle("-fx-background-color:#F0F5FF;");
+        Label lHotel = new Label("🏨  LOTUS LAVERNE HOTEL");
+        lHotel.setStyle("-fx-font-size:15px;-fx-font-weight:bold;-fx-text-fill:#1890FF;");
+        Label lTitle = new Label("PHIẾU THU CỌC ĐẶT PHÒNG");
+        lTitle.setStyle("-fx-font-size:13px;-fx-font-weight:bold;-fx-text-fill:#1A1A2E;");
+        Label lBadge = new Label(isPending ? "⏳  Chờ Chuyển Khoản" : "✅  Đã Xác Nhận");
+        lBadge.setStyle("-fx-background-color:" + (isPending ? "#FFF7E6" : "#F6FFED")
+                + ";-fx-text-fill:" + (isPending ? "#FA8C16" : "#52C41A")
+                + ";-fx-padding:3 12;-fx-background-radius:10;"
+                + "-fx-font-size:12px;-fx-font-weight:bold;");
+        hdr.getChildren().addAll(lHotel, lTitle, lBadge);
+
+        // ── Info section
+        GridPane g1 = makeReceiptGrid();
+        g1.setPadding(new Insets(14, 24, 10, 24));
+        int r1 = 0;
+        r1 = addRRow(g1, r1, "Mã Phiếu:",    maPDP, true);
+        r1 = addRRow(g1, r1, "Phòng:",        maPhong, false);
+        r1 = addRRow(g1, r1, "Khách Hàng:",   tenKH, true);
+        r1 = addRRow(g1, r1, "Ngày Nhận:",    ngayNhan.format(dtf), false);
+        r1 = addRRow(g1, r1, "Ngày Trả:",     ngayTra.format(dtf), false);
+            addRRow(g1, r1, "Số Đêm:",        soDem + " đêm", false);
+
+        Separator sep1 = new Separator(); sep1.setPadding(new Insets(0, 24, 0, 24));
+
+        // ── Price section
+        GridPane g2 = makeReceiptGrid();
+        g2.setPadding(new Insets(10, 24, 10, 24));
+        int r2 = 0;
+        r2 = addRRow(g2, r2, "Đơn Giá:",           df.format(donGia) + " đ/đêm", false);
+        r2 = addRRow(g2, r2, "Tổng Phòng:",         df.format(tongTien) + " đ", false);
+        // Tiền cọc — highlight
+        Label kCoc = new Label("Tiền Cọc (50%):");
+        kCoc.setStyle("-fx-font-size:13px;-fx-font-weight:bold;-fx-text-fill:#1890FF;");
+        Label vCoc = new Label(df.format(tienCoc) + " đ");
+        vCoc.setStyle("-fx-font-size:13px;-fx-font-weight:bold;-fx-text-fill:#1890FF;");
+        g2.add(kCoc, 0, r2); g2.add(vCoc, 1, r2); r2++;
+        addRRow(g2, r2, "Còn Lại Khi Check-in:", df.format(conLai) + " đ", false);
+
+        Separator sep2 = new Separator(); sep2.setPadding(new Insets(0, 24, 0, 24));
+
+        // ── Payment section
+        GridPane g3 = makeReceiptGrid();
+        g3.setPadding(new Insets(10, 24, 10, 24));
+        int r3 = 0;
+        r3 = addRRow(g3, r3, "Hình Thức TT:", payMethod, false);
+        if (isPending) {
+            java.time.LocalDateTime deadline = java.time.LocalDateTime.now().plusHours(2);
+            addRRow(g3, r3, "Hạn Chuyển Khoản:",
+                    deadline.format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")), false);
+        }
+
+        // ── Footer
+        VBox footer = new VBox(8);
+        footer.setPadding(new Insets(12, 24, 16, 24));
+        footer.setStyle("-fx-border-color:#E8E8E8 transparent transparent transparent;-fx-border-width:1;");
+        Label policy = new Label("⚠  Tiền cọc không hoàn lại nếu hủy phòng sau 24h kể từ thời điểm đặt.");
+        policy.setStyle("-fx-font-size:11px;-fx-text-fill:#8C8C8C;");
+        policy.setWrapText(true);
+        Button btnClose = new Button("Đóng");
+        btnClose.setStyle("-fx-background-color:#1890FF;-fx-text-fill:white;"
+                + "-fx-background-radius:6;-fx-padding:8 24;-fx-cursor:hand;-fx-font-weight:bold;");
+        btnClose.setOnAction(ev -> dialog.close());
+        HBox btnRow = new HBox(btnClose); btnRow.setAlignment(Pos.CENTER_RIGHT);
+        footer.getChildren().addAll(policy, btnRow);
+
+        root.getChildren().addAll(hdr, g1, sep1, g2, sep2, g3, footer);
+
+        javafx.scene.Scene scene = new javafx.scene.Scene(root);
+        dialog.setScene(scene);
+        dialog.showAndWait();
+    }
+
+    private GridPane makeReceiptGrid() {
+        GridPane g = new GridPane();
+        g.setHgap(20); g.setVgap(8);
+        javafx.scene.layout.ColumnConstraints ck = new javafx.scene.layout.ColumnConstraints();
+        ck.setPrefWidth(160);
+        javafx.scene.layout.ColumnConstraints cv = new javafx.scene.layout.ColumnConstraints();
+        cv.setFillWidth(true);
+        g.getColumnConstraints().addAll(ck, cv);
+        return g;
+    }
+
+    private int addRRow(GridPane g, int row, String key, String val, boolean bold) {
+        Label k = new Label(key);
+        k.setStyle("-fx-font-size:12px;-fx-font-weight:bold;-fx-text-fill:#595959;");
+        Label v = new Label(val);
+        v.setStyle("-fx-font-size:12px;-fx-text-fill:#1A1A2E;" + (bold ? "-fx-font-weight:bold;" : ""));
+        g.add(k, 0, row); g.add(v, 1, row);
+        return row + 1;
     }
 }
