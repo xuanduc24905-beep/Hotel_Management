@@ -56,20 +56,19 @@ public class MainLayout {
             new NavEntry("🍽", "Danh Mục Dịch Vụ", "dichvu", false), // 9
             new NavEntry("📝", "Yêu Cầu Khách", "yeucau", false), // 10
             new NavEntry("👤", "Quản Lý Khách", "khach", false), // 11
-            new NavEntry("💳", "Thanh Toán", "thanhtoan", false), // 12
-            new NavEntry("📑", "Lịch Sử Hóa Đơn", "hoadon", false), // 13
-            new NavEntry("🧾", "Phiếu Thu", "phieuthu", false), // 14
-            new NavEntry("🏷", "Khuyến Mãi", "khuyenmai", false), // 15
-            new NavEntry("💰", "Bảng Giá", "banggia", false), // 16
-            new NavEntry("📊", "Báo Cáo", "baocao", false), // 17
-            new NavEntry("👥", "Nhân Viên", "nhanvien", true), // 18
-            new NavEntry("⏱", "Chấm Công", "chamcong", true), // 19
-            new NavEntry("🔑", "Tài Khoản", "taikhoan", true), // 20
-            new NavEntry("⚙", "Cài Đặt", "caidat", true), // 21
+            new NavEntry("📑", "Lịch Sử Hóa Đơn", "hoadon", false), // 12
+            new NavEntry("🧾", "Phiếu Thu", "phieuthu", false), // 13
+            new NavEntry("🏷", "Khuyến Mãi", "khuyenmai", false), // 14
+            new NavEntry("💰", "Bảng Giá", "banggia", false), // 15
+            new NavEntry("📊", "Báo Cáo", "baocao", false), // 16
+            new NavEntry("👥", "Nhân Viên", "nhanvien", true), // 17
+            new NavEntry("⏱", "Chấm Công", "chamcong", true), // 18
+            new NavEntry("🔑", "Tài Khoản", "taikhoan", true), // 19
+            new NavEntry("⚙", "Cài Đặt", "caidat", true), // 20
     };
 
     // Section break BEFORE which index
-    private static final int[] SECTION_BREAKS = { 0, 1, 4, 11, 12, 17, 18 };
+    private static final int[] SECTION_BREAKS = { 0, 1, 4, 11, 12, 16, 17 };
     private static final String[] SECTION_LABELS = {
             "TỔNG QUAN", "PHÒNG", "NGHIỆP VỤ", "KHÁCH HÀNG",
             "TÀI CHÍNH", "BÁO CÁO", "NHÂN SỰ & HỆ THỐNG"
@@ -302,7 +301,7 @@ public class MainLayout {
      * Navigate to a view by key, with optional pre-fill data.
      * Called from PhongView (and other views) to trigger cross-screen navigation.
      * 
-     * @param key     the view key (e.g. "datphong", "thanhtoan")
+     * @param key     the view key (e.g. "datphong", "checkout")
      * @param prefill pre-fill string passed to the view (e.g. maPhong or maPDP), or
      *                null
      */
@@ -325,7 +324,9 @@ public class MainLayout {
                     ? new DatPhongView(prefill).build()
                     : new DatPhongView().build();
             case "checkin" -> new CheckInView().build();
-            case "checkout" -> new CheckoutView().build();
+            case "checkout" -> prefill != null
+                    ? new CheckoutView(prefill).build()
+                    : new CheckoutView().build();
             case "dichvuphong" -> new DichVuPhongView().build();
             case "yeucau" -> new YeuCauKhachView().build();
             case "khach" -> new KhachView().build();
@@ -334,9 +335,6 @@ public class MainLayout {
             case "chamcong" -> new ChamCongView().build();
             case "taikhoan" -> new TaiKhoanView(username, vaiTro).build();
             case "caidat" -> new CaiDatView().build();
-            case "thanhtoan" -> prefill != null
-                    ? new ThanhToanView(prefill).build()
-                    : new ThanhToanView().build();
             case "doiphong" -> new DoiPhongView().build();
             // Legacy / sub-views
             case "luutru" -> new LuuTruView().build();

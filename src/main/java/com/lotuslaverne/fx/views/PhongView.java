@@ -41,7 +41,7 @@ public class PhongView {
     public PhongView(MainLayout mainLayout) { this.mainLayout = mainLayout; }
 
     private static final String[] LOAI_FILTER_FALLBACK = {"Standard", "Deluxe", "Suite", "Family"};
-    private static final String[] TRANG_THAI_FILTER = {"Tất Cả", "Trống", "Đang Thuê", "Cần Dọn", "Đang Dọn", "Bảo Trì"};
+    private static final String[] TRANG_THAI_FILTER = {"Tất Cả", "Trống", "Chờ Check-in", "Đang Thuê", "Cần Dọn", "Đang Dọn", "Bảo Trì"};
     private static final String[] TIEN_NGHI_FILTER  = {"Tất Cả", "WiFi", "TV", "Điều Hòa", "Bồn Tắm", "Ban Công", "Mini Bar"};
 
     /** Lấy danh sách loại phòng động từ DB (fallback về list cứng nếu DB offline). */
@@ -358,13 +358,14 @@ public class PhongView {
     private void updateHeaderSubtitle() {
         if (headerSubtitle == null) return;
         List<Object[]> rooms = loadRooms();
-        long trong   = rooms.stream().filter(r -> "Trống".equals(r[5])).count();
-        long thue    = rooms.stream().filter(r -> "Đang Thuê".equals(r[5])).count();
-        long canDon  = rooms.stream().filter(r -> "Cần Dọn".equals(r[5])).count();
-        long baoTri  = rooms.stream().filter(r -> "Bảo Trì".equals(r[5])).count();
+        long trong      = rooms.stream().filter(r -> "Trống".equals(r[5])).count();
+        long choCheckin = rooms.stream().filter(r -> "Chờ Check-in".equals(r[5])).count();
+        long thue       = rooms.stream().filter(r -> "Đang Thuê".equals(r[5])).count();
+        long canDon     = rooms.stream().filter(r -> "Cần Dọn".equals(r[5])).count();
+        long baoTri     = rooms.stream().filter(r -> "Bảo Trì".equals(r[5])).count();
         headerSubtitle.setText(String.format(
-                "Tổng số %d phòng  •  Trống: %d  •  Đang thuê: %d  •  Cần dọn: %d  •  Bảo trì: %d",
-                rooms.size(), trong, thue, canDon, baoTri));
+                "Tổng số %d phòng  •  Trống: %d  •  Chờ check-in: %d  •  Đang thuê: %d  •  Cần dọn: %d  •  Bảo trì: %d",
+                rooms.size(), trong, choCheckin, thue, canDon, baoTri));
     }
 
     private VBox buildRoomsByFloor() {
@@ -447,7 +448,8 @@ public class PhongView {
 
         HBox headerRow = new HBox();
         headerRow.setAlignment(Pos.CENTER_LEFT);
-        Label nameLbl = new Label("Phòng " + tenPhong);
+        String displayName = tenPhong.startsWith("Phòng ") ? tenPhong : "Phòng " + tenPhong;
+        Label nameLbl = new Label(displayName);
         nameLbl.setStyle("-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: #1A1A2E;");
         HBox.setHgrow(nameLbl, Priority.ALWAYS);
         Label badge = new Label(trangThai);
@@ -524,18 +526,16 @@ public class PhongView {
         PhongDAO phongDAO = new PhongDAO();
         switch (trangThai) {
             case "Trống" -> {
-                // Điều hướng sang màn hình Đặt Phòng với maPhong điền sẵn
                 if (mainLayout != null) {
                     mainLayout.navigateToView("datphong", maPhong);
                 } else {
                     openNhanPhongDialog(maPhong);
                 }
             }
+            case "Chờ Check-in" -> showCheckInConfirmDialog(maPhong);
             case "Đang Thuê" -> {
-                // Tìm mã phiếu đặt phòng đang active cho phòng này rồi navigate sang Thanh Toán
                 if (mainLayout != null) {
-                    String maPDP = layMaPDPDangActive(maPhong);
-                    mainLayout.navigateToView("thanhtoan", maPDP != null ? maPDP : "");
+                    mainLayout.navigateToView("checkout", maPhong);
                 } else {
                     Alert confirm = confirm("Trả Phòng",
                             "Xác nhận trả phòng " + maPhong + "?\nTrạng thái sẽ chuyển sang 'Cần Dọn'.");
@@ -585,6 +585,113 @@ public class PhongView {
                 refreshRoomCards();
             }
         }
+    }
+
+    /** Dialog xác nhận check-in trực tiếp từ card phòng, hiển thị đầy đủ thông tin khách */
+    private void showCheckInConfirmDialog(String maPhong) {
+        String maPDP = null, tenKH = null, sdt = null, cmnd = null,
+               soKhach = null, gioNhan = null, gioTra = null, ghiChu = null;
+
+        Connection con = ConnectDB.getInstance().getConnection();
+        if (con != null) {
+            String sql = "SELECT TOP 1 pdp.maPhieuDatPhong, kh.hoTenKH, kh.soDienThoai,"
+                    + " kh.soCMND, pdp.soLuongKhach,"
+                    + " CONVERT(varchar,pdp.thoiGianNhanDuKien,120),"
+                    + " CONVERT(varchar,pdp.thoiGianTraDuKien,120),"
+                    + " ISNULL(pdp.ghiChu,N'')"
+                    + " FROM ChiTietPhieuDatPhong ct"
+                    + " JOIN PhieuDatPhong pdp ON pdp.maPhieuDatPhong=ct.maPhieuDatPhong"
+                    + " JOIN KhachHang kh ON kh.maKH=pdp.maKhachHang"
+                    + " WHERE ct.maPhong=?"
+                    + " AND pdp.trangThai NOT IN (N'DaCheckOut',N'HuyDat',N'DaCheckIn')"
+                    + " ORDER BY pdp.thoiGianNhanDuKien ASC";
+            try (PreparedStatement pst = con.prepareStatement(sql)) {
+                pst.setString(1, maPhong);
+                try (ResultSet rs = pst.executeQuery()) {
+                    if (rs.next()) {
+                        maPDP    = rs.getString(1);
+                        tenKH    = rs.getString(2);
+                        sdt      = rs.getString(3);
+                        cmnd     = rs.getString(4);
+                        soKhach  = rs.getString(5);
+                        gioNhan  = rs.getString(6);
+                        gioTra   = rs.getString(7);
+                        ghiChu   = rs.getString(8);
+                    }
+                }
+            } catch (Exception ignored) {}
+        }
+
+        if (maPDP == null) {
+            Alert err = new Alert(Alert.AlertType.WARNING,
+                    "Không tìm thấy phiếu đặt phòng hợp lệ cho phòng " + maPhong + ".");
+            err.setHeaderText(null); err.setTitle("Không Tìm Thấy Phiếu"); err.showAndWait();
+            return;
+        }
+
+        // ── Build info grid ──────────────────────────────────────────────────
+        GridPane grid = new GridPane();
+        grid.setHgap(20); grid.setVgap(9);
+        grid.setPadding(new Insets(14, 4, 6, 4));
+
+        String[][] rows = {
+            {"Mã Phiếu:",      maPDP},
+            {"Phòng:",          maPhong},
+            {"Khách Hàng:",    tenKH   != null ? tenKH  : "—"},
+            {"SĐT:",           sdt     != null ? sdt    : "—"},
+            {"CMND / CCCD:",   cmnd    != null ? cmnd   : "—"},
+            {"Số Khách:",      soKhach != null ? soKhach : "—"},
+            {"Giờ Nhận DK:",   gioNhan != null ? gioNhan : "—"},
+            {"Giờ Trả DK:",    gioTra  != null ? gioTra  : "—"},
+        };
+        for (int i = 0; i < rows.length; i++) {
+            Label key = new Label(rows[i][0]);
+            key.setStyle("-fx-font-size:12px;-fx-text-fill:#595959;-fx-font-weight:bold;");
+            Label val = new Label(rows[i][1]);
+            val.setStyle("-fx-font-size:13px;-fx-text-fill:#1A1A2E;"
+                    + (i == 2 ? "-fx-font-weight:bold;" : ""));
+            grid.add(key, 0, i); grid.add(val, 1, i);
+        }
+        if (ghiChu != null && !ghiChu.isBlank()) {
+            Label kGhi = new Label("Ghi Chú:");
+            kGhi.setStyle("-fx-font-size:12px;-fx-text-fill:#595959;-fx-font-weight:bold;");
+            Label vGhi = new Label(ghiChu);
+            vGhi.setStyle("-fx-font-size:12px;-fx-text-fill:#FA8C16;");
+            vGhi.setWrapText(true);
+            grid.add(kGhi, 0, rows.length); grid.add(vGhi, 1, rows.length);
+        }
+
+        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
+        confirm.setTitle("Tiếp Nhận Khách");
+        confirm.setHeaderText("Xác Nhận Check-in — Phòng " + maPhong);
+        confirm.getDialogPane().setContent(grid);
+        confirm.getDialogPane().setPrefWidth(420);
+
+        final String finalMaPDP = maPDP, finalTenKH = tenKH;
+        confirm.showAndWait().ifPresent(btn -> {
+            if (btn != ButtonType.OK) return;
+            try {
+                boolean ok = new PhieuDatPhongDAO().checkIn(finalMaPDP);
+                if (ok) {
+                    refreshRoomCards();
+                    refreshTable();
+                    Alert success = new Alert(Alert.AlertType.INFORMATION,
+                            "✅ Check-in thành công!\nKhách: " + finalTenKH
+                            + "\nPhiếu: " + finalMaPDP
+                            + "\nTrạng thái phòng → Đang có khách.");
+                    success.setHeaderText(null); success.setTitle("Check-in Thành Công");
+                    success.showAndWait();
+                } else {
+                    Alert err = new Alert(Alert.AlertType.ERROR,
+                            "Check-in thất bại!\nPhiếu có thể đã được xử lý hoặc không hợp lệ.");
+                    err.setHeaderText(null); err.setTitle("Lỗi Check-in"); err.showAndWait();
+                }
+            } catch (Exception ex) {
+                Alert err = new Alert(Alert.AlertType.ERROR,
+                        "Lỗi kết nối: " + ex.getMessage());
+                err.setHeaderText(null); err.setTitle("Lỗi Kết Nối"); err.showAndWait();
+            }
+        });
     }
 
     /**
@@ -709,8 +816,10 @@ public class PhongView {
                         errLbl.setVisible(true); errLbl.setManaged(true); return;
                     }
                     KhachHang newKH = new KhachHang(null, tenKH, sdt, "");
-                    if (!new KhachHangDAO().themKhachHang(newKH)) {
-                        errLbl.setText("Không tạo được khách mới. Kiểm tra DB.");
+                    KhachHangDAO khDao = new KhachHangDAO();
+                    if (!khDao.themKhachHang(newKH)) {
+                        String reason = khDao.getLastError();
+                        errLbl.setText(reason != null ? reason : "Không tạo được khách mới. Kiểm tra DB.");
                         errLbl.setVisible(true); errLbl.setManaged(true); return;
                     }
                     maKH = newKH.getMaKH();
@@ -725,7 +834,26 @@ public class PhongView {
                     Timestamp.valueOf(dpTra.getValue().atStartOfDay()), ""
                 );
                 if (new PhieuDatPhongDAO().lapPhieuDat(pdp)) {
-                    new PhongDAO().capNhatTrangThai(maPhong, "PhongDat");
+                    Connection ctCon = ConnectDB.getInstance().getConnection();
+                    if (ctCon != null) {
+                        double donGia = 0;
+                        try (PreparedStatement pstGia = ctCon.prepareStatement(
+                                "SELECT ISNULL(bg.donGia,0) FROM Phong p "
+                                + "LEFT JOIN BangGia bg ON bg.maLoaiPhong=p.maLoaiPhong "
+                                + "AND bg.loaiThue='QuaDem' AND GETDATE() BETWEEN bg.ngayBatDau AND bg.ngayKetThuc "
+                                + "WHERE p.maPhong=?")) {
+                            pstGia.setString(1, maPhong);
+                            ResultSet rsGia = pstGia.executeQuery();
+                            if (rsGia.next()) donGia = rsGia.getDouble(1);
+                        } catch (Exception exGia) { exGia.printStackTrace(); }
+                        try (PreparedStatement pstCT = ctCon.prepareStatement(
+                                "INSERT INTO ChiTietPhieuDatPhong (maPhieuDatPhong, maPhong, donGia) VALUES (?,?,?)")) {
+                            pstCT.setString(1, maPDP);
+                            pstCT.setString(2, maPhong);
+                            pstCT.setDouble(3, donGia);
+                            pstCT.executeUpdate();
+                        } catch (Exception exCT) { exCT.printStackTrace(); }
+                    }
                     dialog.close();
                     refreshRoomCards();
                     refreshTable();
@@ -785,7 +913,7 @@ public class PhongView {
         TextField txtTen  = field(r[1].toString());
         TextField txtLoai = field(r[2].toString());
         ComboBox<String> cbTT = new ComboBox<>();
-        cbTT.getItems().addAll("Trống", "Đang Thuê", "Cần Dọn", "Đang Dọn", "Bảo Trì");
+        cbTT.getItems().addAll("Trống", "Chờ Check-in", "Đang Thuê", "Cần Dọn", "Đang Dọn", "Bảo Trì");
         cbTT.setValue(r[5].toString());
         cbTT.setMaxWidth(Double.MAX_VALUE);
 
@@ -807,12 +935,13 @@ public class PhongView {
 
         btnSave.setOnAction(e -> {
             String dbStatus = switch (cbTT.getValue()) {
-                case "Trống"     -> "PhongTrong";
-                case "Đang Thuê" -> "PhongDat";
-                case "Cần Dọn"  -> "PhongCanDon";
-                case "Đang Dọn" -> "DangDon";
-                case "Bảo Trì"  -> "BaoTri";
-                default          -> cbTT.getValue();
+                case "Trống"        -> "PhongTrong";
+                case "Chờ Check-in" -> "PhongTrong";
+                case "Đang Thuê"    -> "PhongDat";
+                case "Cần Dọn"     -> "PhongCanDon";
+                case "Đang Dọn"    -> "DangDon";
+                case "Bảo Trì"     -> "BaoTri";
+                default             -> cbTT.getValue();
             };
             try {
                 new PhongDAO().capNhatTrangThai(maPhong, dbStatus);
@@ -1230,6 +1359,22 @@ public class PhongView {
     }
 
     // ─────────────────────────────────────────── DATA
+
+    /** Trả về tập maPhong đang có phiếu đặt chờ check-in (trangThai='DaDat'). */
+    private java.util.Set<String> loadPhongDaDat() {
+        java.util.Set<String> set = new java.util.HashSet<>();
+        Connection con = ConnectDB.getInstance().getConnection();
+        if (con == null) return set;
+        String sql = "SELECT ct.maPhong FROM ChiTietPhieuDatPhong ct "
+                   + "JOIN PhieuDatPhong pdp ON pdp.maPhieuDatPhong=ct.maPhieuDatPhong "
+                   + "WHERE pdp.trangThai='DaDat'";
+        try (PreparedStatement pst = con.prepareStatement(sql);
+             ResultSet rs = pst.executeQuery()) {
+            while (rs.next()) set.add(rs.getString(1));
+        } catch (Exception ignored) {}
+        return set;
+    }
+
     private List<Object[]> loadRooms() {
         List<Object[]> result = new ArrayList<>();
         try {
@@ -1241,11 +1386,12 @@ public class PhongView {
             for (LoaiPhong lp : loais) loaiMap.put(lp.getMaLoaiPhong(), lp.getTenLoaiPhong());
 
             if (!phongs.isEmpty()) {
+                java.util.Set<String> phongDaDat = loadPhongDaDat();
                 for (int i = 0; i < phongs.size(); i++) {
                     Phong p = phongs.get(i);
                     String loaiName = loaiMap.getOrDefault(p.getMaLoaiPhong(), "Standard");
                     String displayStatus = switch (p.getTrangThai() != null ? p.getTrangThai() : "") {
-                        case "PhongTrong"  -> "Trống";
+                        case "PhongTrong"  -> phongDaDat.contains(p.getMaPhong()) ? "Chờ Check-in" : "Trống";
                         case "PhongDat"    -> "Đang Thuê";
                         case "PhongCanDon" -> "Cần Dọn";
                         case "DangDon"     -> "Đang Dọn";
@@ -1328,6 +1474,7 @@ public class PhongView {
 
     private String statusBorderColor(String tt) {
         return switch (tt) {
+            case "Chờ Check-in" -> "#722ED1";
             case "Đang Thuê" -> "#FF4D4F";
             case "Cần Dọn"  -> "#FAAD14";
             case "Đang Dọn" -> "#1890FF";
@@ -1338,6 +1485,7 @@ public class PhongView {
 
     private String statusBadgeBg(String tt) {
         return switch (tt) {
+            case "Chờ Check-in" -> "#F9F0FF";
             case "Đang Thuê" -> "#FFF1F0";
             case "Cần Dọn"  -> "#FFFBE6";
             case "Đang Dọn" -> "#E6F4FF";
@@ -1348,6 +1496,7 @@ public class PhongView {
 
     private String statusBadgeText(String tt) {
         return switch (tt) {
+            case "Chờ Check-in" -> "#722ED1";
             case "Đang Thuê" -> "#FF4D4F";
             case "Cần Dọn"  -> "#FAAD14";
             case "Đang Dọn" -> "#1890FF";
@@ -1358,21 +1507,23 @@ public class PhongView {
 
     private String actionLabel(String tt) {
         return switch (tt) {
+            case "Chờ Check-in" -> "Check In";
             case "Đang Thuê" -> "Trả Phòng";
             case "Cần Dọn"  -> "Giao Dọn";
             case "Đang Dọn" -> "Hoàn Thành";
             case "Bảo Trì"  -> "Kết Thúc Bảo Trì";
-            default          -> "Nhận Phòng";
+            default          -> "Đặt Phòng";
         };
     }
 
     private String actionStyle(String tt) {
         String bg = switch (tt) {
+            case "Chờ Check-in" -> "#722ED1";
             case "Đang Thuê" -> "#FF4D4F";
             case "Cần Dọn"  -> "#FAAD14";
             case "Đang Dọn" -> "#1890FF";
             case "Bảo Trì"  -> "#8C8C8C";
-            default          -> "#52C41A";
+            default          -> "#1890FF";
         };
         return "-fx-background-color: " + bg + "; -fx-text-fill: white;"
                 + "-fx-background-radius: 8; -fx-border-radius: 8;"

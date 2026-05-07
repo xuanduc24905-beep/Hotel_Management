@@ -12,6 +12,8 @@ public class PhieuDatPhong {
     private Timestamp thoiGianNhanThucTe;
     private Timestamp thoiGianTraDuKien;
     private Timestamp thoiGianTraThucTe;
+    private String trangThai;
+    private String hinhThucDat;
     private String ghiChu;
 
     public PhieuDatPhong() {}
@@ -47,6 +49,10 @@ public class PhieuDatPhong {
     public void setThoiGianTraDuKien(Timestamp v) { this.thoiGianTraDuKien = v; }
     public Timestamp getThoiGianTraThucTe() { return thoiGianTraThucTe; }
     public void setThoiGianTraThucTe(Timestamp v) { this.thoiGianTraThucTe = v; }
+    public String getTrangThai() { return trangThai; }
+    public void setTrangThai(String v) { this.trangThai = v; }
+    public String getHinhThucDat() { return hinhThucDat; }
+    public void setHinhThucDat(String v) { this.hinhThucDat = v; }
     public String getGhiChu() { return ghiChu; }
     public void setGhiChu(String v) { this.ghiChu = v; }
 }

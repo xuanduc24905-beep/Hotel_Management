@@ -1,8 +1,6 @@
 package com.lotuslaverne.fx.views;
 
 import com.lotuslaverne.dao.PhieuDatPhongDAO;
-import com.lotuslaverne.entity.PhieuDatPhong;
-import com.lotuslaverne.util.ConnectDB;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -12,9 +10,6 @@ import javafx.scene.Node;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.List;
@@ -143,7 +138,16 @@ public class CheckInView {
             @Override protected void updateItem(String s, boolean empty) {
                 super.updateItem(s, empty);
                 setText(empty || s == null ? null : s);
-                setStyle(empty ? "" : "-fx-font-weight: bold; -fx-text-fill: #1890FF;");
+                refresh();
+            }
+            @Override public void updateSelected(boolean sel) {
+                super.updateSelected(sel);
+                if (!isEmpty()) refresh();
+            }
+            private void refresh() {
+                setStyle(isEmpty() ? "" : (isSelected()
+                    ? "-fx-font-weight: bold; -fx-text-fill: white;"
+                    : "-fx-font-weight: bold; -fx-text-fill: #1890FF;"));
             }
         });
 
@@ -199,46 +203,30 @@ public class CheckInView {
         });
     }
 
-    /** Load dữ liệu thật từ DB, fallback về demo nếu DB offline */
+    /** Load dữ liệu từ DB (JOIN sẵn KhachHang), fallback về demo nếu offline */
     private List<Object[]> loadData() {
         List<Object[]> result = new ArrayList<>();
-        try {
-            SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy HH:mm");
-            List<PhieuDatPhong> list = new PhieuDatPhongDAO().getChuaCheckIn();
-            if (!list.isEmpty()) {
-                for (PhieuDatPhong p : list) {
-                    // Tra cứu tên khách hàng từ DB
-                    String tenKH = layTenKhach(p.getMaKhachHang());
-                    result.add(new Object[]{
-                        p.getMaPhieuDatPhong(),
-                        tenKH,
-                        p.getMaNhanVien(),
-                        String.valueOf(p.getSoNguoi()),
-                        p.getThoiGianNhanDuKien() != null ? sdf.format(p.getThoiGianNhanDuKien()) : "—",
-                        p.getThoiGianTraDuKien()  != null ? sdf.format(p.getThoiGianTraDuKien())  : "—",
-                        p.getGhiChu() != null ? p.getGhiChu() : ""
-                    });
-                }
-                return result;
+        SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy HH:mm");
+        List<Object[]> joined = new PhieuDatPhongDAO().getChuaCheckInJoined();
+        if (!joined.isEmpty()) {
+            for (Object[] row : joined) {
+                java.sql.Timestamp tNhan = (java.sql.Timestamp) row[4];
+                java.sql.Timestamp tTra  = (java.sql.Timestamp) row[5];
+                result.add(new Object[]{
+                    row[0],
+                    row[1] != null ? row[1] : "—",
+                    row[2],
+                    String.valueOf(row[3]),
+                    tNhan != null ? sdf.format(tNhan) : "—",
+                    tTra  != null ? sdf.format(tTra)  : "—",
+                    row[6] != null ? row[6] : ""
+                });
             }
-        } catch (Exception ignored) {}
+            return result;
+        }
         // Demo khi DB offline
         for (Object[] r : DEMO_DATA) result.add(r);
         return result;
-    }
-
-    /** Truy vấn tên khách hàng theo mã */
-    private String layTenKhach(String maKH) {
-        Connection con = ConnectDB.getInstance().getConnection();
-        if (con == null || maKH == null) return maKH != null ? maKH : "—";
-        try (PreparedStatement pst = con.prepareStatement(
-                "SELECT hoTenKH FROM KhachHang WHERE maKH = ?")) {
-            pst.setString(1, maKH);
-            try (ResultSet rs = pst.executeQuery()) {
-                if (rs.next()) return rs.getString("hoTenKH");
-            }
-        } catch (Exception ignored) {}
-        return maKH;
     }
 
     private void alert(Alert.AlertType type, String title, String msg) {

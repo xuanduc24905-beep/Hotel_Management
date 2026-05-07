@@ -202,10 +202,17 @@ public class HousekeepingView {
         colPhong.setCellFactory(tc -> new TableCell<>() {
             @Override protected void updateItem(String s, boolean empty) {
                 super.updateItem(s, empty);
-                if (empty || s == null) { setText(null); setGraphic(null); return; }
-                Label lbl = new Label(s);
-                lbl.setStyle("-fx-font-weight: bold; -fx-font-size: 13px; -fx-text-fill: #1A1A2E;");
-                setGraphic(lbl); setText(null);
+                setGraphic(null);
+                if (empty || s == null) { setText(null); setStyle(""); return; }
+                setText(s); refresh();
+            }
+            @Override public void updateSelected(boolean sel) {
+                super.updateSelected(sel);
+                if (!isEmpty() && getItem() != null) refresh();
+            }
+            private void refresh() {
+                setStyle("-fx-font-weight: bold; -fx-font-size: 13px;"
+                    + (isSelected() ? "-fx-text-fill: white;" : "-fx-text-fill: #1A1A2E;"));
             }
         });
 

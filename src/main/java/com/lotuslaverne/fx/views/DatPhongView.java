@@ -2,10 +2,10 @@ package com.lotuslaverne.fx.views;
 
 import com.lotuslaverne.dao.KhachHangDAO;
 import com.lotuslaverne.dao.PhieuDatPhongDAO;
-import com.lotuslaverne.dao.PhongDAO;
 import com.lotuslaverne.entity.KhachHang;
 import com.lotuslaverne.entity.PhieuDatPhong;
 import com.lotuslaverne.util.ConnectDB;
+import com.lotuslaverne.util.SessionContext;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -35,6 +35,7 @@ public class DatPhongView {
 
     /** Mã phòng được điền sẵn từ màn hình Quản Lý Phòng (null = mở bình thường). */
     private final String prefillMaPhong;
+    private Button btnSearch;
 
     public DatPhongView() { this.prefillMaPhong = null; }
     public DatPhongView(String maPhong) { this.prefillMaPhong = maPhong; }
@@ -87,6 +88,9 @@ public class DatPhongView {
 
         tabs.getTabs().addAll(tabForm, tabCal);
         root.getChildren().addAll(header, tabs);
+        if (prefillMaPhong != null && btnSearch != null) {
+            javafx.application.Platform.runLater(() -> btnSearch.fire());
+        }
         VBox.setVgrow(root, Priority.ALWAYS);
         return root;
     }
@@ -351,7 +355,7 @@ public class DatPhongView {
         g1.add(lbl("Tiện Nghi Yêu Cầu"),0,4);
         GridPane.setColumnSpan(amenRow, 3); g1.add(amenRow, 0, 5);
 
-        Button btnSearch = new Button("🔍  TÌM PHÒNG PHÙ HỢP");
+        btnSearch = new Button("🔍  TÌM PHÒNG PHÙ HỢP");
         btnSearch.setStyle("-fx-background-color:#1890FF;-fx-text-fill:white;"
                 + "-fx-background-radius:8;-fx-padding:11 28;-fx-font-size:14px;"
                 + "-fx-font-weight:bold;-fx-cursor:hand;");
@@ -405,9 +409,10 @@ public class DatPhongView {
             ColumnConstraints c = new ColumnConstraints(); c.setPercentWidth(50);
             g3.getColumnConstraints().add(c);
         }
-        TextField txtSDT   = field(""); txtSDT.setPromptText("VD: 0912345678");
-        TextField txtTenKH = field(""); txtTenKH.setPromptText("(tự điền nếu khách cũ)");
-        TextField txtGhiChu= field(""); txtGhiChu.setPromptText("Yêu cầu đặc biệt...");
+        TextField txtSDT    = field(""); txtSDT.setPromptText("VD: 0912345678");
+        TextField txtTenKH  = field(""); txtTenKH.setPromptText("(tự điền nếu khách cũ)");
+        TextField txtCmnd   = field(""); txtCmnd.setPromptText("Số CMND / CCCD / Hộ chiếu");
+        TextField txtGhiChu = field(""); txtGhiChu.setPromptText("Yêu cầu đặc biệt...");
 
         Button btnTraCuu = new Button("Tra Cứu");
         btnTraCuu.setStyle("-fx-background-color:#1890FF;-fx-text-fill:white;"
@@ -416,10 +421,11 @@ public class DatPhongView {
         Label lblKH = new Label("Nhập SĐT rồi bấm Tra Cứu");
         lblKH.setStyle("-fx-font-size:11px;-fx-text-fill:#8C8C8C;");
 
-        g3.add(lbl("SĐT Khách *"), 0,0); g3.add(sdtRow,   0,1);
-        g3.add(lbl("Tên Khách"),   1,0); g3.add(txtTenKH, 1,1);
-        g3.add(lbl("Ghi Chú"),     0,2); GridPane.setColumnSpan(txtGhiChu,2); g3.add(txtGhiChu,0,3);
-        g3.add(lblKH,              0,4); GridPane.setColumnSpan(lblKH,2);
+        g3.add(lbl("SĐT Khách *"),         0,0); g3.add(sdtRow,   0,1);
+        g3.add(lbl("Tên Khách"),            1,0); g3.add(txtTenKH, 1,1);
+        g3.add(lbl("CMND / CCCD *"),        0,2); g3.add(txtCmnd,  0,3);
+        g3.add(lbl("Ghi Chú"),              1,2); g3.add(txtGhiChu,1,3);
+        g3.add(lblKH,                       0,4); GridPane.setColumnSpan(lblKH,2);
 
         // ── Mã khuyến mãi ──
         double[] discountPct = {0.0}; // % giảm (0.0–1.0)
@@ -468,6 +474,7 @@ public class DatPhongView {
 
         // Hàm tính lại tổng khi áp/xóa KM
         double[] baseTotal = {0};
+        double[] selectedDonGia = {0};
         Runnable recalcTotal = () -> {
             if (baseTotal[0] == 0) return;
             java.text.DecimalFormat df = new java.text.DecimalFormat("#,###");
@@ -616,6 +623,8 @@ public class DatPhongView {
 
                     btnChon.setOnAction(ev -> {
                         selectedMaPhong[0] = r[0];
+                        try { selectedDonGia[0] = Double.parseDouble(r[3].replace(",", "")); }
+                        catch (Exception ex) { selectedDonGia[0] = 0; }
                         selectedBanner.setText("🏷  Phòng đã chọn: " + r[1] + " (" + r[0] + ")  —  " + r[2] + "  —  " + r[3] + " đ/đêm");
                         tinhUocTinh(r[0], dpNhan.getValue(), dpTra.getValue(), lblGia, lblDem, lblTong);
                         // Cập nhật baseTotal để logic giảm giá dùng được
@@ -643,6 +652,11 @@ public class DatPhongView {
                             + "-fx-effect:dropshadow(gaussian,rgba(0,0,0,0.05),4,0,0,1);"
                             + "-fx-cursor:hand;"));
                     roomGrid.getChildren().add(card2);
+                    if (prefillMaPhong != null && prefillMaPhong.equals(r[0])) {
+                        final Button prefillBtn = btnChon;
+                        javafx.application.Platform.runLater(() ->
+                                javafx.application.Platform.runLater(prefillBtn::fire));
+                    }
                 }
             }
             javafx.application.Platform.runLater(() -> scrollToStep(outer, step2));
@@ -669,8 +683,15 @@ public class DatPhongView {
                 if (found != null) { maKH = found.getMaKH(); }
                 else {
                     if (tenKH.isEmpty()) { showError(errLbl, "Khách mới — điền tên khách!"); return; }
-                    KhachHang nk = new KhachHang(null, tenKH, sdt, "");
-                    if (!new KhachHangDAO().themKhachHang(nk)) { showError(errLbl, "Không tạo được khách mới!"); return; }
+                    String cmndVal = txtCmnd.getText().trim();
+                    if (cmndVal.isEmpty()) { showError(errLbl, "Vui lòng nhập CMND / CCCD!"); return; }
+                    KhachHang nk = new KhachHang(null, tenKH, sdt, cmndVal);
+                    KhachHangDAO khDao = new KhachHangDAO();
+                    if (!khDao.themKhachHang(nk)) {
+                        String reason = khDao.getLastError();
+                        showError(errLbl, reason != null ? reason : "Không tạo được khách mới!");
+                        return;
+                    }
                     maKH = nk.getMaKH();
                 }
             }
@@ -679,16 +700,31 @@ public class DatPhongView {
                 Timestamp tNhan = Timestamp.valueOf(dpNhan.getValue().atStartOfDay());
                 Timestamp tTra  = Timestamp.valueOf(dpTra.getValue().atStartOfDay());
                 String maPDP = "PDP" + UUID.randomUUID().toString().substring(0,5).toUpperCase();
-                PhieuDatPhong pdp = new PhieuDatPhong(maPDP, maKH, "NV001",
+                String maNV = SessionContext.getInstance().getMaNhanVien();
+                PhieuDatPhong pdp = new PhieuDatPhong(maPDP, maKH, maNV,
                         soNguoi, tNhan, tTra, txtGhiChu.getText().trim());
                 if (new PhieuDatPhongDAO().lapPhieuDat(pdp)) {
-                    new PhongDAO().capNhatTrangThai(maPhong, "PhongDat");
+                    Connection ctCon = ConnectDB.getInstance().getConnection();
+                    if (ctCon != null) {
+                        try (PreparedStatement pstCT = ctCon.prepareStatement(
+                                "INSERT INTO ChiTietPhieuDatPhong (maPhieuDatPhong, maPhong, donGia) VALUES (?,?,?)")) {
+                            pstCT.setString(1, maPDP);
+                            pstCT.setString(2, maPhong);
+                            pstCT.setDouble(3, selectedDonGia[0]);
+                            pstCT.executeUpdate();
+                        } catch (Exception exCT) { exCT.printStackTrace(); }
+                        try (PreparedStatement pstP = ctCon.prepareStatement(
+                                "UPDATE Phong SET trangThai=N'PhongDat' WHERE maPhong=?")) {
+                            pstP.setString(1, maPhong);
+                            pstP.executeUpdate();
+                        } catch (Exception exP) { exP.printStackTrace(); }
+                    }
                     alert(Alert.AlertType.INFORMATION, "Thành công",
                             "✅ Đặt phòng thành công!\nMã phiếu: " + maPDP
                             + "\nPhòng: " + maPhong + "\nKhách: " + maKH);
                     // Reset về bước 1
                     selectedMaPhong[0] = null; resolvedMaKH[0] = null;
-                    txtSDT.clear(); txtTenKH.clear(); txtGhiChu.clear();
+                    txtSDT.clear(); txtTenKH.clear(); txtCmnd.clear(); txtGhiChu.clear();
                     txtSoKhach.setText("2"); cbLoai.setValue("Tất cả");
                     dpNhan.setValue(LocalDate.now()); dpTra.setValue(LocalDate.now().plusDays(1));
                                                             if (historyItems != null) historyItems.setAll(loadHistory());
@@ -707,13 +743,16 @@ public class DatPhongView {
      * Phải gọi trong Platform.runLater để layout kịp tính toạ độ.
      */
     private void scrollToStep(VBox outer, VBox targetStep) {
-        if (formScrollPane == null) return;
-        double outerH = outer.getBoundsInLocal().getHeight();
-        double viewH  = formScrollPane.getViewportBounds().getHeight();
-        if (outerH <= viewH) return; // không cần scroll
-        double stepY  = targetStep.getBoundsInParent().getMinY();
-        double maxScroll = outerH - viewH;
-        double vval = Math.min(1.0, stepY / maxScroll);
+        if (formScrollPane == null || formScrollPane.getContent() == null) return;
+        double contentH  = formScrollPane.getContent().getBoundsInLocal().getHeight();
+        double viewH     = formScrollPane.getViewportBounds().getHeight();
+        double maxScroll = contentH - viewH;
+        if (maxScroll <= 0) return;
+        // vị trí step trong fc = offset của outer trong fc + offset step trong outer
+        double outerOffsetInFc = outer.getBoundsInParent().getMinY();
+        double stepOffsetInOuter = targetStep.getBoundsInParent().getMinY();
+        double stepY = outerOffsetInFc + stepOffsetInOuter;
+        double vval = Math.min(1.0, Math.max(0.0, stepY / maxScroll));
         formScrollPane.setVvalue(vval);
     }
 
@@ -723,46 +762,49 @@ public class DatPhongView {
             boolean wifi, boolean tv, boolean dh, boolean bt, boolean bc, boolean mb) {
         List<String[]> result = new ArrayList<>();
         Connection con = ConnectDB.getInstance().getConnection();
-        if (con != null) {
-            StringBuilder sql = new StringBuilder(
-                "SELECT p.maPhong, ISNULL(p.tenPhong,p.maPhong), lp.tenLoaiPhong, "
-                + "ISNULL(bg.donGia,0), "
-                + "ISNULL(p.tienNghi,'') "
-                + "FROM Phong p "
-                + "LEFT JOIN LoaiPhong lp ON lp.maLoaiPhong=p.maLoaiPhong "
-                + "LEFT JOIN BangGia bg ON bg.maLoaiPhong=p.maLoaiPhong "
-                + "  AND bg.loaiThue='QuaDem' AND GETDATE() BETWEEN bg.ngayBatDau AND bg.ngayKetThuc "
-                + "WHERE p.trangThai='Trong' "
-                + "AND p.maPhong NOT IN ("
-                + "  SELECT ct.maPhong FROM ChiTietPhieuDatPhong ct "
-                + "  JOIN PhieuDatPhong pdp ON pdp.maPhieuDatPhong=ct.maPhieuDatPhong "
-                + "  WHERE pdp.trangThai NOT IN ('DaCheckOut','HuyDat') "
-                + "  AND pdp.thoiGianNhanDuKien<? AND pdp.thoiGianTraDuKien>?) ");
-            if (loai != null && !loai.equals("Tất cả"))
-                sql.append("AND lp.tenLoaiPhong=? ");
-            sql.append("ORDER BY bg.donGia ASC");
-            try (PreparedStatement pst = con.prepareStatement(sql.toString())) {
-                pst.setTimestamp(1, Timestamp.valueOf(nt.atStartOfDay()));
-                pst.setTimestamp(2, Timestamp.valueOf(nd.atStartOfDay()));
-                if (loai != null && !loai.equals("Tất cả")) pst.setString(3, loai);
-                try (ResultSet rs = pst.executeQuery()) {
-                    DecimalFormat df = new DecimalFormat("#,###");
-                    while (rs.next()) {
-                        double gia = rs.getDouble(4);
-                        result.add(new String[]{
-                            rs.getString(1), rs.getString(2), rs.getString(3),
-                            df.format(gia), rs.getString(5) != null ? rs.getString(5) : ""
-                        });
-                    }
-                }
-            } catch (Exception ignored) {}
-        }
-        // Demo offline
-        if (result.isEmpty()) {
+        if (con == null) {
+            // Demo khi không có kết nối DB
             result.add(new String[]{"P101","Phòng 101","Standard","500,000","WiFi, TV"});
             result.add(new String[]{"P201","Phòng 201","Deluxe","750,000","WiFi, TV, Bồn Tắm"});
             result.add(new String[]{"P301","Suite Hoàng Gia","Suite","1,500,000","WiFi, TV, Bồn Tắm, Ban Công"});
+            return result;
         }
+        StringBuilder sql = new StringBuilder(
+            "SELECT p.maPhong, ISNULL(p.tenPhong,p.maPhong), lp.tenLoaiPhong, "
+            + "ISNULL(bg.donGia,0), ISNULL(p.tienNghi,'') "
+            + "FROM Phong p "
+            + "LEFT JOIN LoaiPhong lp ON lp.maLoaiPhong=p.maLoaiPhong "
+            + "LEFT JOIN BangGia bg ON bg.maLoaiPhong=p.maLoaiPhong "
+            + "  AND bg.loaiThue=N'QuaDem' AND GETDATE() BETWEEN bg.ngayBatDau AND bg.ngayKetThuc "
+            + "WHERE p.trangThai=N'PhongTrong' "
+            + "AND p.maPhong NOT IN ("
+            + "  SELECT ct.maPhong FROM ChiTietPhieuDatPhong ct "
+            + "  JOIN PhieuDatPhong pdp ON pdp.maPhieuDatPhong=ct.maPhieuDatPhong "
+            + "  WHERE pdp.trangThai NOT IN (N'DaCheckOut',N'HuyDat') "
+            + "  AND pdp.thoiGianNhanDuKien<? AND pdp.thoiGianTraDuKien>?) ");
+        if (loai != null && !loai.equals("Tất cả")) sql.append("AND lp.tenLoaiPhong=? ");
+        if (wifi) sql.append("AND p.tienNghi LIKE N'%WiFi%' ");
+        if (tv)   sql.append("AND p.tienNghi LIKE N'%TV%' ");
+        if (dh)   sql.append("AND p.tienNghi LIKE N'%Điều Hòa%' ");
+        if (bt)   sql.append("AND p.tienNghi LIKE N'%Bồn Tắm%' ");
+        if (bc)   sql.append("AND p.tienNghi LIKE N'%Ban Công%' ");
+        if (mb)   sql.append("AND p.tienNghi LIKE N'%Mini Bar%' ");
+        sql.append("ORDER BY bg.donGia ASC");
+        try (PreparedStatement pst = con.prepareStatement(sql.toString())) {
+            pst.setTimestamp(1, Timestamp.valueOf(nt.atStartOfDay()));
+            pst.setTimestamp(2, Timestamp.valueOf(nd.atStartOfDay()));
+            if (loai != null && !loai.equals("Tất cả")) pst.setString(3, loai);
+            try (ResultSet rs = pst.executeQuery()) {
+                DecimalFormat df = new DecimalFormat("#,###");
+                while (rs.next()) {
+                    double gia = rs.getDouble(4);
+                    result.add(new String[]{
+                        rs.getString(1), rs.getString(2), rs.getString(3),
+                        df.format(gia), rs.getString(5) != null ? rs.getString(5) : ""
+                    });
+                }
+            }
+        } catch (Exception e) { e.printStackTrace(); }
         return result;
     }
 
@@ -779,8 +821,7 @@ public class DatPhongView {
         Connection con = ConnectDB.getInstance().getConnection();
         if (con != null) {
             String sql = "SELECT phanTramGiam FROM KhuyenMai "
-                    + "WHERE maKhuyenMai=? AND GETDATE() BETWEEN ngayBatDau AND ngayKetThuc "
-                    + "AND trangThai='HoatDong'";
+                    + "WHERE maKhuyenMai=? AND GETDATE() BETWEEN ngayApDung AND ngayKetThuc";
             try (PreparedStatement pst = con.prepareStatement(sql)) {
                 pst.setString(1, ma);
                 ResultSet rs = pst.executeQuery();

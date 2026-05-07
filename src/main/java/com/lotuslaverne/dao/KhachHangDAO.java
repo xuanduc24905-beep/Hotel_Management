@@ -50,7 +50,7 @@ public class KhachHangDAO {
     /** Tự động sinh mã KH nếu null */
     public boolean themKhachHang(KhachHang kh) {
         if (kh.getMaKH() == null || kh.getMaKH().trim().isEmpty()) {
-            kh.setMaKH("KH" + (System.currentTimeMillis() % 100000));
+            kh.setMaKH("KH" + java.util.UUID.randomUUID().toString().replace("-", "").substring(0, 8).toUpperCase());
         }
         Connection con = ConnectDB.getInstance().getConnection();
         if (con == null) {
@@ -63,7 +63,7 @@ public class KhachHangDAO {
                 + "VALUES (?,?,?,?,?,?,?,?)");
             pst.setString (1, kh.getMaKH());
             pst.setString (2, kh.getHoTenKH());
-            pst.setString (3, kh.getCmnd() != null ? kh.getCmnd() : "");
+            pst.setString(3, kh.getCmnd() != null ? kh.getCmnd().trim() : "");
             pst.setString (4, kh.getSoDienThoai());
             pst.setBoolean(5, kh.isGioiTinh());
             // Xử lý ngày sinh: chuyển String -> Date nếu có

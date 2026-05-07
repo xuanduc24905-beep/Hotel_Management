@@ -7,21 +7,15 @@ import java.sql.SQLException;
 public class ConnectDB {
     private static ConnectDB instance;
     private Connection connection;
+    private long lastFailTime = -1;
+    private static final long RETRY_INTERVAL_MS = 30_000;
 
-    // Cấu hình chuỗi kết nối dựa trên thiết lập máy cá nhân
-    // Người dùng cần đổi localhost, port, hoặc user/password nếu có
-    private final String url = "jdbc:sqlserver://localhost:1433;databaseName=QuanLyKhachSan;encrypt=true;trustServerCertificate=true;";
+    private final String url = "jdbc:sqlserver://localhost:1433;databaseName=QuanLyKhachSan;encrypt=true;trustServerCertificate=true;loginTimeout=3;";
     private final String user = "sa";
-    private final String password = "123456"; // THAY BẬT SQL SERVER SA PASSWORD Ở ĐÂY
+    private final String password = "sapassword"; // THAY MẬT KHẨU SA Ở ĐÂY
 
     private ConnectDB() {
-        try {
-            connection = DriverManager.getConnection(url, user, password);
-            System.out.println("Kết nối CSDL LotusLaverne thành công!");
-        } catch (SQLException e) {
-            System.err.println("Chạy offline (không có DB): " + e.getMessage());
-            connection = null;
-        }
+        tryConnect(true);
     }
 
     public static ConnectDB getInstance() {
@@ -32,15 +26,28 @@ public class ConnectDB {
     }
 
     public Connection getConnection() {
-        try {
-            if (connection == null || connection.isClosed()) {
-                connection = DriverManager.getConnection(url, user, password);
-            }
-        } catch (SQLException e) {
-            System.err.println("Offline mode: " + e.getMessage());
-            connection = null;
+        if (connection != null) {
+            try { if (!connection.isClosed()) return connection; }
+            catch (SQLException ignored) {}
         }
+        long now = System.currentTimeMillis();
+        if (lastFailTime > 0 && (now - lastFailTime) < RETRY_INTERVAL_MS) {
+            return null;
+        }
+        tryConnect(false);
         return connection;
+    }
+
+    private void tryConnect(boolean verbose) {
+        try {
+            connection = DriverManager.getConnection(url, user, password);
+            lastFailTime = -1;
+            System.out.println("Kết nối CSDL LotusLaverne thành công!");
+        } catch (SQLException e) {
+            lastFailTime = System.currentTimeMillis();
+            connection = null;
+            if (verbose) System.err.println("Chạy offline (không có DB): " + e.getMessage());
+        }
     }
 
     public void disconnect() {

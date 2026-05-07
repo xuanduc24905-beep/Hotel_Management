@@ -68,6 +68,31 @@ public class PhieuDatPhongDAO {
         return list;
     }
 
+    /**
+     * Lấy phiếu chờ check-in JOIN sẵn KhachHang — tránh N+1 query.
+     * Mỗi Object[]: {maPhieuDatPhong, hoTenKH, maNhanVien, soNguoi, thoiGianNhanDuKien, thoiGianTraDuKien, ghiChu}
+     */
+    public List<Object[]> getChuaCheckInJoined() {
+        List<Object[]> list = new ArrayList<>();
+        Connection con = ConnectDB.getInstance().getConnection();
+        if (con == null) return list;
+        try {
+            PreparedStatement pst = con.prepareStatement(
+                "SELECT pdp.maPhieuDatPhong, kh.hoTenKH, pdp.maNhanVien, pdp.soNguoi,"
+                + " pdp.thoiGianNhanDuKien, pdp.thoiGianTraDuKien, pdp.ghiChu"
+                + " FROM PhieuDatPhong pdp"
+                + " JOIN KhachHang kh ON kh.maKH = pdp.maKhachHang"
+                + " WHERE pdp.trangThai = N'DaDat'"
+                + " ORDER BY pdp.thoiGianNhanDuKien ASC");
+            ResultSet rs = pst.executeQuery();
+            while (rs.next()) list.add(new Object[]{
+                rs.getString(1), rs.getString(2), rs.getString(3),
+                rs.getInt(4), rs.getTimestamp(5), rs.getTimestamp(6), rs.getString(7)
+            });
+        } catch (Exception e) { e.printStackTrace(); }
+        return list;
+    }
+
     /** Lấy các phiếu chờ check-in (trangThai = 'DaDat') */
     public List<PhieuDatPhong> getChuaCheckIn() {
         List<PhieuDatPhong> list = new ArrayList<>();
@@ -109,6 +134,8 @@ public class PhieuDatPhongDAO {
         p.setThoiGianNhanThucTe(rs.getTimestamp("thoiGianNhanThucTe"));
         p.setThoiGianTraDuKien(rs.getTimestamp("thoiGianTraDuKien"));
         p.setThoiGianTraThucTe(rs.getTimestamp("thoiGianTraThucTe"));
+        p.setTrangThai(rs.getString("trangThai"));
+        p.setHinhThucDat(rs.getString("hinhThucDat"));
         p.setGhiChu(rs.getString("ghiChu"));
         return p;
     }

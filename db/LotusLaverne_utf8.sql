@@ -1,6 +1,6 @@
 -- ============================================================
 -- LOTUS LAVERNE HOTEL MANAGEMENT SYSTEM
--- Database Schema v2.0
+-- Database Schema v3.0 (merged + full seed data)
 -- SQL Server 2017+  |  Collation: Vietnamese_CI_AS
 -- ============================================================
 
@@ -33,7 +33,7 @@ CREATE TABLE LoaiPhong (
 );
 GO
 
--- 2. Loại Dịch Vụ  (bảng mới - v1 thiếu)
+-- 2. Loại Dịch Vụ
 CREATE TABLE LoaiDichVu (
     maLoaiDichVu    NVARCHAR(10)   NOT NULL,
     tenLoaiDichVu   NVARCHAR(100)  NOT NULL,
@@ -54,7 +54,7 @@ CREATE TABLE ThietBi (
 );
 GO
 
--- 3. Nhân Viên   (đổi hoTenNhanVien → tenNhanVien để khớp entity Java)
+-- 3. Nhân Viên
 CREATE TABLE NhanVien (
     maNhanVien          NVARCHAR(10)   NOT NULL,
     tenNhanVien         NVARCHAR(100)  NOT NULL,
@@ -74,7 +74,7 @@ CREATE TABLE NhanVien (
 );
 GO
 
--- 4. Khách Hàng  (đổi cccd → cmnd để khớp entity Java)
+-- 4. Khách Hàng
 CREATE TABLE KhachHang (
     maKH        NVARCHAR(10)   NOT NULL,
     hoTenKH     NVARCHAR(100)  NOT NULL,
@@ -119,13 +119,13 @@ CREATE TABLE KhuyenMai (
 );
 GO
 
--- 7. Phòng  (trangThai dùng enum khớp Java: 'PhongTrong','PhongDat','PhongCanDon','DangDon','BaoTri')
+-- 7. Phòng
 CREATE TABLE Phong (
     maPhong      NVARCHAR(10)   NOT NULL,
     tenPhong     NVARCHAR(50)   NOT NULL,
     maLoaiPhong  NVARCHAR(10)   NOT NULL,
     trangThai    NVARCHAR(20)   NOT NULL DEFAULT N'PhongTrong',
-    tienNghi     NVARCHAR(500)  NULL,        -- "WiFi,TV,Điều Hòa,Bồn Tắm,..."
+    tienNghi     NVARCHAR(500)  NULL,
     soNguoiToiDa INT            NULL DEFAULT 2,
     moTa         NVARCHAR(1000) NULL,
     CONSTRAINT PK_Phong           PRIMARY KEY (maPhong),
@@ -134,7 +134,7 @@ CREATE TABLE Phong (
 );
 GO
 
--- 8. Bảng Giá  (thêm cột kyGia: NgayThuong/CuoiTuan/LeTet/CaoDiem)
+-- 8. Bảng Giá
 CREATE TABLE BangGia (
     maBangGia   NVARCHAR(10)   NOT NULL,
     maLoaiPhong NVARCHAR(10)   NOT NULL,
@@ -152,7 +152,7 @@ CREATE TABLE BangGia (
 );
 GO
 
--- 9. Dịch Vụ  (maLoaiDichVu là FK → LoaiDichVu; bỏ soLuongTonKho; thêm trangThai)
+-- 9. Dịch Vụ
 CREATE TABLE DichVu (
     maDichVu        NVARCHAR(10)   NOT NULL,
     tenDichVu       NVARCHAR(100)  NOT NULL,
@@ -166,7 +166,7 @@ CREATE TABLE DichVu (
 );
 GO
 
--- 10. Phiếu Đặt Phòng  (thêm hinhThucDat + trangThai)
+-- 10. Phiếu Đặt Phòng
 CREATE TABLE PhieuDatPhong (
     maPhieuDatPhong     NVARCHAR(10)   NOT NULL,
     ngayDat             DATETIME       NOT NULL DEFAULT GETDATE(),
@@ -190,7 +190,7 @@ CREATE TABLE PhieuDatPhong (
 );
 GO
 
--- 11. Chi Tiết Phiếu Đặt Phòng  (bỏ maPhuThu - phụ thu thuộc về hóa đơn)
+-- 11. Chi Tiết Phiếu Đặt Phòng
 CREATE TABLE ChiTietPhieuDatPhong (
     maPhieuDatPhong NVARCHAR(10)   NOT NULL,
     maPhong         NVARCHAR(10)   NOT NULL,
@@ -202,7 +202,7 @@ CREATE TABLE ChiTietPhieuDatPhong (
 );
 GO
 
--- 12. Chi Tiết Dịch Vụ (dịch vụ phát sinh trong kỳ lưu trú)
+-- 12. Chi Tiết Dịch Vụ
 CREATE TABLE ChiTietDichVu (
     maDichVu        NVARCHAR(10)   NOT NULL,
     maPhieuDatPhong NVARCHAR(10)   NOT NULL,
@@ -216,7 +216,7 @@ CREATE TABLE ChiTietDichVu (
 );
 GO
 
--- 13. Phụ Thu (khoản thu phát sinh ngoài phòng)
+-- 13. Phụ Thu
 CREATE TABLE PhuThu (
     maPhuThu    NVARCHAR(10)   NOT NULL,
     tenPhuThu   NVARCHAR(100)  NOT NULL,
@@ -302,7 +302,6 @@ GO
 -- PHẦN 3: VIEWS
 -- ============================================================
 
--- Danh sách phòng + loại + giá qua đêm hiện hành
 CREATE VIEW VW_DanhSachPhong AS
 SELECT
     p.maPhong,
@@ -320,7 +319,6 @@ LEFT JOIN BangGia bg ON lp.maLoaiPhong = bg.maLoaiPhong
     AND CAST(GETDATE() AS DATE) BETWEEN bg.ngayBatDau AND bg.ngayKetThuc;
 GO
 
--- Doanh thu theo tháng
 CREATE VIEW VW_DoanhThuTheoThang AS
 SELECT
     YEAR(h.ngayThanhToan)   AS Nam,
@@ -333,7 +331,6 @@ WHERE h.ngayThanhToan IS NOT NULL
 GROUP BY YEAR(h.ngayThanhToan), MONTH(h.ngayThanhToan);
 GO
 
--- Phòng được đặt nhiều nhất
 CREATE VIEW VW_PhongDatNhieuNhat AS
 SELECT
     ct.maPhong,
@@ -346,7 +343,6 @@ JOIN LoaiPhong lp ON p.maLoaiPhong  = lp.maLoaiPhong
 GROUP BY ct.maPhong, p.tenPhong, lp.tenLoaiPhong;
 GO
 
--- Dịch vụ được gọi nhiều nhất
 CREATE VIEW VW_DichVuSuDungNhieuNhat AS
 SELECT
     dv.maDichVu,
@@ -364,7 +360,6 @@ GO
 -- PHẦN 4: STORED PROCEDURES
 -- ============================================================
 
--- SP1: Tạo phiếu đặt phòng
 CREATE PROCEDURE SP_TaoPhieuDatPhong
     @maPhieuDatPhong    NVARCHAR(10),
     @maKhachHang        NVARCHAR(10),
@@ -416,7 +411,6 @@ BEGIN
 END;
 GO
 
--- SP2: Check-in
 CREATE PROCEDURE SP_CheckIn
     @maPhieuDatPhong NVARCHAR(10)
 AS
@@ -449,7 +443,6 @@ BEGIN
 END;
 GO
 
--- SP3: Check-out và tạo hóa đơn
 CREATE PROCEDURE SP_CheckOut
     @maPhieuDatPhong        NVARCHAR(10),
     @maHoaDon               NVARCHAR(10),
@@ -513,7 +506,6 @@ BEGIN
 END;
 GO
 
--- SP4: Đổi phòng
 CREATE PROCEDURE SP_DoiPhong
     @maPhieuDatPhong NVARCHAR(10),
     @maPhongMoi      NVARCHAR(10),
@@ -568,6 +560,7 @@ GO
 -- PHẦN 5: DỮ LIỆU MẪU
 -- ============================================================
 
+-- ── Loại phòng & dịch vụ ──────────────────────────────────
 INSERT INTO LoaiPhong (maLoaiPhong, tenLoaiPhong, soNguoiToiDa, moTa) VALUES
     ('LP01', N'Standard',  2, N'Phòng tiêu chuẩn, đầy đủ tiện nghi cơ bản'),
     ('LP02', N'Deluxe',    2, N'Phòng cao cấp, view đẹp'),
@@ -580,35 +573,55 @@ INSERT INTO LoaiDichVu (maLoaiDichVu, tenLoaiDichVu) VALUES
     ('LDV03', N'Tiện Ích');
 
 INSERT INTO ThietBi (maThietBi, tenThietBi, loaiThietBi, soLuong, donGia, trangThai) VALUES
-    ('TB001', N'Tivi Samsung 43 inch', N'Điện tử', 20, 5000000, N'Tot'),
-    ('TB002', N'Điều hòa Panasonic 1HP', N'Điện lạnh', 25, 8000000, N'Tot'),
-    ('TB003', N'Tủ lạnh Mini', N'Điện lạnh', 20, 2500000, N'Tot'),
-    ('TB004', N'Giường đôi', N'Nội thất', 15, 3000000, N'Tot'),
-    ('TB005', N'Tủ quần áo gỗ', N'Nội thất', 15, 2000000, N'Tot'),
-    ('TB006', N'Máy sấy tóc Panasonic', N'Điện tử', 30, 400000, N'Tot');
+    ('TB001', N'Tivi Samsung 43 inch',      N'Điện tử',  20, 5000000, N'Tot'),
+    ('TB002', N'Điều hòa Panasonic 1HP',    N'Điện lạnh',25, 8000000, N'Tot'),
+    ('TB003', N'Tủ lạnh Mini',              N'Điện lạnh',20, 2500000, N'Tot'),
+    ('TB004', N'Giường đôi',                N'Nội thất', 15, 3000000, N'Tot'),
+    ('TB005', N'Tủ quần áo gỗ',             N'Nội thất', 15, 2000000, N'Tot'),
+    ('TB006', N'Máy sấy tóc Panasonic',     N'Điện tử',  30,  400000, N'Tot');
 
+-- ── Nhân viên ─────────────────────────────────────────────
 INSERT INTO NhanVien
     (maNhanVien, tenNhanVien, soDienThoai, cccd, ngaySinh, ngayBatDauLam, diaChi, email, vaiTro, caLamViec) VALUES
     ('NV001', N'Nguyễn Văn Anh',  '0912345678', '001099012345', '1990-05-15', '2022-01-01', N'Hà Nội', 'anh.nv@lotus.vn',   'QuanLy', N'HanhChinh'),
     ('NV002', N'Trần Thị Bình',   '0923456789', '001099023456', '1995-08-20', '2023-03-01', N'Hà Nội', 'binh.tt@lotus.vn',  'LeTan',  N'Sang'),
     ('NV003', N'Lê Văn Cường',    '0934567890', '001099034567', '1998-12-10', '2024-01-15', N'Hà Nội', 'cuong.lv@lotus.vn', 'LeTan',  N'Chieu');
 
+-- ── Khách hàng (14 khách) ─────────────────────────────────
 INSERT INTO KhachHang
     (maKH, hoTenKH, soDienThoai, cmnd, gioiTinh, ngaySinh, diaChi, quocTich) VALUES
-    ('KH001', N'Phạm Minh Đức',  '0945678901', '001099045678', 1, '1988-03-22', N'TP.HCM',  N'Việt Nam'),
-    ('KH002', N'Hoàng Thị Em',   '0956789012', '001099056789', 0, '1992-07-14', N'Đà Nẵng', N'Việt Nam'),
-    ('KH003', N'Vũ Quốc Phong',  '0967890123', '001099067890', 1, '1985-11-30', N'Hà Nội',  N'Việt Nam');
+    -- Khách gốc
+    ('KH001', N'Phạm Minh Đức',     '0945678901', '001099045678', 1, '1988-03-22', N'TP.HCM',       N'Việt Nam'),
+    ('KH002', N'Hoàng Thị Em',      '0956789012', '001099056789', 0, '1992-07-14', N'Đà Nẵng',      N'Việt Nam'),
+    ('KH003', N'Vũ Quốc Phong',     '0967890123', '001099067890', 1, '1985-11-30', N'Hà Nội',       N'Việt Nam'),
+    -- Khách đang ở (DaCheckIn)
+    ('KH004', N'Nguyễn Thị Lan',    '0978901234', '001099078901', 0, '1990-04-12', N'Hà Nội',       N'Việt Nam'),
+    ('KH005', N'Đặng Văn Minh',     '0989012345', '001099089012', 1, '1987-09-08', N'TP.HCM',       N'Việt Nam'),
+    ('KH006', N'Bùi Thị Ngọc',      '0990123456', '001099090123', 0, '1993-02-28', N'Đà Lạt',       N'Việt Nam'),
+    ('KH007', N'Trịnh Quang Hải',   '0901234567', '001099001234', 1, '1982-06-15', N'Hải Phòng',    N'Việt Nam'),
+    ('KH008', N'Ngô Thị Phương',    '0911234560', '001099011234', 0, '1996-10-05', N'Cần Thơ',      N'Việt Nam'),
+    ('KH009', N'Lý Văn Quân',       '0922345678', '001099022345', 1, '1991-01-25', N'Huế',          N'Việt Nam'),
+    -- Khách chờ check-in (DaDat)
+    ('KH010', N'Đinh Thị Rộng',     '0933456789', '001099033456', 0, '1989-07-20', N'Nha Trang',    N'Việt Nam'),
+    ('KH011', N'Phan Văn Sơn',      '0944567890', '001099044567', 1, '1984-12-03', N'Vũng Tàu',     N'Việt Nam'),
+    -- Khách đã trả phòng (DaCheckOut - lịch sử)
+    ('KH012', N'Mai Thị Tuyết',     '0955678901', '001099055678', 0, '1997-03-17', N'Hội An',       N'Việt Nam'),
+    ('KH013', N'Cao Văn Uy',        '0966789012', '001099066789', 1, '1980-08-09', N'Hà Nội',       N'Việt Nam'),
+    ('KH014', N'Sophie Laurent',    '0977890123', 'FR1234567890', 0, '1988-11-22', N'Paris, Pháp',  N'Pháp');
 
+-- ── Tài khoản ─────────────────────────────────────────────
 INSERT INTO TaiKhoan (maTaiKhoan, maNhanVien, vaiTro, tenDangNhap, matKhau) VALUES
-    ('TK001', 'NV001', 'QuanLy', 'admin',       '123456'),
-    ('TK002', 'NV002', 'LeTan',  'letanthu',    '123456'),
-    ('TK003', 'NV003', 'LeTan',  'letancuong',  '123456');
+    ('TK001', 'NV001', 'QuanLy', 'admin',      '123456'),
+    ('TK002', 'NV002', 'LeTan',  'letanthu',   '123456'),
+    ('TK003', 'NV003', 'LeTan',  'letancuong', '123456');
 
+-- ── Khuyến mãi ────────────────────────────────────────────
 INSERT INTO KhuyenMai
     (maKhuyenMai, tenKhuyenMai, phanTramGiam, ngayApDung, ngayKetThuc, dieuKienApDung) VALUES
-    ('KM001', N'Khuyến Mãi Hè',   10.00, '2026-06-01', '2026-08-31', N'Áp dụng mùa hè 2026'),
-    ('KM002', N'Giảm Cuối Tuần',   5.00, '2026-01-01', '2026-12-31', N'Thứ 7 và Chủ nhật');
+    ('KM001', N'Khuyến Mãi Hè',  10.00, '2026-06-01', '2026-08-31', N'Áp dụng mùa hè 2026'),
+    ('KM002', N'Giảm Cuối Tuần',  5.00, '2026-01-01', '2026-12-31', N'Thứ 7 và Chủ nhật');
 
+-- ── Bảng giá (32 bản ghi) ─────────────────────────────────
 INSERT INTO BangGia (maBangGia, maLoaiPhong, loaiThue, kyGia, donGia, ngayBatDau, ngayKetThuc) VALUES
     -- Standard (LP01)
     ('BG001', 'LP01', N'QuaDem',  N'NgayThuong',  500000, '2026-01-01', '2026-12-31'),
@@ -647,16 +660,20 @@ INSERT INTO BangGia (maBangGia, maLoaiPhong, loaiThue, kyGia, donGia, ngayBatDau
     ('BG031', 'LP04', N'QuaDem',  N'CaoDiem',    2800000, '2026-01-01', '2026-12-31'),
     ('BG032', 'LP04', N'TheoGio', N'CaoDiem',     420000, '2026-01-01', '2026-12-31');
 
+-- ── Phòng (trạng thái phản ánh hiện trạng thực) ───────────
+-- P101, P102, P201, P202, P301, P401 đang có khách (DaCheckIn → PhongDat)
+-- P103, P302 còn trống
 INSERT INTO Phong (maPhong, tenPhong, maLoaiPhong, trangThai, tienNghi, soNguoiToiDa, moTa) VALUES
-    ('P101', N'Phòng 101',      'LP01', N'PhongTrong', N'WiFi,TV',                        2, N'Phòng tiêu chuẩn tầng 1, view sân vườn'),
-    ('P102', N'Phòng 102',      'LP01', N'PhongTrong', N'WiFi,TV,Điều Hòa',               2, N'Phòng tiêu chuẩn tầng 1, điều hòa mới'),
-    ('P103', N'Phòng 103',      'LP01', N'PhongTrong', N'WiFi,TV,Điều Hòa',               2, N'Phòng tiêu chuẩn tầng 1, hướng Đông'),
-    ('P201', N'Phòng 201',      'LP02', N'PhongTrong', N'WiFi,TV,Điều Hòa,Bồn Tắm',      2, N'Phòng Deluxe tầng 2, view thành phố'),
-    ('P202', N'Phòng 202',      'LP02', N'PhongTrong', N'WiFi,TV,Điều Hòa,Ban Công',      2, N'Phòng Deluxe tầng 2, ban công rộng'),
-    ('P301', N'Phòng 301',      'LP03', N'PhongTrong', N'WiFi,TV,Điều Hòa,Bồn Tắm',      3, N'Phòng Superior tầng 3, phòng gia đình'),
-    ('P302', N'Phòng 302',      'LP03', N'PhongTrong', N'WiFi,TV,Điều Hòa,Ban Công',      3, N'Phòng Superior tầng 3, ban công ngắm cảnh'),
-    ('P401', N'Suite Hoàng Gia','LP04', N'PhongTrong', N'WiFi,TV,Điều Hòa,Bồn Tắm,Ban Công,Mini Bar', 4, N'Phòng Suite VIP, phòng khách riêng, view toàn cảnh');
+    ('P101', N'Phòng 101',       'LP01', N'PhongDat',   N'WiFi,TV',                                   2, N'Phòng tiêu chuẩn tầng 1, view sân vườn'),
+    ('P102', N'Phòng 102',       'LP01', N'PhongDat',   N'WiFi,TV,Điều Hòa',                          2, N'Phòng tiêu chuẩn tầng 1, điều hòa mới'),
+    ('P103', N'Phòng 103',       'LP01', N'PhongTrong', N'WiFi,TV,Điều Hòa',                          2, N'Phòng tiêu chuẩn tầng 1, hướng Đông'),
+    ('P201', N'Phòng 201',       'LP02', N'PhongDat',   N'WiFi,TV,Điều Hòa,Bồn Tắm',                 2, N'Phòng Deluxe tầng 2, view thành phố'),
+    ('P202', N'Phòng 202',       'LP02', N'PhongDat',   N'WiFi,TV,Điều Hòa,Ban Công',                 2, N'Phòng Deluxe tầng 2, ban công rộng'),
+    ('P301', N'Phòng 301',       'LP03', N'PhongDat',   N'WiFi,TV,Điều Hòa,Bồn Tắm',                 3, N'Phòng Superior tầng 3, phòng gia đình'),
+    ('P302', N'Phòng 302',       'LP03', N'PhongTrong', N'WiFi,TV,Điều Hòa,Ban Công',                 3, N'Phòng Superior tầng 3, ban công ngắm cảnh'),
+    ('P401', N'Suite Hoàng Gia', 'LP04', N'PhongDat',   N'WiFi,TV,Điều Hòa,Bồn Tắm,Ban Công,Mini Bar', 4, N'Phòng Suite VIP, phòng khách riêng, view toàn cảnh');
 
+-- ── Dịch vụ & phụ thu ─────────────────────────────────────
 INSERT INTO DichVu (maDichVu, tenDichVu, maLoaiDichVu, donGia, trangThai) VALUES
     ('DV001', N'Nước suối Lavie 500ml',  'LDV02',  15000, N'DangKinhDoanh'),
     ('DV002', N'Cơm chiên dương châu',   'LDV01',  65000, N'DangKinhDoanh'),
@@ -667,9 +684,210 @@ INSERT INTO DichVu (maDichVu, tenDichVu, maLoaiDichVu, donGia, trangThai) VALUES
     ('DV007', N'Bia Tiger 330ml',         'LDV02',  30000, N'DangKinhDoanh');
 
 INSERT INTO PhuThu (maPhuThu, tenPhuThu, loaiPhuThu, donGia, ghiChu) VALUES
-    ('PT001', N'Phá hỏng đồ đạc',      'HuHongDoDac', 500000, N'Theo đánh giá thiệt hại'),
-    ('PT002', N'Trả phòng muộn',        'RaMuon',       200000, N'Sau 12h trưa'),
-    ('PT003', N'Nhận phòng sớm',        'NhanMuon',     150000, N'Trước 14h');
+    ('PT001', N'Phá hỏng đồ đạc', 'HuHongDoDac', 500000, N'Theo đánh giá thiệt hại'),
+    ('PT002', N'Trả phòng muộn',  'RaMuon',       200000, N'Sau 12h trưa'),
+    ('PT003', N'Nhận phòng sớm',  'NhanMuon',     150000, N'Trước 14h');
+
+-- ============================================================
+-- PHẦN 6: PHIẾU ĐẶT PHÒNG
+-- ============================================================
+
+-- ── Khách đã check-in (đang lưu trú) ─────────────────────
+INSERT INTO PhieuDatPhong
+    (maPhieuDatPhong, ngayDat, maKhachHang, maNhanVien, soNguoi,
+     thoiGianNhanDuKien, thoiGianNhanThucTe, thoiGianTraDuKien,
+     hinhThucDat, trangThai, ghiChu)
+VALUES
+    -- PDP001: Nguyễn Thị Lan – P101 Standard (5 đêm, vào 05/05)
+    ('PDP001', '2026-05-03', 'KH004', 'NV002', 1,
+     '2026-05-05 14:00', '2026-05-05 14:23', '2026-05-10 12:00',
+     N'TrucTiep', N'DaCheckIn', N'Yêu cầu tầng cao'),
+    -- PDP002: Đặng Văn Minh – P201 Deluxe (5 đêm, vào 04/05)
+    ('PDP002', '2026-05-02', 'KH005', 'NV002', 2,
+     '2026-05-04 15:00', '2026-05-04 15:18', '2026-05-09 12:00',
+     N'QuaWeb', N'DaCheckIn', N'Phòng nhìn ra thành phố'),
+    -- PDP003: Bùi Thị Ngọc – P202 Deluxe (5 đêm, vào 06/05)
+    ('PDP003', '2026-05-05', 'KH006', 'NV003', 1,
+     '2026-05-06 14:00', '2026-05-06 14:35', '2026-05-11 12:00',
+     N'TrucTiep', N'DaCheckIn', NULL),
+    -- PDP004: Trịnh Quang Hải – P301 Superior (5 đêm, vào 03/05, trả phòng ngày mai)
+    ('PDP004', '2026-05-01', 'KH007', 'NV002', 3,
+     '2026-05-03 16:00', '2026-05-03 16:05', '2026-05-08 12:00',
+     N'QuaDienThoai', N'DaCheckIn', N'Thêm 1 giường phụ'),
+    -- PDP005: Ngô Thị Phương – P401 Suite (6 đêm, vào 06/05)
+    ('PDP005', '2026-05-04', 'KH008', 'NV002', 2,
+     '2026-05-06 13:00', '2026-05-06 13:42', '2026-05-12 12:00',
+     N'QuaWeb', N'DaCheckIn', N'Tuần trăng mật, chuẩn bị hoa & rượu'),
+    -- PDP006: Lý Văn Quân – P102 Standard (2 đêm, vào hôm nay 07/05)
+    ('PDP006', '2026-05-06', 'KH009', 'NV003', 1,
+     '2026-05-07 10:00', '2026-05-07 10:15', '2026-05-09 12:00',
+     N'TrucTiep', N'DaCheckIn', NULL);
+
+-- ── Khách chờ check-in ────────────────────────────────────
+INSERT INTO PhieuDatPhong
+    (maPhieuDatPhong, ngayDat, maKhachHang, maNhanVien, soNguoi,
+     thoiGianNhanDuKien, thoiGianTraDuKien,
+     hinhThucDat, trangThai, ghiChu)
+VALUES
+    -- PDP007: Đinh Thị Rộng – P103 Standard (ngày mai 08/05)
+    ('PDP007', '2026-05-06', 'KH010', 'NV002', 1,
+     '2026-05-08 14:00', '2026-05-12 12:00',
+     N'QuaWeb', N'DaDat', NULL),
+    -- PDP008: Phan Văn Sơn – P302 Superior (09/05)
+    ('PDP008', '2026-05-07', 'KH011', 'NV003', 2,
+     '2026-05-09 14:00', '2026-05-14 12:00',
+     N'QuaDienThoai', N'DaDat', N'Đề nghị giường phụ');
+
+-- ── Lịch sử đã trả phòng ─────────────────────────────────
+INSERT INTO PhieuDatPhong
+    (maPhieuDatPhong, ngayDat, maKhachHang, maNhanVien, soNguoi,
+     thoiGianNhanDuKien, thoiGianNhanThucTe, thoiGianTraDuKien, thoiGianTraThucTe,
+     hinhThucDat, trangThai, ghiChu)
+VALUES
+    -- PDP009: Mai Thị Tuyết – P101 Standard (01/05 → 05/05, 4 đêm)
+    ('PDP009', '2026-04-29', 'KH012', 'NV002', 1,
+     '2026-05-01 14:00', '2026-05-01 14:10', '2026-05-05 12:00', '2026-05-05 11:45',
+     N'TrucTiep', N'DaCheckOut', NULL),
+    -- PDP010: Cao Văn Uy – P201 Deluxe (28/04 → 02/05, 4 đêm)
+    ('PDP010', '2026-04-25', 'KH013', 'NV002', 2,
+     '2026-04-28 15:00', '2026-04-28 15:20', '2026-05-02 12:00', '2026-05-02 10:30',
+     N'QuaWeb', N'DaCheckOut', N'Khách doanh nhân'),
+    -- PDP011: Sophie Laurent – P401 Suite (25/04 → 01/05, 6 đêm)
+    ('PDP011', '2026-04-20', 'KH014', 'NV001', 2,
+     '2026-04-25 13:00', '2026-04-25 13:55', '2026-05-01 12:00', '2026-05-01 12:00',
+     N'QuaWeb', N'DaCheckOut', N'Khách nước ngoài, thanh toán thẻ');
+
+-- ============================================================
+-- PHẦN 7: CHI TIẾT PHIẾU ĐẶT PHÒNG
+-- ============================================================
+
+INSERT INTO ChiTietPhieuDatPhong (maPhieuDatPhong, maPhong, donGia) VALUES
+    ('PDP001', 'P101',  500000),   -- Standard NgayThuong
+    ('PDP002', 'P201',  800000),   -- Deluxe NgayThuong
+    ('PDP003', 'P202',  800000),   -- Deluxe NgayThuong
+    ('PDP004', 'P301', 1000000),   -- Superior NgayThuong
+    ('PDP005', 'P401', 2000000),   -- Suite NgayThuong
+    ('PDP006', 'P102',  500000),   -- Standard NgayThuong
+    ('PDP007', 'P103',  500000),   -- Standard NgayThuong
+    ('PDP008', 'P302', 1000000),   -- Superior NgayThuong
+    ('PDP009', 'P101',  500000),   -- Standard NgayThuong
+    ('PDP010', 'P201',  800000),   -- Deluxe NgayThuong
+    ('PDP011', 'P401', 2000000);   -- Suite NgayThuong
+
+-- ============================================================
+-- PHẦN 8: CHI TIẾT DỊCH VỤ
+-- ============================================================
+
+-- Dịch vụ của khách đang ở
+INSERT INTO ChiTietDichVu (maDichVu, maPhieuDatPhong, soLuong, thoiDiemSuDung) VALUES
+    -- PDP001 - Nguyễn Thị Lan
+    ('DV001', 'PDP001', 4, '2026-05-06 08:00'),   -- nước suối x4
+    ('DV004', 'PDP001', 2, '2026-05-07 07:30'),   -- cà phê x2
+    -- PDP002 - Đặng Văn Minh
+    ('DV002', 'PDP002', 2, '2026-05-05 12:30'),   -- cơm chiên x2
+    ('DV001', 'PDP002', 6, '2026-05-06 09:00'),   -- nước suối x6
+    ('DV003', 'PDP002', 1, '2026-05-06 10:00'),   -- giặt ủi x1
+    -- PDP003 - Bùi Thị Ngọc
+    ('DV007', 'PDP003', 4, '2026-05-06 20:00'),   -- bia x4
+    ('DV005', 'PDP003', 2, '2026-05-07 12:00'),   -- phở x2
+    -- PDP004 - Trịnh Quang Hải (trả phòng ngày mai → nhiều dịch vụ)
+    ('DV001', 'PDP004', 8, '2026-05-04 08:00'),   -- nước suối x8
+    ('DV002', 'PDP004', 4, '2026-05-05 12:00'),   -- cơm chiên x4
+    ('DV006', 'PDP004', 2, '2026-05-06 09:00'),   -- thuê xe đạp x2
+    ('DV003', 'PDP004', 2, '2026-05-07 10:00'),   -- giặt ủi x2
+    -- PDP005 - Ngô Thị Phương (Suite – tuần trăng mật)
+    ('DV004', 'PDP005', 4, '2026-05-07 07:00'),   -- cà phê x4
+    ('DV005', 'PDP005', 2, '2026-05-07 12:00'),   -- phở x2
+    ('DV003', 'PDP005', 2, '2026-05-07 11:00'),   -- giặt ủi x2
+    ('DV007', 'PDP005', 6, '2026-05-06 21:00');   -- bia x6
+
+-- Dịch vụ của khách đã trả phòng (cho lịch sử hóa đơn)
+INSERT INTO ChiTietDichVu (maDichVu, maPhieuDatPhong, soLuong, thoiDiemSuDung) VALUES
+    -- PDP010 - Cao Văn Uy (Deluxe)
+    ('DV001', 'PDP010', 2, '2026-04-29 08:00'),   -- nước suối x2
+    ('DV004', 'PDP010', 3, '2026-04-30 07:30'),   -- cà phê x3
+    -- PDP011 - Sophie Laurent (Suite)
+    ('DV003', 'PDP011', 3, '2026-04-27 10:00'),   -- giặt ủi x3
+    ('DV007', 'PDP011', 8, '2026-04-28 21:00'),   -- bia x8
+    ('DV004', 'PDP011', 5, '2026-04-29 07:00');   -- cà phê x5
+
+-- ============================================================
+-- PHẦN 9: HÓA ĐƠN (khách đã trả phòng)
+-- ============================================================
+-- HD001: PDP009 – Mai Thị Tuyết, 4 đêm Standard = 2.000.000, đặt cọc 500k → thanh toán 1.500.000
+INSERT INTO HoaDon
+    (maHoaDon, ngayLap, maNhanVienLap, maPhieuDatPhong,
+     ngayThanhToan, tienKhuyenMai, tienThanhToan, phuongThucThanhToan, ghiChu)
+VALUES
+    ('HD001', '2026-05-05 11:45', 'NV002', 'PDP009',
+     '2026-05-05 11:45', 0, 1500000, N'TienMat', NULL);
+
+-- HD002: PDP010 – Cao Văn Uy, 4 đêm Deluxe = 3.200.000
+--        DV: nước x2 (30k) + cà phê x3 (105k) = 135.000
+--        Tổng: 3.335.000 – đặt cọc 800k → thanh toán 2.535.000
+INSERT INTO HoaDon
+    (maHoaDon, ngayLap, maNhanVienLap, maPhieuDatPhong,
+     ngayThanhToan, tienKhuyenMai, tienThanhToan, phuongThucThanhToan, ghiChu)
+VALUES
+    ('HD002', '2026-05-02 10:30', 'NV002', 'PDP010',
+     '2026-05-02 10:30', 0, 2535000, N'ChuyenKhoan', N'Khách doanh nhân, xuất hóa đơn VAT');
+
+-- HD003: PDP011 – Sophie Laurent, 6 đêm Suite = 12.000.000
+--        DV: giặt x3 (150k) + bia x8 (240k) + cà phê x5 (175k) = 565.000
+--        Tổng: 12.565.000 – đặt cọc 2.000k → thanh toán 10.565.000
+INSERT INTO HoaDon
+    (maHoaDon, ngayLap, maNhanVienLap, maPhieuDatPhong,
+     ngayThanhToan, tienKhuyenMai, tienThanhToan, phuongThucThanhToan, ghiChu)
+VALUES
+    ('HD003', '2026-05-01 12:00', 'NV001', 'PDP011',
+     '2026-05-01 12:00', 0, 10565000, N'ChuyenKhoan', N'Khách nước ngoài');
+
+-- ============================================================
+-- PHẦN 10: CHI TIẾT HÓA ĐƠN
+-- ============================================================
+
+-- HD001 – PDP009 (Standard 4 đêm)
+INSERT INTO ChiTietHoaDon (maHoaDon, loaiTien, moTa, donGia, soLuong, thanhTien) VALUES
+    ('HD001', N'TienPhong', N'Phòng 101 – Standard – 4 đêm', 500000, 4, 2000000),
+    ('HD001', N'TienCoc',   N'Trừ đặt cọc',                 -500000, 1, -500000);
+
+-- HD002 – PDP010 (Deluxe 4 đêm + dịch vụ)
+INSERT INTO ChiTietHoaDon (maHoaDon, loaiTien, moTa, donGia, soLuong, thanhTien) VALUES
+    ('HD002', N'TienPhong',  N'Phòng 201 – Deluxe – 4 đêm',  800000, 4, 3200000),
+    ('HD002', N'TienDichVu', N'Nước suối x2',                  15000, 2,   30000),
+    ('HD002', N'TienDichVu', N'Cà phê sữa đá x3',              35000, 3,  105000),
+    ('HD002', N'TienCoc',    N'Trừ đặt cọc',                 -800000, 1, -800000);
+
+-- HD003 – PDP011 (Suite 6 đêm + dịch vụ)
+INSERT INTO ChiTietHoaDon (maHoaDon, loaiTien, moTa, donGia, soLuong, thanhTien) VALUES
+    ('HD003', N'TienPhong',  N'Suite Hoàng Gia – 6 đêm',    2000000, 6, 12000000),
+    ('HD003', N'TienDichVu', N'Giặt ủi x3',                   50000, 3,   150000),
+    ('HD003', N'TienDichVu', N'Bia Tiger x8',                  30000, 8,   240000),
+    ('HD003', N'TienDichVu', N'Cà phê sữa đá x5',             35000, 5,   175000),
+    ('HD003', N'TienCoc',    N'Trừ đặt cọc',                -2000000, 1, -2000000);
+
+-- ============================================================
+-- PHẦN 11: PHIẾU THU (đặt cọc)
+-- ============================================================
+
+-- Đặt cọc cho khách đang ở (maHoaDon còn NULL)
+INSERT INTO PhieuThu
+    (maPhieuThu, maHoaDon, maNhanVienLap, maPhieuDatPhong, soTienCoc, ngayThu, phuongThucThanhToan, ghiChu)
+VALUES
+    ('PTH001', NULL, 'NV002', 'PDP001',  500000, '2026-05-03 09:00', N'TienMat',     N'Cọc đặt phòng'),
+    ('PTH002', NULL, 'NV002', 'PDP002',  800000, '2026-05-02 10:30', N'ChuyenKhoan', N'Cọc đặt phòng'),
+    ('PTH003', NULL, 'NV003', 'PDP003',  800000, '2026-05-05 14:00', N'TienMat',     N'Cọc đặt phòng'),
+    ('PTH004', NULL, 'NV002', 'PDP004', 1000000, '2026-05-01 11:00', N'TienMat',     N'Cọc đặt phòng'),
+    ('PTH005', NULL, 'NV002', 'PDP005', 2000000, '2026-05-04 16:00', N'ChuyenKhoan', N'Cọc đặt phòng Suite'),
+    ('PTH006', NULL, 'NV003', 'PDP006',  500000, '2026-05-06 15:00', N'TienMat',     N'Cọc đặt phòng');
+
+-- Đặt cọc cho khách đã trả phòng (liên kết với hóa đơn)
+INSERT INTO PhieuThu
+    (maPhieuThu, maHoaDon, maNhanVienLap, maPhieuDatPhong, soTienCoc, ngayThu, phuongThucThanhToan, ghiChu)
+VALUES
+    ('PTH007', 'HD001', 'NV002', 'PDP009',  500000, '2026-04-29 09:00', N'TienMat',     N'Cọc đặt phòng'),
+    ('PTH008', 'HD002', 'NV002', 'PDP010',  800000, '2026-04-25 11:00', N'ChuyenKhoan', N'Cọc đặt phòng'),
+    ('PTH009', 'HD003', 'NV001', 'PDP011', 2000000, '2026-04-20 14:00', N'ChuyenKhoan', N'Cọc đặt phòng Suite');
 
 GO
 
