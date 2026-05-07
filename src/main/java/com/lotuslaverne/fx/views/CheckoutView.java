@@ -157,6 +157,28 @@ public class CheckoutView {
                 + "-fx-background-color:#F5F5F5;-fx-background-radius:8;"
                 + "-fx-padding:10 16;-fx-border-color:#E8E8E8;-fx-border-width:1;-fx-border-radius:8;");
 
+        boolean[] programmatic = {false};
+        Label lblNhapTayTitle = new Label("Hoặc nhập tay:");
+        lblNhapTayTitle.setStyle("-fx-font-size:12px;-fx-text-fill:#595959;");
+        TextField tfManual = new TextField();
+        tfManual.setPromptText("Nhập số tiền khách đưa...");
+        tfManual.setStyle("-fx-background-color:#FFFFFF;-fx-border-color:#D9D9D9;"
+                + "-fx-border-radius:6;-fx-background-radius:6;-fx-border-width:1;"
+                + "-fx-padding:8 12;-fx-font-size:14px;");
+        tfManual.textProperty().addListener((obs2, o2, n2) -> {
+            if (programmatic[0]) return;
+            String digits = (n2 == null ? "" : n2.replaceAll("[^0-9]", ""));
+            if (digits.isEmpty()) {
+                soTienNhap[0] = 0;
+            } else {
+                try { soTienNhap[0] = Double.parseDouble(digits); } catch (NumberFormatException ignored) { return; }
+            }
+            programmatic[0] = true;
+            lblSoTienNhap.setText(digits.isEmpty() ? "0" : FMT.format((long) soTienNhap[0]));
+            programmatic[0] = false;
+            updateTienThua(soTienNhap, lblRows, step3);
+        });
+
         // Nút mệnh giá
         Label lblMenhGia = new Label("Nhập số tiền theo mệnh giá");
         lblMenhGia.setStyle("-fx-font-size:12px;-fx-text-fill:#595959;");
@@ -179,6 +201,9 @@ public class CheckoutView {
                         + "-fx-border-radius:6;-fx-padding:8 0;-fx-font-size:12px;-fx-cursor:hand;"));
                 btn.setOnAction(ev -> {
                     soTienNhap[0] += val;
+                    programmatic[0] = true;
+                    tfManual.setText(FMT.format((long) soTienNhap[0]));
+                    programmatic[0] = false;
                     lblSoTienNhap.setText(FMT.format((long) soTienNhap[0]));
                     updateTienThua(soTienNhap, lblRows, step3);
                 });
@@ -198,6 +223,9 @@ public class CheckoutView {
                 + "-fx-border-radius:6;-fx-padding:8 20;-fx-cursor:hand;");
         btnXoa.setOnAction(ev -> {
             soTienNhap[0] = 0;
+            programmatic[0] = true;
+            tfManual.setText("");
+            programmatic[0] = false;
             lblSoTienNhap.setText("0");
             updateTienThua(soTienNhap, lblRows, step3);
         });
@@ -225,6 +253,8 @@ public class CheckoutView {
                 btnXoa.setVisible(isCash); btnXoa.setManaged(isCash);
                 lblNhapTitle.setVisible(isCash); lblNhapTitle.setManaged(isCash);
                 lblSoTienNhap.setVisible(isCash); lblSoTienNhap.setManaged(isCash);
+                lblNhapTayTitle.setVisible(isCash); lblNhapTayTitle.setManaged(isCash);
+                tfManual.setVisible(isCash); tfManual.setManaged(isCash);
                 if (!isCash) { soTienNhap[0] = tongTienFinal; updateTienThua(soTienNhap, lblRows, step3); }
             });
             htBtns[idx] = btn;
@@ -237,7 +267,7 @@ public class CheckoutView {
         HBox goiYRow = new HBox(8);
 
         leftCol.getChildren().addAll(lblHTTitle, htRow, lblNhapTitle, lblSoTienNhap,
-                lblMenhGia, gridDenom, btnXoa, lblGoiY, goiYRow);
+                lblNhapTayTitle, tfManual, lblMenhGia, gridDenom, btnXoa, lblGoiY, goiYRow);
 
         // ── Cột phải: tóm tắt ───────────────────────────────────────────────
         VBox rightCol = new VBox(12);
@@ -301,14 +331,15 @@ public class CheckoutView {
             if (row == null) return;
             selectedPhieu = new String[]{
                 row[0].toString(), row[1].toString(), row[2].toString(),
-                row[3].toString(), row[4].toString()
+                row[3].toString(), row[4].toString(), row[5].toString()
             };
             lblPhieu.setText("🏷  Phòng: " + selectedPhieu[1]
                     + "   |   Khách: " + selectedPhieu[2]
                     + "   |   Nhận: " + selectedPhieu[3]
-                    + "   |   " + selectedPhieu[4] + " đêm");
+                    + "   |   Trả DK: " + selectedPhieu[4]
+                    + "   |   " + selectedPhieu[5] + " đêm");
             long soNgay = 1;
-            try { soNgay = Long.parseLong(selectedPhieu[4]); } catch (Exception ex) { soNgay = 1; }
+            try { soNgay = Long.parseLong(selectedPhieu[5]); } catch (Exception ex) { soNgay = 1; }
             double tienPhong = queryTienPhong(selectedPhieu[1]) * soNgay;
             double tienDV    = queryTienDichVu(selectedPhieu[0]);
             double phuThu    = 0;
@@ -329,7 +360,9 @@ public class CheckoutView {
 
             // Gợi ý tiền mặt: exact + 2 mức làm tròn lên
             goiYRow.getChildren().clear();
-            soTienNhap[0] = 0; lblSoTienNhap.setText("0");
+            soTienNhap[0] = 0;
+            programmatic[0] = true; tfManual.setText(""); programmatic[0] = false;
+            lblSoTienNhap.setText("0");
             long exact = (long) tongTienFinal;
             long r1 = roundUp(exact, 10_000);
             long r2 = roundUp(exact, 50_000);
@@ -341,6 +374,7 @@ public class CheckoutView {
                         + "-fx-font-weight:bold;-fx-cursor:hand;");
                 b.setOnAction(ev -> {
                     soTienNhap[0] = hint;
+                    programmatic[0] = true; tfManual.setText(FMT.format(hint)); programmatic[0] = false;
                     lblSoTienNhap.setText(FMT.format(hint));
                     long thua = hint - exact;
                     lblTienThua.setText(FMT.format(Math.max(0, thua)));
@@ -408,7 +442,7 @@ public class CheckoutView {
         tbl.setStyle("-fx-background-color:#FFFFFF;-fx-background-radius:10;"
                 + "-fx-border-radius:10;-fx-effect:dropshadow(gaussian,rgba(0,0,0,0.06),6,0,0,1);");
         tbl.setPlaceholder(new Label("Không có phòng nào đang có khách."));
-        String[] heads = {"Mã Phiếu", "Phòng", "Tên Khách", "Giờ Nhận", "Số Đêm", "Trạng Thái"};
+        String[] heads = {"Mã Phiếu", "Phòng", "Tên Khách", "Giờ Nhận", "Giờ Trả DK", "Số Đêm", "Trạng Thái"};
         for (int i = 0; i < heads.length; i++) {
             final int idx = i;
             TableColumn<Object[], String> col = new TableColumn<>(heads[i]);
@@ -430,7 +464,7 @@ public class CheckoutView {
                         : "-fx-font-weight:bold;-fx-text-fill:#1890FF;"));
                 }
             });
-            if (i == 5) col.setCellFactory(tc -> new TableCell<>() {
+            if (i == 6) col.setCellFactory(tc -> new TableCell<>() {
                 @Override protected void updateItem(String s, boolean empty) {
                     super.updateItem(s, empty);
                     setGraphic(null);
@@ -474,8 +508,10 @@ public class CheckoutView {
         List<Object[]> result = new ArrayList<>();
         Connection con = ConnectDB.getInstance().getConnection();
         if (con != null) {
+            // [0]=maPDP [1]=maPhong [2]=tenKH [3]=gioNhan [4]=gioTraDK [5]=soDem [6]=trangThai
             String sql = "SELECT pdp.maPhieuDatPhong, ct.maPhong, kh.hoTenKH,"
                     + " CONVERT(varchar,ISNULL(pdp.thoiGianNhanThucTe,pdp.thoiGianNhanDuKien),120),"
+                    + " CONVERT(varchar,ISNULL(pdp.thoiGianTraThucTe,pdp.thoiGianTraDuKien),120),"
                     + " DATEDIFF(day, ISNULL(pdp.thoiGianNhanThucTe,pdp.thoiGianNhanDuKien), GETDATE()), pdp.trangThai"
                     + " FROM PhieuDatPhong pdp"
                     + " JOIN KhachHang kh ON kh.maKH=pdp.maKhachHang"
@@ -484,12 +520,13 @@ public class CheckoutView {
             try (PreparedStatement pst = con.prepareStatement(sql); ResultSet rs = pst.executeQuery()) {
                 while (rs.next())
                     result.add(new Object[]{rs.getString(1), rs.getString(2), rs.getString(3),
-                            rs.getString(4), String.valueOf(Math.max(1, rs.getInt(5))), "DaCheckIn"});
+                            rs.getString(4), rs.getString(5),
+                            String.valueOf(Math.max(1, rs.getInt(6))), "DaCheckIn"});
             } catch (Exception ignored) {}
         }
         if (result.isEmpty()) {
-            result.add(new Object[]{"PDP001", "P102", "Hoàng Thị Em",   "25/04/2026 13:00", "2", "DaCheckIn"});
-            result.add(new Object[]{"PDP002", "P201", "Vũ Quốc Phong",  "25/04/2026 15:00", "2", "DaCheckIn"});
+            result.add(new Object[]{"PDP001","P102","Hoàng Thị Em",  "25/04/2026 13:00","27/04/2026 12:00","2","DaCheckIn"});
+            result.add(new Object[]{"PDP002","P201","Vũ Quốc Phong", "25/04/2026 15:00","27/04/2026 12:00","2","DaCheckIn"});
         }
         return result;
     }
