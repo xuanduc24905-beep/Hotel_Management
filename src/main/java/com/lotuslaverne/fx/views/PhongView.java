@@ -113,9 +113,10 @@ public class PhongView {
         tabs.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
         tabs.setStyle("-fx-background-color: #F0F2F5;");
 
-        Tab tabPhong     = new Tab("Phòng");     tabPhong.setContent(buildPhongTab());
-        Tab tabDanhSach  = new Tab("Danh Sách"); tabDanhSach.setContent(buildDanhSachTab());
-        tabs.getTabs().addAll(tabPhong, tabDanhSach);
+        Tab tabPhong     = new Tab("Phòng");          tabPhong.setContent(buildPhongTab());
+        Tab tabDanhSach  = new Tab("Danh Sách");      tabDanhSach.setContent(buildDanhSachTab());
+        Tab tabCanDon    = new Tab("Phòng Cần Dọn");  tabCanDon.setContent(buildPhongCanDonTab());
+        tabs.getTabs().addAll(tabPhong, tabDanhSach, tabCanDon);
         VBox.setVgrow(tabs, Priority.ALWAYS);
 
         root.getChildren().addAll(header, tabs);
@@ -1705,6 +1706,142 @@ public class PhongView {
                 });
             }
         });
+    }
+
+    // ─────────────────────────────────────────── TAB PHÒNG CẦN DỌN
+    private Node buildPhongCanDonTab() {
+        VBox container = new VBox(12);
+        container.setPadding(new Insets(16, 24, 24, 24));
+        container.setStyle("-fx-background-color:#F0F2F5;");
+
+        // ── Toolbar
+        Label countLbl = new Label("Đang tải...");
+        countLbl.setStyle("-fx-font-size:13px;-fx-font-weight:bold;-fx-text-fill:#FA8C16;");
+        Label hintLbl = new Label("Danh sách phòng vừa trả cần được dọn dẹp trước khi đón khách mới.");
+        hintLbl.setStyle("-fx-font-size:12px;-fx-text-fill:#8C8C8C;");
+        Button refreshBtn = new Button("↻ Làm Mới");
+        refreshBtn.setStyle("-fx-background-color:#F5F5F5;-fx-text-fill:#595959;"
+                +"-fx-background-radius:8;-fx-border-color:#D9D9D9;-fx-border-width:1;"
+                +"-fx-border-radius:8;-fx-padding:6 14;-fx-cursor:hand;-fx-font-size:12px;");
+        Region spacer = new Region(); HBox.setHgrow(spacer, Priority.ALWAYS);
+        HBox toolbar = new HBox(10, countLbl, hintLbl, spacer, refreshBtn);
+        toolbar.setAlignment(Pos.CENTER_LEFT);
+        toolbar.setPadding(new Insets(12, 18, 12, 18));
+        toolbar.setStyle("-fx-background-color:#FFFFFF;-fx-background-radius:10;"
+                +"-fx-effect:dropshadow(gaussian,rgba(0,0,0,0.06),6,0,0,1);");
+
+        // ── Bảng
+        ObservableList<Object[]> items = FXCollections.observableArrayList(loadPhongCanDon());
+        countLbl.setText(items.size() + " phòng cần dọn");
+
+        TableView<Object[]> tbl = new TableView<>(items);
+        tbl.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        tbl.setStyle("-fx-background-color:#FFFFFF;-fx-background-radius:10;"
+                +"-fx-effect:dropshadow(gaussian,rgba(0,0,0,0.06),6,0,0,1);");
+        tbl.setPlaceholder(new Label("Không có phòng nào cần dọn. Tất cả đã sẵn sàng!"));
+        VBox.setVgrow(tbl, Priority.ALWAYS);
+
+        // Cột Phòng (highlight cam)
+        TableColumn<Object[], String> colMa = new TableColumn<>("Phòng");
+        colMa.setCellValueFactory(p -> new SimpleStringProperty(p.getValue()[0] != null ? p.getValue()[0].toString() : ""));
+        colMa.setCellFactory(tc -> new TableCell<>() {
+            @Override protected void updateItem(String s, boolean empty) {
+                super.updateItem(s, empty);
+                setText(empty || s == null ? null : s);
+                setStyle(empty ? "" : "-fx-font-weight:bold;-fx-text-fill:#FA8C16;");
+            }
+        });
+        tbl.getColumns().add(colMa);
+
+        String[] colHeads = {"Tên Phòng", "Loại Phòng", "Giờ Checkout Cuối"};
+        for (int i = 0; i < colHeads.length; i++) {
+            final int idx = i + 1;
+            TableColumn<Object[], String> col = new TableColumn<>(colHeads[i]);
+            col.setCellValueFactory(p -> {
+                Object v = idx < p.getValue().length ? p.getValue()[idx] : "";
+                return new SimpleStringProperty(v != null ? v.toString() : "—");
+            });
+            tbl.getColumns().add(col);
+        }
+
+        // Cột Hành Động
+        TableColumn<Object[], Void> colAct = new TableColumn<>("Hành Động");
+        colAct.setMinWidth(230);
+        colAct.setCellFactory(tc -> new TableCell<>() {
+            final Button btnDangDon = new Button("🧹  Đang Dọn");
+            final Button btnDaDon   = new Button("✅  Đã Dọn Xong");
+            final HBox btns;
+            {
+                btnDangDon.setStyle("-fx-background-color:#1890FF;-fx-text-fill:white;"
+                        +"-fx-background-radius:6;-fx-padding:6 12;-fx-font-size:11px;"
+                        +"-fx-font-weight:bold;-fx-cursor:hand;");
+                btnDaDon.setStyle("-fx-background-color:#52C41A;-fx-text-fill:white;"
+                        +"-fx-background-radius:6;-fx-padding:6 12;-fx-font-size:11px;"
+                        +"-fx-font-weight:bold;-fx-cursor:hand;");
+                btns = new HBox(8, btnDangDon, btnDaDon);
+                btns.setAlignment(Pos.CENTER_LEFT);
+
+                btnDangDon.setOnAction(e -> {
+                    Object[] row = getTableView().getItems().get(getIndex());
+                    if (new PhongDAO().capNhatTrangThai(row[0].toString(), "DangDon")) {
+                        items.setAll(loadPhongCanDon());
+                        countLbl.setText(items.size() + " phòng cần dọn");
+                        refreshRoomCards();
+                    }
+                });
+                btnDaDon.setOnAction(e -> {
+                    Object[] row = getTableView().getItems().get(getIndex());
+                    if (new PhongDAO().capNhatTrangThai(row[0].toString(), "PhongTrong")) {
+                        items.setAll(loadPhongCanDon());
+                        countLbl.setText(items.size() + " phòng cần dọn");
+                        refreshRoomCards();
+                        refreshTable();
+                    }
+                });
+            }
+            @Override protected void updateItem(Void v, boolean empty) {
+                super.updateItem(v, empty);
+                setGraphic(empty ? null : btns);
+            }
+        });
+        tbl.getColumns().add(colAct);
+
+        refreshBtn.setOnAction(e -> {
+            items.setAll(loadPhongCanDon());
+            countLbl.setText(items.size() + " phòng cần dọn");
+            com.lotuslaverne.fx.UiUtils.flashButton(refreshBtn, "✓ Đã làm mới");
+        });
+
+        container.getChildren().addAll(toolbar, tbl);
+        return container;
+    }
+
+    private List<Object[]> loadPhongCanDon() {
+        List<Object[]> result = new ArrayList<>();
+        Connection con = ConnectDB.getInstance().getConnection();
+        if (con != null) {
+            String sql = "SELECT p.maPhong, ISNULL(p.tenPhong,p.maPhong),"
+                    + " ISNULL(lp.tenLoaiPhong,'—'),"
+                    + " ISNULL(CONVERT(varchar,"
+                    + "   (SELECT MAX(pdp.thoiGianTraThucTe) FROM PhieuDatPhong pdp"
+                    + "    JOIN ChiTietPhieuDatPhong ct ON ct.maPhieuDatPhong=pdp.maPhieuDatPhong"
+                    + "    WHERE ct.maPhong=p.maPhong),120),'—')"
+                    + " FROM Phong p"
+                    + " LEFT JOIN LoaiPhong lp ON lp.maLoaiPhong=p.maLoaiPhong"
+                    + " WHERE p.trangThai=N'PhongCanDon'"
+                    + " ORDER BY p.maPhong";
+            try (PreparedStatement pst = con.prepareStatement(sql); ResultSet rs = pst.executeQuery()) {
+                while (rs.next())
+                    result.add(new Object[]{rs.getString(1), rs.getString(2), rs.getString(3), rs.getString(4)});
+            } catch (Exception ignored) {}
+        }
+        if (result.isEmpty()) {
+            for (Object[] r : DEMO_ROOMS) {
+                if ("Cần Dọn".equals(r[5]))
+                    result.add(new Object[]{r[0], r[1], r[2], "—"});
+            }
+        }
+        return result;
     }
 
     private String actionStyle(String tt) {

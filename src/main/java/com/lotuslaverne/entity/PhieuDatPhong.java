@@ -32,27 +32,54 @@ public class PhieuDatPhong {
     }
 
     public String getMaPhieuDatPhong() { return maPhieuDatPhong; }
+
     public void setMaPhieuDatPhong(String v) { this.maPhieuDatPhong = v; }
+
     public Timestamp getNgayDat() { return ngayDat; }
+
     public void setNgayDat(Timestamp v) { this.ngayDat = v; }
+
     public String getMaKhachHang() { return maKhachHang; }
+
     public void setMaKhachHang(String v) { this.maKhachHang = v; }
+
     public String getMaNhanVien() { return maNhanVien; }
+
     public void setMaNhanVien(String v) { this.maNhanVien = v; }
+
     public int getSoNguoi() { return soNguoi; }
+
+
     public void setSoNguoi(int v) { this.soNguoi = v; }
+
     public Timestamp getThoiGianNhanDuKien() { return thoiGianNhanDuKien; }
+
     public void setThoiGianNhanDuKien(Timestamp v) { this.thoiGianNhanDuKien = v; }
+
     public Timestamp getThoiGianNhanThucTe() { return thoiGianNhanThucTe; }
+
+
     public void setThoiGianNhanThucTe(Timestamp v) { this.thoiGianNhanThucTe = v; }
+
     public Timestamp getThoiGianTraDuKien() { return thoiGianTraDuKien; }
+
     public void setThoiGianTraDuKien(Timestamp v) { this.thoiGianTraDuKien = v; }
+
     public Timestamp getThoiGianTraThucTe() { return thoiGianTraThucTe; }
+
+
     public void setThoiGianTraThucTe(Timestamp v) { this.thoiGianTraThucTe = v; }
+
     public String getTrangThai() { return trangThai; }
+
     public void setTrangThai(String v) { this.trangThai = v; }
+
+
     public String getHinhThucDat() { return hinhThucDat; }
+
     public void setHinhThucDat(String v) { this.hinhThucDat = v; }
+
     public String getGhiChu() { return ghiChu; }
+    
     public void setGhiChu(String v) { this.ghiChu = v; }
 }

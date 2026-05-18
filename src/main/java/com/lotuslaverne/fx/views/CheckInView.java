@@ -18,9 +18,9 @@ public class CheckInView {
 
     /** Dữ liệu demo khi DB offline */
     private static final Object[][] DEMO_DATA = {
-        {"PDP001", "Phạm Minh Đức",  "NV002", "2", "24/04/2026 14:00", "27/04/2026 12:00", ""},
-        {"PDP002", "Hoàng Thị Em",   "NV002", "1", "25/04/2026 13:00", "28/04/2026 12:00", "Phòng nhìn ra biển"},
-        {"PDP003", "Vũ Quốc Phong",  "NV001", "3", "25/04/2026 15:00", "30/04/2026 12:00", "Thêm giường phụ"},
+        {"PDP001", "Phạm Minh Đức",  "NV002", "2", "24/04/2026 14:00", "27/04/2026 12:00", "", "P101"},
+        {"PDP002", "Hoàng Thị Em",   "NV002", "1", "25/04/2026 13:00", "28/04/2026 12:00", "Phòng nhìn ra biển", "P102"},
+        {"PDP003", "Vũ Quốc Phong",  "NV001", "3", "25/04/2026 15:00", "30/04/2026 12:00", "Thêm giường phụ", "P201"},
     };
 
     private ObservableList<Object[]> items;
@@ -152,7 +152,7 @@ public class CheckInView {
         });
 
         // Các cột thông thường
-        String[] heads = {"Tên Khách Hàng", "Nhân Viên", "Số Khách", "Giờ Nhận Dự Kiến", "Giờ Trả Dự Kiến", "Ghi Chú"};
+        String[] heads = {"Tên Khách Hàng", "Nhân Viên", "Số Khách", "Giờ Nhận Dự Kiến", "Giờ Trả Dự Kiến", "Ghi Chú", "Phòng"};
         for (int i = 0; i < heads.length; i++) {
             final int idx = i + 1;   // offset +1 vì cột 0 đã xử lý riêng
             TableColumn<Object[], String> col = new TableColumn<>(heads[i]);
@@ -219,7 +219,8 @@ public class CheckInView {
                     String.valueOf(row[3]),
                     tNhan != null ? sdf.format(tNhan) : "—",
                     tTra  != null ? sdf.format(tTra)  : "—",
-                    row[6] != null ? row[6] : ""
+                    row[6] != null ? row[6] : "",
+                    row.length > 7 && row[7] != null ? row[7] : "—"
                 });
             }
             return result;

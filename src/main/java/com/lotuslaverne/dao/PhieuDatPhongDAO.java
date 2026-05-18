@@ -69,8 +69,8 @@ public class PhieuDatPhongDAO {
     }
 
     /**
-     * Lấy phiếu chờ check-in JOIN sẵn KhachHang — tránh N+1 query.
-     * Mỗi Object[]: {maPhieuDatPhong, hoTenKH, maNhanVien, soNguoi, thoiGianNhanDuKien, thoiGianTraDuKien, ghiChu}
+     * Lấy phiếu chờ check-in JOIN sẵn KhachHang + ChiTietPhieuDatPhong — tránh N+1 query.
+     * Mỗi Object[]: {maPhieuDatPhong, hoTenKH, maNhanVien, soNguoi, thoiGianNhanDuKien, thoiGianTraDuKien, ghiChu, maPhong}
      */
     public List<Object[]> getChuaCheckInJoined() {
         List<Object[]> list = new ArrayList<>();
@@ -79,15 +79,17 @@ public class PhieuDatPhongDAO {
         try {
             PreparedStatement pst = con.prepareStatement(
                 "SELECT pdp.maPhieuDatPhong, kh.hoTenKH, pdp.maNhanVien, pdp.soNguoi,"
-                + " pdp.thoiGianNhanDuKien, pdp.thoiGianTraDuKien, pdp.ghiChu"
+                + " pdp.thoiGianNhanDuKien, pdp.thoiGianTraDuKien, pdp.ghiChu,"
+                + " ISNULL(ct.maPhong,'')"
                 + " FROM PhieuDatPhong pdp"
                 + " JOIN KhachHang kh ON kh.maKH = pdp.maKhachHang"
+                + " LEFT JOIN ChiTietPhieuDatPhong ct ON ct.maPhieuDatPhong = pdp.maPhieuDatPhong"
                 + " WHERE pdp.trangThai = N'DaDat'"
                 + " ORDER BY pdp.thoiGianNhanDuKien ASC");
             ResultSet rs = pst.executeQuery();
             while (rs.next()) list.add(new Object[]{
                 rs.getString(1), rs.getString(2), rs.getString(3),
-                rs.getInt(4), rs.getTimestamp(5), rs.getTimestamp(6), rs.getString(7)
+                rs.getInt(4), rs.getTimestamp(5), rs.getTimestamp(6), rs.getString(7), rs.getString(8)
             });
         } catch (Exception e) { e.printStackTrace(); }
         return list;

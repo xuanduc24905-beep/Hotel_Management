@@ -1,7 +1,6 @@
 package com.lotuslaverne.fx.views;
 
 import com.lotuslaverne.dao.KhachHangDAO;
-import com.lotuslaverne.dao.PhieuDatPhongDAO;
 import com.lotuslaverne.entity.KhachHang;
 import com.lotuslaverne.entity.PhieuDatPhong;
 import com.lotuslaverne.util.ConnectDB;
@@ -743,25 +742,51 @@ public class DatPhongView {
                 String maNV = SessionContext.getInstance().getMaNhanVien();
                 PhieuDatPhong pdp = new PhieuDatPhong(maPDP, finalMaKH2, maNV,
                         soNguoi, tNhan, tTra, txtGhiChu.getText().trim());
-                if (new PhieuDatPhongDAO().lapPhieuDat(pdp)) {
-                    Connection ctCon = ConnectDB.getInstance().getConnection();
-                    if (ctCon != null) {
+                Connection ctCon = ConnectDB.getInstance().getConnection();
+                boolean datPhongOk = false;
+                if (ctCon != null) {
+                    try {
+                        ctCon.setAutoCommit(false);
+                        // INSERT PhieuDatPhong
+                        try (PreparedStatement pstPDP = ctCon.prepareStatement(
+                                "INSERT INTO PhieuDatPhong "
+                                + "(maPhieuDatPhong,ngayDat,maKhachHang,maNhanVien,soNguoi,"
+                                + "thoiGianNhanDuKien,thoiGianTraDuKien,hinhThucDat,trangThai,ghiChu) "
+                                + "VALUES (?,GETDATE(),?,?,?,?,?,N'TrucTiep',N'DaDat',?)")) {
+                            pstPDP.setString(1, pdp.getMaPhieuDatPhong());
+                            pstPDP.setString(2, pdp.getMaKhachHang());
+                            pstPDP.setString(3, pdp.getMaNhanVien());
+                            pstPDP.setInt(4, pdp.getSoNguoi());
+                            pstPDP.setTimestamp(5, pdp.getThoiGianNhanDuKien());
+                            pstPDP.setTimestamp(6, pdp.getThoiGianTraDuKien());
+                            pstPDP.setString(7, pdp.getGhiChu());
+                            pstPDP.executeUpdate();
+                        }
+                        // INSERT ChiTietPhieuDatPhong trong cùng transaction
                         try (PreparedStatement pstCT = ctCon.prepareStatement(
                                 "INSERT INTO ChiTietPhieuDatPhong (maPhieuDatPhong, maPhong, donGia) VALUES (?,?,?)")) {
                             pstCT.setString(1, maPDP);
                             pstCT.setString(2, maPhong);
                             pstCT.setDouble(3, selectedDonGia[0]);
                             pstCT.executeUpdate();
-                        } catch (Exception exCT) { exCT.printStackTrace(); }
+                        }
                         // Nếu chờ chuyển khoản → cập nhật trạng thái phiếu
                         if (isPending) {
                             try (PreparedStatement pstS = ctCon.prepareStatement(
                                     "UPDATE PhieuDatPhong SET trangThai=N'ChoThanhToan' WHERE maPhieuDatPhong=?")) {
                                 pstS.setString(1, maPDP); pstS.executeUpdate();
-                            } catch (Exception exS) { exS.printStackTrace(); }
+                            }
                         }
-                        // NOTE: Phòng giữ nguyên PhongTrong — PhongView tự detect qua loadPhongDaDat()
+                        ctCon.commit();
+                        datPhongOk = true;
+                    } catch (Exception exTx) {
+                        try { ctCon.rollback(); } catch (Exception ignored) {}
+                        exTx.printStackTrace();
+                    } finally {
+                        try { ctCon.setAutoCommit(true); } catch (Exception ignored) {}
                     }
+                }
+                if (datPhongOk) {
                     // Tính tổng cho phiếu thu
                     long soDem = ChronoUnit.DAYS.between(dpNhan.getValue(), dpTra.getValue());
                     double total = soDem * selectedDonGia[0];
@@ -1304,6 +1329,14 @@ public class DatPhongView {
         javafx.scene.Scene scene = new javafx.scene.Scene(root);
         dialog.setScene(scene);
         dialog.showAndWait();
+
+        // Lưu tiền cọc vào PhieuThu để checkout có thể trừ đúng
+        if (tienCoc > 0) {
+            String maPT = "PT" + java.util.UUID.randomUUID().toString().replace("-", "").substring(0, 8).toUpperCase();
+            String maNV = SessionContext.getInstance().getMaNhanVien();
+            new com.lotuslaverne.dao.PhieuThuDAO().taoPhieuThu(
+                maPT, maPDP, maNV, tienCoc, payMethod, "Tiền cọc đặt phòng");
+        }
     }
 
     private GridPane makeReceiptGrid() {

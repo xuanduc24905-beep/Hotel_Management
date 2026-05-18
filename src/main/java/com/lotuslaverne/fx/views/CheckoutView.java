@@ -29,6 +29,7 @@ public class CheckoutView {
     private double tienPhongFinal = 0;
     private double tienDVFinal    = 0;
     private long   soNgayFinal    = 1;
+    private double datCocFinal    = 0;
     private Label lblTienThua;
     private Label lblConThuVal;
     private Label lblHTSummaryRow;
@@ -115,7 +116,7 @@ public class CheckoutView {
         panelTong.setStyle("-fx-background-color:#F8F9FA;-fx-background-radius:10;"
                 + "-fx-border-color:#E8E8E8;-fx-border-width:1;-fx-border-radius:10;");
         Label[] lblRows = new Label[5];
-        String[] rowNames = {"Tiền phòng:", "Dịch vụ:", "Phụ thu:", "Giảm giá:", "TỔNG THANH TOÁN:"};
+        String[] rowNames = {"Tiền phòng:", "Dịch vụ:", "Phụ thu:", "Tiền cọc đã trả:", "TỔNG THANH TOÁN:"};
         String[] rowVals  = {"—", "—", "—", "0 đ", "—"};
         for (int i = 0; i < 5; i++) {
             HBox row = new HBox();
@@ -147,35 +148,25 @@ public class CheckoutView {
         leftCol.setPadding(new Insets(0, 12, 0, 0));
         HBox.setHgrow(leftCol, Priority.ALWAYS);
 
-        // Hiển thị số tiền khách đưa
-        Label lblNhapTitle = new Label("Số tiền khách đưa");
+        // Ô nhập tiền khách đưa — vừa hiển thị vừa cho gõ trực tiếp
+        Label lblNhapTitle = new Label("Số tiền khách đưa (nhập hoặc bấm mệnh giá)");
         lblNhapTitle.setStyle("-fx-font-size:12px;-fx-text-fill:#8C8C8C;");
-        Label lblSoTienNhap = new Label("0");
+        TextField lblSoTienNhap = new TextField();
+        lblSoTienNhap.setPromptText("0");
         lblSoTienNhap.setMaxWidth(Double.MAX_VALUE);
         lblSoTienNhap.setAlignment(Pos.CENTER_RIGHT);
-        lblSoTienNhap.setStyle("-fx-font-size:28px;-fx-font-weight:bold;-fx-text-fill:#1A1A2E;"
-                + "-fx-background-color:#F5F5F5;-fx-background-radius:8;"
-                + "-fx-padding:10 16;-fx-border-color:#E8E8E8;-fx-border-width:1;-fx-border-radius:8;");
+        lblSoTienNhap.setStyle("-fx-font-size:26px;-fx-font-weight:bold;-fx-text-fill:#1A1A2E;"
+                + "-fx-background-color:#FFFFFF;-fx-background-radius:8;"
+                + "-fx-padding:10 16;-fx-border-color:#1890FF;-fx-border-width:1.5;-fx-border-radius:8;");
 
         boolean[] programmatic = {false};
-        Label lblNhapTayTitle = new Label("Hoặc nhập tay:");
-        lblNhapTayTitle.setStyle("-fx-font-size:12px;-fx-text-fill:#595959;");
-        TextField tfManual = new TextField();
-        tfManual.setPromptText("Nhập số tiền khách đưa...");
-        tfManual.setStyle("-fx-background-color:#FFFFFF;-fx-border-color:#D9D9D9;"
-                + "-fx-border-radius:6;-fx-background-radius:6;-fx-border-width:1;"
-                + "-fx-padding:8 12;-fx-font-size:14px;");
-        tfManual.textProperty().addListener((obs2, o2, n2) -> {
+        lblSoTienNhap.textProperty().addListener((obs2, o2, n2) -> {
             if (programmatic[0]) return;
             String digits = (n2 == null ? "" : n2.replaceAll("[^0-9]", ""));
-            if (digits.isEmpty()) {
-                soTienNhap[0] = 0;
-            } else {
-                try { soTienNhap[0] = Double.parseDouble(digits); } catch (NumberFormatException ignored) { return; }
+            if (!digits.equals(n2)) {
+                programmatic[0] = true; lblSoTienNhap.setText(digits); programmatic[0] = false;
             }
-            programmatic[0] = true;
-            lblSoTienNhap.setText(digits.isEmpty() ? "0" : FMT.format((long) soTienNhap[0]));
-            programmatic[0] = false;
+            soTienNhap[0] = digits.isEmpty() ? 0 : Long.parseLong(digits);
             updateTienThua(soTienNhap, lblRows, step3);
         });
 
@@ -255,7 +246,7 @@ public class CheckoutView {
                 lblSoTienNhap.setVisible(isCash); lblSoTienNhap.setManaged(isCash);
                 lblNhapTayTitle.setVisible(isCash); lblNhapTayTitle.setManaged(isCash);
                 tfManual.setVisible(isCash); tfManual.setManaged(isCash);
-                if (!isCash) { soTienNhap[0] = tongTienFinal; updateTienThua(soTienNhap, lblRows, step3); }
+                if (!isCash) { soTienNhap[0] = Math.max(0, tongTienFinal - datCocFinal); updateTienThua(soTienNhap, lblRows, step3); }
             });
             htBtns[idx] = btn;
             htRow.getChildren().add(btn);
@@ -347,23 +338,25 @@ public class CheckoutView {
             soNgayFinal    = soNgay;
             tienPhongFinal = tienPhong;
             tienDVFinal    = tienDV;
+            datCocFinal = queryDatCoc(selectedPhieu[0]);
+            double tongPhaiThu = Math.max(0, tongTienFinal - datCocFinal);
             lblRows[0].setText(FMT.format(tienPhong) + " đ");
             lblRows[1].setText(FMT.format(tienDV) + " đ");
             lblRows[2].setText(FMT.format(phuThu) + " đ");
-            lblRows[3].setText("0 đ");
-            lblRows[4].setText(FMT.format(tongTienFinal) + " đ");
+            lblRows[3].setText(datCocFinal > 0 ? "-" + FMT.format(datCocFinal) + " đ" : "0 đ");
+            lblRows[4].setText(FMT.format(tongPhaiThu) + " đ");
             tblDv.setItems(FXCollections.observableArrayList(loadDichVuByPhieu(selectedPhieu[0])));
 
             // Cập nhật cột phải bước 3
-            lblConThuVal.setText(FMT.format(tongTienFinal) + " đ");
-            lblHTSummaryRow.setText("Tiền mặt:  " + FMT.format(tongTienFinal) + " đ");
+            lblConThuVal.setText(FMT.format(tongPhaiThu) + " đ");
+            lblHTSummaryRow.setText("Tiền mặt:  " + FMT.format(tongPhaiThu) + " đ");
 
             // Gợi ý tiền mặt: exact + 2 mức làm tròn lên
             goiYRow.getChildren().clear();
             soTienNhap[0] = 0;
             programmatic[0] = true; tfManual.setText(""); programmatic[0] = false;
             lblSoTienNhap.setText("0");
-            long exact = (long) tongTienFinal;
+            long exact = (long) tongPhaiThu;
             long r1 = roundUp(exact, 10_000);
             long r2 = roundUp(exact, 50_000);
             for (long hint : new long[]{exact, r1, r2}) {
@@ -398,19 +391,25 @@ public class CheckoutView {
 
         btnConfirm.setOnAction(e -> {
             if (selectedPhieu == null) return;
-            if ("TienMat".equals(selectedHT[0]) && soTienNhap[0] < tongTienFinal) {
+            if ("TienMat".equals(selectedHT[0]) && soTienNhap[0] < Math.max(0, tongTienFinal - datCocFinal)) {
                 errLbl3.setText("⚠ Số tiền khách đưa chưa đủ!");
                 errLbl3.setVisible(true); errLbl3.setManaged(true);
                 return;
             }
             errLbl3.setVisible(false); errLbl3.setManaged(false);
-            doCheckout(selectedPhieu[0], selectedHT[0]);
+            boolean ok = doCheckout(selectedPhieu[0], selectedHT[0]);
+            if (!ok) {
+                alert(Alert.AlertType.ERROR, "Lỗi Checkout",
+                        "❌ Checkout thất bại!\nVui lòng kiểm tra kết nối database và thử lại.");
+                return;
+            }
+            double tongPhaiThu = Math.max(0, tongTienFinal - datCocFinal);
             alert(Alert.AlertType.INFORMATION, "Checkout Thành Công",
                     "✅ Checkout thành công!\nPhòng: " + selectedPhieu[1]
                     + "\nKhách: " + selectedPhieu[2]
-                    + "\nTổng: " + FMT.format(tongTienFinal) + " đ"
+                    + "\nTổng: " + FMT.format(tongPhaiThu) + " đ"
                     + "\n\nTrạng thái phòng → Cần Dọn.");
-            selectedPhieu = null; tongTienFinal = 0;
+            selectedPhieu = null; tongTienFinal = 0; datCocFinal = 0;
             checkinItems.setAll(loadCheckedIn());
             tbl1.setItems(checkinItems);
             step2.setVisible(false); step2.setManaged(false);
@@ -428,7 +427,8 @@ public class CheckoutView {
 
     private void updateTienThua(double[] soTienNhap, Label[] lblRows, VBox step3) {
         if (lblTienThua == null || lblConThuVal == null) return;
-        long thua = (long) soTienNhap[0] - (long) tongTienFinal;
+        long phaiThu = (long) Math.max(0, tongTienFinal - datCocFinal);
+        long thua = (long) soTienNhap[0] - phaiThu;
         lblTienThua.setText(FMT.format(Math.max(0, thua)));
         lblConThuVal.setText(thua >= 0 ? "0 đ" : FMT.format(-thua) + " đ");
         if (lblHTSummaryRow != null)
@@ -573,6 +573,19 @@ public class CheckoutView {
         return 750_000;
     }
 
+    private double queryDatCoc(String maPDP) {
+        Connection con = ConnectDB.getInstance().getConnection();
+        if (con != null) {
+            try (PreparedStatement pst = con.prepareStatement(
+                    "SELECT ISNULL(SUM(soTienCoc),0) FROM PhieuThu WHERE maPhieuDatPhong=?")) {
+                pst.setString(1, maPDP);
+                ResultSet rs = pst.executeQuery();
+                if (rs.next()) return rs.getDouble(1);
+            } catch (Exception ignored) {}
+        }
+        return 0;
+    }
+
     private double queryTienDichVu(String maPDP) {
         Connection con = ConnectDB.getInstance().getConnection();
         if (con != null) {
@@ -588,9 +601,9 @@ public class CheckoutView {
         return 0;
     }
 
-    private void doCheckout(String maPDP, String hinhThuc) {
+    private boolean doCheckout(String maPDP, String hinhThuc) {
         Connection con = ConnectDB.getInstance().getConnection();
-        if (con == null) return;
+        if (con == null) return false;
         try {
             con.setAutoCommit(false);
 
@@ -689,9 +702,11 @@ public class CheckoutView {
             }
 
             con.commit();
+            return true;
         } catch (Exception e) {
             try { con.rollback(); } catch (Exception ignored) {}
             e.printStackTrace();
+            return false;
         } finally {
             try { con.setAutoCommit(true); } catch (Exception ignored) {}
         }
