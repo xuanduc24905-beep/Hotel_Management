@@ -4,7 +4,6 @@ import com.lotuslaverne.dao.TaiKhoanDAO;
 import com.lotuslaverne.entity.TaiKhoan;
 import com.lotuslaverne.util.ConnectDB;
 import com.lotuslaverne.util.PasswordUtil;
-import com.lotuslaverne.util.SessionContext;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
@@ -205,7 +204,6 @@ public class LoginView {
 
         // Vai trò xác định từ DB, KHÔNG cho user tự chọn
         String resolvedRole = tk.getVaiTro().equalsIgnoreCase("QuanLy") ? "Quản Lý" : "Lễ Tân";
-        SessionContext.getInstance().init(tk.getMaNhanVien(), username, resolvedRole);
         new MainLayout(stage, username, resolvedRole).show();
     }
 

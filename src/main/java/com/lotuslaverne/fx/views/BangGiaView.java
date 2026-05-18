@@ -135,26 +135,10 @@ public class BangGiaView {
             tb.getColumns().add(c);}
         tb.setItems(items);tb.setPlaceholder(new Label("Không có dữ liệu."));return tb;
     }
-    private TableCell<Object[],String> kgCell(){return new TableCell<>(){
-        @Override protected void updateItem(String s,boolean e){super.updateItem(s,e);if(e||s==null){setText(null);setStyle("");return;}setText(s);refresh();}
-        @Override public void updateSelected(boolean sel){super.updateSelected(sel);if(!isEmpty()&&getItem()!=null)refresh();}
-        private void refresh(){String s=getItem();if(s==null)return;if(isSelected()){setStyle("-fx-font-weight:bold;-fx-alignment:center;-fx-text-fill:white;");return;}String c;switch(s){case"Cuối Tuần":c="#E6F7FF;-fx-text-fill:#1890FF";break;case"Lễ / Tết":c="#FFF1F0;-fx-text-fill:#FF4D4F";break;case"Cao Điểm":c="#FFF7E6;-fx-text-fill:#D48806";break;default:c="#F6FFED;-fx-text-fill:#52C41A";}setStyle("-fx-background-color:"+c+";-fx-font-weight:bold;-fx-alignment:center;");}
-    };}
-    private TableCell<Object[],String> prCell(){return new TableCell<>(){
-        @Override protected void updateItem(String s,boolean e){super.updateItem(s,e);setText(e?null:s);refresh();}
-        @Override public void updateSelected(boolean sel){super.updateSelected(sel);if(!isEmpty())refresh();}
-        private void refresh(){boolean st=kmPct>0;setStyle(isEmpty()?"":isSelected()?"-fx-text-fill:white;"+(st?"-fx-strikethrough:true;":""):"-fx-text-fill:#8C8C8C;"+(st?"-fx-strikethrough:true;":""));}
-    };}
-    private TableCell<Object[],String> kmPCell(){return new TableCell<>(){
-        @Override protected void updateItem(String s,boolean e){super.updateItem(s,e);setText(e?null:s);refresh();}
-        @Override public void updateSelected(boolean sel){super.updateSelected(sel);if(!isEmpty())refresh();}
-        private void refresh(){String s=getItem();setStyle(isEmpty()||s==null||"—".equals(s)?"":isSelected()?"-fx-text-fill:white;-fx-font-weight:bold;":"-fx-text-fill:#D48806;-fx-font-weight:bold;");}
-    };}
-    private TableCell<Object[],String> kmSCell(){return new TableCell<>(){
-        @Override protected void updateItem(String s,boolean e){super.updateItem(s,e);setText(e?null:s);refresh();}
-        @Override public void updateSelected(boolean sel){super.updateSelected(sel);if(!isEmpty())refresh();}
-        private void refresh(){setStyle(isEmpty()?"":isSelected()?"-fx-font-weight:bold;-fx-text-fill:white;":"-fx-font-weight:bold;-fx-text-fill:#FF4D4F;");}
-    };}
+    private TableCell<Object[],String> kgCell(){return new TableCell<>(){@Override protected void updateItem(String s,boolean e){super.updateItem(s,e);if(e||s==null){setText(null);setStyle("");return;}setText(s);String c;switch(s){case"Cuối Tuần":c="#E6F7FF;-fx-text-fill:#1890FF";break;case"Lễ / Tết":c="#FFF1F0;-fx-text-fill:#FF4D4F";break;case"Cao Điểm":c="#FFF7E6;-fx-text-fill:#D48806";break;default:c="#F6FFED;-fx-text-fill:#52C41A";}setStyle("-fx-background-color:"+c+";-fx-font-weight:bold;-fx-alignment:center;");}};}
+    private TableCell<Object[],String> prCell(){return new TableCell<>(){@Override protected void updateItem(String s,boolean e){super.updateItem(s,e);setText(e?null:s);setStyle(e?"":"-fx-text-fill:#8C8C8C;"+(kmPct>0?"-fx-strikethrough:true;":""));}};}
+    private TableCell<Object[],String> kmPCell(){return new TableCell<>(){@Override protected void updateItem(String s,boolean e){super.updateItem(s,e);setText(e?null:s);setStyle(e||s==null||"—".equals(s)?"":"-fx-text-fill:#D48806;-fx-font-weight:bold;");}};}
+    private TableCell<Object[],String> kmSCell(){return new TableCell<>(){@Override protected void updateItem(String s,boolean e){super.updateItem(s,e);setText(e?null:s);setStyle(e?"":"-fx-font-weight:bold;-fx-text-fill:#FF4D4F;");}};}
 
     private void openDlg(Object[] row,boolean isNew){
         Stage d=new Stage();d.initModality(Modality.APPLICATION_MODAL);d.setTitle(isNew?"Thêm Bảng Giá":"Sửa Bảng Giá");d.setResizable(false);

@@ -40,27 +40,26 @@ public class HoaDonView {
         VBox root = new VBox(0);
         root.setStyle("-fx-background-color: #F0F2F5;");
 
-        ScrollPane scroll = new ScrollPane();
-        scroll.setFitToWidth(true);
-        scroll.setStyle("-fx-background-color: #F0F2F5; -fx-border-color: transparent;");
-
         VBox content = new VBox(20);
         content.setPadding(new Insets(28));
         content.setStyle("-fx-background-color: #F0F2F5;");
+        VBox.setVgrow(content, Priority.ALWAYS);
 
         VBox header = new VBox(4);
         Label title = new Label("Quản Lý Hóa Đơn");
         title.setStyle("-fx-font-size: 22px; -fx-font-weight: bold; -fx-text-fill: #1A1A2E;");
-        Label sub = new Label("Tra cứu và quản lý hóa đơn thanh toán — dữ liệu thật từ cơ sở dữ liệu");
+        Label sub = new Label("Tra cứu và quản lý hóa đơn thanh toán");
         sub.setStyle("-fx-font-size: 13px; -fx-text-fill: #8C8C8C;");
         header.getChildren().addAll(title, sub);
 
         items = FXCollections.observableArrayList(loadData());
 
-        content.getChildren().addAll(header, buildToolbar(), buildTable());
-        scroll.setContent(content);
-        VBox.setVgrow(scroll, Priority.ALWAYS);
-        root.getChildren().add(scroll);
+        Node tbl = buildTable();
+        VBox.setVgrow(tbl, Priority.ALWAYS);
+
+        content.getChildren().addAll(header, buildToolbar(), tbl);
+        root.getChildren().add(content);
+        VBox.setVgrow(root, Priority.ALWAYS);
         return root;
     }
 
