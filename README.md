@@ -227,7 +227,31 @@ Báo cáo so sánh kỳ hiện tại vs kỳ trước cùng độ dài (7 ngày 
 
 ---
 
-### 12. Vòng đời trạng thái phòng
+### 12. Walk-in Check-in (`WalkInService`)
+
+Khách không đặt trước — toàn bộ trong **1 transaction**:
+
+| Bước | Hành động |
+|---|---|
+| 1 | Tìm / tạo `KhachHang` theo SĐT |
+| 2 | `INSERT PhieuDatPhong` (TrucTiep, DaDat) |
+| 3 | `INSERT ChiTietPhieuDatPhong` + lấy giá từ `BangGia` |
+| 4 | `INSERT PhieuThu` cọc 50% |
+| 5 | `UPDATE PhieuDatPhong → DaCheckIn` + `thoiGianNhanThucTe = NOW` |
+| 6 | `UPDATE Phong → DangSuDung` |
+
+---
+
+### 13. Sửa / Xoá Dịch Vụ Phát Sinh
+
+- Cho phép sửa số lượng và xoá khi phiếu **chưa** `DaCheckOut`
+- Sau `DaCheckOut` → khoá hoàn toàn (nút disabled)
+- Mỗi thao tác ghi log vào `ChiTietDichVuLog`: `maNhanVien`, `thoiGianSua`, `giaTriCu`, `giaTriMoi`
+- Chạy migration trước: `db/V2_add_dichvu_log.sql`
+
+---
+
+### 14. Vòng đời trạng thái phòng
 
 ```
 PhongTrong → PhongDat → DangSuDung → PhongCanDon → PhongTrong
@@ -239,7 +263,7 @@ Phòng sau checkout về `PhongCanDon`, không về `PhongTrong` ngay — đảm
 
 ---
 
-### 13. Vòng đời trạng thái phiếu đặt phòng
+### 15. Vòng đời trạng thái phiếu đặt phòng
 
 ```
 DaDat → DaCheckIn → DaCheckOut
@@ -267,8 +291,8 @@ HuyDat
 | **Dashboard** | Thống kê tổng quan: doanh thu, phòng trống, lấp đầy, cảnh báo |
 | **Quản lý phòng** | Card grid + bảng, tab Phòng Cần Dọn, cập nhật housekeeping |
 | **Đặt phòng** | Wizard 3 bước, lịch Gantt 7 ngày, lọc tiện nghi, áp KM |
-| **Check-in** | Danh sách phiếu DaDat, xác nhận nhận phòng |
-| **Dịch vụ phòng** | Ghi nhận mini-bar, room service, giặt ủi theo phiếu |
+| **Check-in** | Danh sách phiếu DaDat + nút Walk-in (tạo phiếu + cọc + check-in ngay) |
+| **Dịch vụ phòng** | Ghi nhận / sửa / xoá dịch vụ; khoá sau checkout; log thay đổi |
 | **Đổi phòng** | Tra cứu theo SĐT, tính bù trừ chênh lệch giá |
 | **Checkout** | Tính tiền (phòng + DV − cọc − KM), xuất hóa đơn PDF |
 | **Khách hàng** | CRUD, lịch sử đặt phòng |

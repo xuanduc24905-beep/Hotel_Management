@@ -196,6 +196,68 @@ public class DichVuDAO {
         return list;
     }
 
+    /**
+     * Sửa số lượng dịch vụ — chỉ được gọi khi phiếu chưa DaCheckOut.
+     * Ghi log vào ChiTietDichVuLog (bỏ qua nếu bảng chưa tồn tại).
+     */
+    public boolean suaSoLuongDichVu(String maDichVu, String maPDP, int soLuongMoi,
+                                     int soLuongCu, String ghiChuMoi, String maNhanVien) {
+        Connection con = ConnectDB.getInstance().getConnection();
+        if (con == null) return false;
+        try {
+            String upd = "UPDATE ChiTietDichVu SET soLuong=?, ghiChu=? WHERE maDichVu=? AND maPhieuDatPhong=?";
+            try (PreparedStatement pst = con.prepareStatement(upd)) {
+                pst.setInt(1, soLuongMoi);
+                pst.setString(2, ghiChuMoi);
+                pst.setString(3, maDichVu);
+                pst.setString(4, maPDP);
+                if (pst.executeUpdate() == 0) return false;
+            }
+            ghi_log(con, maDichVu, maPDP, maNhanVien, "SUA",
+                    String.valueOf(soLuongCu), String.valueOf(soLuongMoi));
+            return true;
+        } catch (Exception e) { e.printStackTrace(); return false; }
+    }
+
+    /**
+     * Xoá dòng dịch vụ khỏi phiếu — chỉ được gọi khi phiếu chưa DaCheckOut.
+     * Ghi log vào ChiTietDichVuLog (bỏ qua nếu bảng chưa tồn tại).
+     */
+    public boolean xoaChiTietDichVu(String maDichVu, String maPDP,
+                                     int soLuongCu, String maNhanVien) {
+        Connection con = ConnectDB.getInstance().getConnection();
+        if (con == null) return false;
+        try {
+            String del = "DELETE FROM ChiTietDichVu WHERE maDichVu=? AND maPhieuDatPhong=?";
+            try (PreparedStatement pst = con.prepareStatement(del)) {
+                pst.setString(1, maDichVu);
+                pst.setString(2, maPDP);
+                if (pst.executeUpdate() == 0) return false;
+            }
+            ghi_log(con, maDichVu, maPDP, maNhanVien, "XOA",
+                    String.valueOf(soLuongCu), "0");
+            return true;
+        } catch (Exception e) { e.printStackTrace(); return false; }
+    }
+
+    /** Ghi log thay đổi dịch vụ — silent nếu bảng ChiTietDichVuLog chưa tồn tại. */
+    private void ghi_log(Connection con, String maDichVu, String maPDP,
+                         String maNhanVien, String hanhDong,
+                         String giaTriCu, String giaTriMoi) {
+        try (PreparedStatement pst = con.prepareStatement(
+                "INSERT INTO ChiTietDichVuLog "
+                + "(maDichVu,maPhieuDatPhong,maNhanVien,thoiGianSua,hanhDong,giaTriCu,giaTriMoi) "
+                + "VALUES (?,?,?,GETDATE(),?,?,?)")) {
+            pst.setString(1, maDichVu);
+            pst.setString(2, maPDP);
+            pst.setString(3, maNhanVien);
+            pst.setString(4, hanhDong);
+            pst.setString(5, giaTriCu);
+            pst.setString(6, giaTriMoi);
+            pst.executeUpdate();
+        } catch (Exception ignored) {}
+    }
+
     /** Lấy danh sách dịch vụ đã dùng theo phiếu đặt phòng */
     public java.util.List<Object[]> getChiTietDichVuByPhieu(String maPhieuDatPhong) {
         java.util.List<Object[]> list = new java.util.ArrayList<>();

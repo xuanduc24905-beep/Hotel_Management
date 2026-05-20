@@ -1,17 +1,23 @@
 package com.lotuslaverne.fx.views;
 
 import com.lotuslaverne.dao.PhieuDatPhongDAO;
+import com.lotuslaverne.dao.PhongDAO;
 import com.lotuslaverne.service.CheckInService;
+import com.lotuslaverne.service.WalkInService;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
+import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
+import javafx.stage.Modality;
+import javafx.stage.Stage;
 
 import java.text.SimpleDateFormat;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -70,7 +76,12 @@ public class CheckInView {
                 + "-fx-background-radius: 8; -fx-border-color: #D9D9D9; -fx-border-width: 1;"
                 + "-fx-border-radius: 8; -fx-padding: 8 16; -fx-cursor: hand;");
 
-        toolbar.getChildren().addAll(search, spacer, btnRefresh);
+        Button btnWalkIn = new Button("🚶  Walk-in (Không Đặt Trước)");
+        btnWalkIn.setStyle("-fx-background-color: #FA8C16; -fx-text-fill: white;"
+                + "-fx-background-radius: 8; -fx-padding: 8 16; -fx-cursor: hand; -fx-font-weight: bold;");
+        btnWalkIn.setOnAction(e -> openWalkInDialog());
+
+        toolbar.getChildren().addAll(search, spacer, btnRefresh, btnWalkIn);
 
         // ── Table ──
         items = FXCollections.observableArrayList(loadData());
@@ -219,5 +230,121 @@ public class CheckInView {
         a.setHeaderText(null);
         a.setTitle(title);
         a.showAndWait();
+    }
+
+    // ── Walk-in dialog: tạo phiếu + thu cọc + check-in ngay (Rule 12)
+    private void openWalkInDialog() {
+        Stage dlg = new Stage();
+        dlg.initModality(Modality.APPLICATION_MODAL);
+        dlg.setTitle("Walk-in — Nhận Phòng Không Đặt Trước");
+        dlg.setResizable(false);
+
+        GridPane form = new GridPane();
+        form.setHgap(12); form.setVgap(12);
+        form.setPadding(new Insets(20));
+        ColumnConstraints c1 = new ColumnConstraints(); c1.setPrefWidth(130);
+        ColumnConstraints c2 = new ColumnConstraints(); c2.setPrefWidth(220);
+        form.getColumnConstraints().addAll(c1, c2);
+
+        TextField txtHoTen = field(""); txtHoTen.setPromptText("Họ tên khách *");
+        TextField txtSdt   = field(""); txtSdt.setPromptText("Số điện thoại *");
+        TextField txtCmnd  = field(""); txtCmnd.setPromptText("CMND / CCCD");
+
+        // Danh sách phòng trống
+        ComboBox<String> cbPhong = new ComboBox<>();
+        cbPhong.setMaxWidth(Double.MAX_VALUE);
+        cbPhong.setPromptText("Chọn phòng trống...");
+        try {
+            for (var p : new PhongDAO().getPhongTrong()) cbPhong.getItems().add(p.getMaPhong());
+        } catch (Exception ignored) {}
+
+        DatePicker dpNgayTra = new DatePicker(LocalDate.now().plusDays(1));
+        dpNgayTra.setMaxWidth(Double.MAX_VALUE);
+
+        Label lblCoc = new Label("—");
+        lblCoc.setStyle("-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: #FA8C16;");
+
+        // Preview cọc khi chọn phòng / ngày trả
+        Runnable updateCoc = () -> {
+            String mp = cbPhong.getValue();
+            LocalDate tra = dpNgayTra.getValue();
+            if (mp == null || tra == null) { lblCoc.setText("—"); return; }
+            try {
+                long nights = Math.max(1, LocalDate.now().until(tra).getDays());
+                double gia  = new com.lotuslaverne.dao.BangGiaDAO().getDonGiaQuaDem(mp);
+                lblCoc.setText(gia > 0
+                        ? String.format("%,.0f đ  (50%% × %,.0f × %d đêm)", 0.5 * gia * nights, gia, nights)
+                        : "Không có giá hiệu lực");
+            } catch (Exception ex) { lblCoc.setText("—"); }
+        };
+        cbPhong.setOnAction(e -> updateCoc.run());
+        dpNgayTra.setOnAction(e -> updateCoc.run());
+
+        form.add(lbl("Họ Tên *:"),    0, 0); form.add(txtHoTen,  1, 0);
+        form.add(lbl("SĐT *:"),       0, 1); form.add(txtSdt,    1, 1);
+        form.add(lbl("CMND:"),        0, 2); form.add(txtCmnd,   1, 2);
+        form.add(lbl("Phòng *:"),     0, 3); form.add(cbPhong,   1, 3);
+        form.add(lbl("Ngày trả *:"),  0, 4); form.add(dpNgayTra, 1, 4);
+        form.add(lbl("Tiền cọc:"),    0, 5); form.add(lblCoc,    1, 5);
+
+        Button btnOk = new Button("✅  Nhận Phòng & Check-in");
+        btnOk.setStyle("-fx-background-color: #52C41A; -fx-text-fill: white;"
+                + "-fx-background-radius: 8; -fx-padding: 10 20; -fx-font-weight: bold; -fx-cursor: hand;");
+        Button btnCancel = new Button("Huỷ");
+        btnCancel.setStyle("-fx-background-color: #F5F5F5; -fx-text-fill: #595959;"
+                + "-fx-background-radius: 8; -fx-border-color: #D9D9D9; -fx-border-width: 1;"
+                + "-fx-border-radius: 8; -fx-padding: 10 20; -fx-cursor: hand;");
+        btnCancel.setOnAction(e -> dlg.close());
+
+        btnOk.setOnAction(e -> {
+            String hoTen = txtHoTen.getText().trim();
+            String sdt   = txtSdt.getText().trim();
+            String maPhong = cbPhong.getValue();
+            LocalDate ngayTra = dpNgayTra.getValue();
+
+            if (hoTen.isEmpty() || sdt.isEmpty()) {
+                new Alert(Alert.AlertType.WARNING, "Vui lòng nhập họ tên và số điện thoại!").showAndWait(); return;
+            }
+            if (maPhong == null) {
+                new Alert(Alert.AlertType.WARNING, "Vui lòng chọn phòng!").showAndWait(); return;
+            }
+            if (ngayTra == null || !ngayTra.isAfter(LocalDate.now())) {
+                new Alert(Alert.AlertType.WARNING, "Ngày trả phải sau hôm nay!").showAndWait(); return;
+            }
+            try {
+                String maPDP = new WalkInService().walkIn(hoTen, sdt, txtCmnd.getText().trim(), maPhong, ngayTra);
+                dlg.close();
+                items.setAll(loadData());
+                table.setItems(items);
+                alert(Alert.AlertType.INFORMATION, "Walk-in Thành Công",
+                        "Check-in thành công!\nPhòng: " + maPhong + "\nPhiếu: " + maPDP
+                        + "\nCọc 50% đã ghi nhận. Vui lòng thu tiền mặt.");
+            } catch (Exception ex) {
+                new Alert(Alert.AlertType.ERROR, "Lỗi: " + ex.getMessage()).showAndWait();
+            }
+        });
+
+        HBox btnRow = new HBox(10, btnCancel, btnOk);
+        btnRow.setAlignment(Pos.CENTER_RIGHT);
+        btnRow.setPadding(new Insets(0, 20, 16, 20));
+
+        VBox root = new VBox(form, btnRow);
+        root.setStyle("-fx-background-color: #FFFFFF;");
+        dlg.setScene(new Scene(root, 400, 360));
+        dlg.showAndWait();
+    }
+
+    private Label lbl(String text) {
+        Label l = new Label(text);
+        l.setStyle("-fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: #595959;");
+        return l;
+    }
+
+    private TextField field(String val) {
+        TextField tf = new TextField(val);
+        tf.setMaxWidth(Double.MAX_VALUE);
+        tf.setStyle("-fx-background-color: #FFFFFF; -fx-border-color: #D9D9D9;"
+                + "-fx-border-radius: 6; -fx-background-radius: 6; -fx-border-width: 1; -fx-padding: 7 10;");
+        return tf;
     }
 }

@@ -3,7 +3,7 @@ package com.lotuslaverne.fx.views;
 import com.lotuslaverne.dao.DichVuDAO;
 import com.lotuslaverne.dao.PhieuDatPhongDAO;
 import com.lotuslaverne.entity.DichVu;
-import com.lotuslaverne.entity.PhieuDatPhong;
+import com.lotuslaverne.util.SessionContext;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -14,12 +14,12 @@ import javafx.scene.control.*;
 import javafx.scene.layout.*;
 
 import java.text.DecimalFormat;
-import java.util.ArrayList;
 import java.util.List;
 
 /**
- * DichVuPhongView – Ghi nhận dịch vụ phát sinh (mini-bar, giặt ủi, room service...)
+ * DichVuPhongView – Ghi nhận / Sửa / Xoá dịch vụ phát sinh (mini-bar, giặt ủi, room service...)
  * cho một phiếu đặt phòng đang ở (DaCheckIn).
+ * Sau khi phiếu DaCheckOut → chỉ xem, khoá sửa/xoá (Rule 13).
  */
 public class DichVuPhongView {
 
@@ -32,6 +32,7 @@ public class DichVuPhongView {
     private Label lblDonGia, lblThanhTien, lblTongPhatSinh;
     private TableView<Object[]> tblChiTiet;
     private ObservableList<Object[]> chiTietItems;
+    private Button btnThem;
 
     private final DichVuDAO dichVuDAO = new DichVuDAO();
     private final PhieuDatPhongDAO pdpDAO = new PhieuDatPhongDAO();
@@ -44,11 +45,10 @@ public class DichVuPhongView {
         content.setPadding(new Insets(28));
         VBox.setVgrow(content, Priority.ALWAYS);
 
-        // ── Header
         VBox header = new VBox(4);
         Label title = new Label("Dịch Vụ Phòng");
         title.setStyle("-fx-font-size: 22px; -fx-font-weight: bold; -fx-text-fill: #1A1A2E;");
-        Label sub = new Label("Ghi nhận dịch vụ phát sinh (mini-bar, giặt ủi, room service...) cho phòng đang ở");
+        Label sub = new Label("Ghi nhận / sửa / xoá dịch vụ phát sinh cho phòng đang ở");
         sub.setStyle("-fx-font-size: 13px; -fx-text-fill: #8C8C8C;");
         header.getChildren().addAll(title, sub);
 
@@ -56,9 +56,9 @@ public class DichVuPhongView {
         mainRow.setAlignment(Pos.TOP_LEFT);
         VBox.setVgrow(mainRow, Priority.ALWAYS);
 
-        VBox leftCard = buildInputCard();
+        VBox leftCard  = buildInputCard();
         VBox rightCard = buildHistoryCard();
-        HBox.setHgrow(leftCard, Priority.ALWAYS);
+        HBox.setHgrow(leftCard,  Priority.ALWAYS);
         HBox.setHgrow(rightCard, Priority.ALWAYS);
         mainRow.getChildren().addAll(leftCard, rightCard);
 
@@ -66,7 +66,6 @@ public class DichVuPhongView {
         root.getChildren().add(content);
         VBox.setVgrow(root, Priority.ALWAYS);
 
-        // Load initial data
         loadPhieuDangO();
         loadDichVu();
 
@@ -91,7 +90,6 @@ public class DichVuPhongView {
         ColumnConstraints c2 = new ColumnConstraints(); c2.setPercentWidth(62);
         form.getColumnConstraints().addAll(c1, c2);
 
-        // Phiếu đặt phòng
         cbPhieu = new ComboBox<>();
         cbPhieu.setMaxWidth(Double.MAX_VALUE);
         cbPhieu.setPromptText("Chọn phòng đang ở...");
@@ -99,7 +97,6 @@ public class DichVuPhongView {
                 + "-fx-border-radius: 6; -fx-background-radius: 6; -fx-border-width: 1;");
         cbPhieu.setOnAction(e -> loadChiTietByPhieu());
 
-        // Dịch vụ
         cbDichVu = new ComboBox<>();
         cbDichVu.setMaxWidth(Double.MAX_VALUE);
         cbDichVu.setPromptText("Chọn dịch vụ...");
@@ -121,7 +118,6 @@ public class DichVuPhongView {
         });
         cbDichVu.setOnAction(e -> updatePricePreview());
 
-        // Số lượng
         spSoLuong = new Spinner<>(1, 99, 1);
         spSoLuong.setMaxWidth(Double.MAX_VALUE);
         spSoLuong.setEditable(true);
@@ -129,21 +125,18 @@ public class DichVuPhongView {
                 + "-fx-border-radius: 6; -fx-background-radius: 6; -fx-border-width: 1;");
         spSoLuong.valueProperty().addListener((obs, o, n) -> updatePricePreview());
 
-        // Ghi chú
         txtGhiChu = new TextField();
         txtGhiChu.setPromptText("VD: Khách yêu cầu tại 22:30...");
         txtGhiChu.setMaxWidth(Double.MAX_VALUE);
         txtGhiChu.setStyle("-fx-background-color: #FFFFFF; -fx-border-color: #D9D9D9;"
                 + "-fx-border-radius: 6; -fx-background-radius: 6; -fx-border-width: 1; -fx-padding: 7 10;");
 
-        // Price preview
-        lblDonGia   = new Label("—");
+        lblDonGia    = new Label("—");
         lblThanhTien = new Label("—");
         lblDonGia.setStyle("-fx-font-size: 13px; -fx-text-fill: #595959; -fx-font-weight: bold;");
         lblThanhTien.setStyle("-fx-font-size: 14px; -fx-text-fill: #1890FF; -fx-font-weight: bold;");
 
-        // Nút thêm
-        Button btnThem = new Button("✚  Ghi Nhận Dịch Vụ");
+        btnThem = new Button("✚  Ghi Nhận Dịch Vụ");
         btnThem.setStyle("-fx-background-color: #1890FF; -fx-text-fill: white;"
                 + "-fx-background-radius: 8; -fx-padding: 10 20; -fx-font-size: 13px;"
                 + "-fx-font-weight: bold; -fx-cursor: hand;");
@@ -156,12 +149,12 @@ public class DichVuPhongView {
                 + "-fx-border-radius: 8; -fx-padding: 8 14; -fx-cursor: hand; -fx-font-size: 12px;");
         btnRefresh.setOnAction(e -> { loadPhieuDangO(); loadDichVu(); loadChiTietByPhieu(); });
 
-        form.add(lbl("Phòng đang ở:"),   0, 0); form.add(cbPhieu,     1, 0);
-        form.add(lbl("Dịch vụ:"),        0, 1); form.add(cbDichVu,    1, 1);
-        form.add(lbl("Số lượng:"),       0, 2); form.add(spSoLuong,   1, 2);
-        form.add(lbl("Đơn giá:"),        0, 3); form.add(lblDonGia,   1, 3);
-        form.add(lbl("Thành tiền:"),     0, 4); form.add(lblThanhTien,1, 4);
-        form.add(lbl("Ghi chú:"),        0, 5); form.add(txtGhiChu,   1, 5);
+        form.add(lbl("Phòng đang ở:"),   0, 0); form.add(cbPhieu,      1, 0);
+        form.add(lbl("Dịch vụ:"),        0, 1); form.add(cbDichVu,     1, 1);
+        form.add(lbl("Số lượng:"),       0, 2); form.add(spSoLuong,    1, 2);
+        form.add(lbl("Đơn giá:"),        0, 3); form.add(lblDonGia,    1, 3);
+        form.add(lbl("Thành tiền:"),     0, 4); form.add(lblThanhTien, 1, 4);
+        form.add(lbl("Ghi chú:"),        0, 5); form.add(txtGhiChu,    1, 5);
 
         card.getChildren().addAll(cardTitle, form, btnThem, btnRefresh);
         return card;
@@ -191,16 +184,44 @@ public class DichVuPhongView {
         tblChiTiet.setPlaceholder(new Label("Chọn phòng để xem dịch vụ đã dùng."));
         VBox.setVgrow(tblChiTiet, Priority.ALWAYS);
 
+        // Cột dữ liệu (row[1..6])
         String[] heads = {"Dịch Vụ", "SL", "Đơn Giá", "Thành Tiền", "Thời Gian", "Ghi Chú"};
         for (int i = 0; i < heads.length; i++) {
             final int idx = i;
             TableColumn<Object[], String> col = new TableColumn<>(heads[i]);
             col.setCellValueFactory(p -> {
-                Object v = idx < p.getValue().length ? p.getValue()[idx + 1] : "";
+                Object v = (idx + 1) < p.getValue().length ? p.getValue()[idx + 1] : "";
                 return new SimpleStringProperty(v != null ? v.toString() : "");
             });
             tblChiTiet.getColumns().add(col);
         }
+
+        // Cột hành động: Sửa / Xoá — khoá khi DaCheckOut
+        TableColumn<Object[], Void> colAction = new TableColumn<>("Thao Tác");
+        colAction.setCellFactory(tc -> new TableCell<>() {
+            private final Button btnSua = new Button("Sửa SL");
+            private final Button btnXoa = new Button("Xoá");
+            {
+                btnSua.setStyle("-fx-background-color: #1890FF; -fx-text-fill: white;"
+                        + "-fx-background-radius: 5; -fx-padding: 3 8; -fx-font-size: 11px; -fx-cursor: hand;");
+                btnXoa.setStyle("-fx-background-color: #FF4D4F; -fx-text-fill: white;"
+                        + "-fx-background-radius: 5; -fx-padding: 3 8; -fx-font-size: 11px; -fx-cursor: hand;");
+                btnSua.setOnAction(e -> handleSua(getTableView().getItems().get(getIndex())));
+                btnXoa.setOnAction(e -> handleXoa(getTableView().getItems().get(getIndex())));
+            }
+            @Override protected void updateItem(Void v, boolean empty) {
+                super.updateItem(v, empty);
+                if (empty) { setGraphic(null); return; }
+                boolean locked = isPhieuLocked();
+                btnSua.setDisable(locked);
+                btnXoa.setDisable(locked);
+                HBox box = new HBox(4, btnSua, btnXoa);
+                box.setAlignment(Pos.CENTER);
+                setGraphic(box);
+            }
+        });
+        tblChiTiet.getColumns().add(colAction);
+
         chiTietItems = FXCollections.observableArrayList();
         tblChiTiet.setItems(chiTietItems);
 
@@ -211,9 +232,8 @@ public class DichVuPhongView {
     // ─────────────────────────── DATA LOGIC
     private void loadPhieuDangO() {
         try {
-            List<PhieuDatPhong> list = pdpDAO.getDangSuDung();
             cbPhieu.getItems().clear();
-            for (PhieuDatPhong p : list) {
+            for (var p : pdpDAO.getDangSuDung()) {
                 cbPhieu.getItems().add(p.getMaPhieuDatPhong());
             }
         } catch (Exception ignored) {}
@@ -234,12 +254,14 @@ public class DichVuPhongView {
         chiTietItems.clear();
         if (maPDP == null || maPDP.isBlank()) {
             lblTongPhatSinh.setText("Tổng: 0đ");
+            updateInputLock(false);
             return;
         }
+        boolean locked = isPhieuLocked();
+        updateInputLock(locked);
         try {
             List<Object[]> rows = dichVuDAO.getChiTietDichVuByPhieu(maPDP);
             chiTietItems.addAll(rows);
-            // Tính tổng trực tiếp từ soLuong (int) × đơn giá (formatted string)
             double tong = rows.stream().mapToDouble(r -> {
                 try {
                     int sl = ((Number) r[2]).intValue();
@@ -251,21 +273,42 @@ public class DichVuPhongView {
         } catch (Exception ignored) {}
     }
 
+    private boolean isPhieuLocked() {
+        String maPDP = cbPhieu.getValue();
+        if (maPDP == null || maPDP.isBlank()) return false;
+        return "DaCheckOut".equals(pdpDAO.getTrangThai(maPDP));
+    }
+
+    private void updateInputLock(boolean locked) {
+        btnThem.setDisable(locked);
+        if (locked) {
+            btnThem.setText("🔒  Phiếu đã checkout — không thêm được");
+            btnThem.setStyle("-fx-background-color: #D9D9D9; -fx-text-fill: #8C8C8C;"
+                    + "-fx-background-radius: 8; -fx-padding: 10 20; -fx-font-size: 13px;");
+        } else {
+            btnThem.setText("✚  Ghi Nhận Dịch Vụ");
+            btnThem.setStyle("-fx-background-color: #1890FF; -fx-text-fill: white;"
+                    + "-fx-background-radius: 8; -fx-padding: 10 20; -fx-font-size: 13px;"
+                    + "-fx-font-weight: bold; -fx-cursor: hand;");
+        }
+    }
+
     private void updatePricePreview() {
         DichVu dv = cbDichVu.getValue();
         if (dv == null) { lblDonGia.setText("—"); lblThanhTien.setText("—"); return; }
         int qty = spSoLuong.getValue();
-        double donGia = dv.getDonGia();
-        lblDonGia.setText(MONEY.format(donGia) + "đ");
-        lblThanhTien.setText(MONEY.format(donGia * qty) + "đ");
+        lblDonGia.setText(MONEY.format(dv.getDonGia()) + "đ");
+        lblThanhTien.setText(MONEY.format(dv.getDonGia() * qty) + "đ");
     }
 
     private void handleThem() {
         String maPDP = cbPhieu.getValue();
-        DichVu dv   = cbDichVu.getValue();
+        DichVu dv    = cbDichVu.getValue();
         if (maPDP == null || maPDP.isBlank()) { alert("Chọn phòng đang ở!"); return; }
         if (dv == null) { alert("Chọn dịch vụ!"); return; }
-        int qty = spSoLuong.getValue();
+        if (isPhieuLocked()) { alert("Phiếu đã checkout — không thể thêm dịch vụ."); return; }
+
+        int qty    = spSoLuong.getValue();
         String ghiChu = txtGhiChu.getText().trim();
 
         boolean ok = dichVuDAO.themChiTietDichVu(dv.getMaDichVu(), maPDP, qty, ghiChu);
@@ -274,14 +317,59 @@ public class DichVuPhongView {
             txtGhiChu.clear();
             spSoLuong.getValueFactory().setValue(1);
             Alert a = new Alert(Alert.AlertType.INFORMATION);
-            a.setHeaderText(null);
-            a.setTitle("Thành Công");
-            a.setContentText("✅ Đã ghi nhận: " + dv.getTenDichVu()
+            a.setHeaderText(null); a.setTitle("Thành Công");
+            a.setContentText("Đã ghi nhận: " + dv.getTenDichVu()
                     + " × " + qty + "  →  " + MONEY.format(dv.getDonGia() * qty) + "đ");
             a.showAndWait();
         } else {
             alert("Lỗi ghi nhận dịch vụ. Kiểm tra kết nối DB.");
         }
+    }
+
+    private void handleSua(Object[] row) {
+        String maPDP = cbPhieu.getValue();
+        if (isPhieuLocked()) { alert("Phiếu đã checkout — không thể sửa."); return; }
+        String maDichVu = row[0].toString();
+        int soLuongCu   = ((Number) row[2]).intValue();
+        String tenDV    = row[1].toString();
+
+        TextInputDialog dlg = new TextInputDialog(String.valueOf(soLuongCu));
+        dlg.setTitle("Sửa Số Lượng");
+        dlg.setHeaderText("Dịch vụ: " + tenDV);
+        dlg.setContentText("Số lượng mới:");
+        dlg.showAndWait().ifPresent(val -> {
+            try {
+                int soLuongMoi = Integer.parseInt(val.trim());
+                if (soLuongMoi <= 0) { alert("Số lượng phải > 0. Dùng 'Xoá' để xoá dòng."); return; }
+                String maNV = SessionContext.getInstance().getMaNhanVien();
+                boolean ok  = dichVuDAO.suaSoLuongDichVu(maDichVu, maPDP,
+                        soLuongMoi, soLuongCu, row[6].toString(), maNV);
+                if (ok) loadChiTietByPhieu();
+                else alert("Lỗi sửa dịch vụ.");
+            } catch (NumberFormatException ex) {
+                alert("Số lượng phải là số nguyên.");
+            }
+        });
+    }
+
+    private void handleXoa(Object[] row) {
+        String maPDP = cbPhieu.getValue();
+        if (isPhieuLocked()) { alert("Phiếu đã checkout — không thể xoá."); return; }
+        String maDichVu = row[0].toString();
+        String tenDV    = row[1].toString();
+        int soLuongCu   = ((Number) row[2]).intValue();
+
+        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION,
+                "Xoá dịch vụ \"" + tenDV + "\" (SL: " + soLuongCu + ") khỏi phiếu?");
+        confirm.setHeaderText("Xác Nhận Xoá"); confirm.setTitle("Xoá Dịch Vụ");
+        confirm.showAndWait().ifPresent(btn -> {
+            if (btn == ButtonType.OK) {
+                String maNV = SessionContext.getInstance().getMaNhanVien();
+                boolean ok  = dichVuDAO.xoaChiTietDichVu(maDichVu, maPDP, soLuongCu, maNV);
+                if (ok) loadChiTietByPhieu();
+                else alert("Lỗi xoá dịch vụ.");
+            }
+        });
     }
 
     // ─────────────────────────── HELPERS

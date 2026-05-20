@@ -157,6 +157,19 @@ public class PhongDAO {
         }
     }
 
+    /** Lấy danh sách phòng đang PhongTrong (dùng cho walk-in dialog). */
+    public List<Phong> getPhongTrong() {
+        List<Phong> list = new ArrayList<>();
+        Connection con = ConnectDB.getInstance().getConnection();
+        if (con == null) return list;
+        try (PreparedStatement pst = con.prepareStatement(
+                "SELECT * FROM Phong WHERE trangThai=N'PhongTrong' ORDER BY maPhong")) {
+            ResultSet rs = pst.executeQuery();
+            while (rs.next()) list.add(mapRow(rs));
+        } catch (Exception ignored) {}
+        return list;
+    }
+
     /** Chỉ cập nhật trạng thái phòng */
     public boolean capNhatTrangThai(String maPhong, String trangThaiMoi) {
         Connection con = ConnectDB.getInstance().getConnection();

@@ -213,6 +213,20 @@ public class PhieuDatPhongDAO {
         return list;
     }
 
+    /** Lấy trangThai của phiếu. Trả về "" nếu không tìm thấy. */
+    public String getTrangThai(String maPDP) {
+        Connection con = ConnectDB.getInstance().getConnection();
+        if (con == null) return "";
+        try (PreparedStatement pst = con.prepareStatement(
+                "SELECT trangThai FROM PhieuDatPhong WHERE maPhieuDatPhong=?")) {
+            pst.setString(1, maPDP);
+            try (ResultSet rs = pst.executeQuery()) {
+                if (rs.next()) return rs.getString(1);
+            }
+        } catch (Exception ignored) {}
+        return "";
+    }
+
     /** Lấy maPhong từ ChiTietPhieuDatPhong theo maPDP. Trả về "" nếu không tìm thấy. */
     public String getMaPhong(String maPDP) {
         Connection con = ConnectDB.getInstance().getConnection();

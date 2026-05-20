@@ -70,3 +70,26 @@
 - Mọi write operation phức tạp (nhiều bảng) phải dùng transaction
 - KHÔNG hardcode mã nhân viên — luôn lấy từ SessionContext.getInstance().getMaNhanVien()
 - KHÔNG hardcode giá — luôn lấy từ BangGia
+
+## 12. Check-in
+- Walk-in (không đặt trước): thu tiền đêm đầu + cọc ngay tại quầy trước khi giao phòng
+- Có đặt trước: verify thông tin phiếu đặt, thu cọc nếu chưa thu
+- Chỉ check-in được khi phiếu ở trạng thái DaDat
+- Walk-in tạo PhieuDatPhong + PhieuThu + check-in phải trong 1 transaction (WalkInService)
+
+## 13. Dịch vụ phòng
+- Ghi nhận ngay khi khách sử dụng
+- Cho phép sửa số lượng / xoá khi phiếu chưa checkout
+- Mỗi lần sửa/xoá phải ghi log: maNhanVien, thoiGianSua, giaTriCu, giaTriMoi
+- Sau khi checkout → khoá, không cho sửa/xoá
+
+## 14. Đổi phòng
+- Chênh lệch giá (phòng mới - phòng cũ) × số đêm còn lại
+- Không thu/hoàn ngay — cộng vào tổng tiền lúc checkout (ghi vào ghiChu phiếu)
+- Phải kiểm tra phòng mới còn trống (overlap ngày) trước khi đổi
+- Chỉ đổi được khi phiếu đang DaCheckIn
+
+## 15. Tiền cọc
+- Thu 1 lần, 50% tổng tiền phòng
+- Thu tại thời điểm đặt phòng hoặc lúc check-in (walk-in)
+- Hoàn/trừ cọc lúc checkout theo rule Section 3
