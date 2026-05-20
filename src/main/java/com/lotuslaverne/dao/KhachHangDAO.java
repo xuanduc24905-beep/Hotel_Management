@@ -97,6 +97,40 @@ public class KhachHangDAO {
         }
     }
 
+    /**
+     * Tra cứu khách hàng theo số điện thoại.
+     * Trả về KhachHang nếu tìm thấy, null nếu không.
+     */
+    public KhachHang findBySdt(String sdt) {
+        Connection con = ConnectDB.getInstance().getConnection();
+        if (con == null || sdt == null || sdt.isBlank()) return null;
+        try (PreparedStatement pst = con.prepareStatement(
+                "SELECT maKH, hoTenKH, soDienThoai, cmnd FROM KhachHang WHERE soDienThoai = ?")) {
+            pst.setString(1, sdt);
+            try (ResultSet rs = pst.executeQuery()) {
+                if (rs.next()) {
+                    return new KhachHang(rs.getString("maKH"), rs.getString("hoTenKH"),
+                            rs.getString("soDienThoai"), rs.getString("cmnd"));
+                }
+            }
+        } catch (Exception ignored) {}
+        return null;
+    }
+
+    /** Trả về hoTenKH theo maKH; fallback về maKH nếu không tìm thấy. */
+    public String getTenKhach(String maKH) {
+        Connection con = ConnectDB.getInstance().getConnection();
+        if (con == null || maKH == null) return maKH != null ? maKH : "—";
+        try (PreparedStatement pst = con.prepareStatement(
+                "SELECT hoTenKH FROM KhachHang WHERE maKH = ?")) {
+            pst.setString(1, maKH);
+            try (ResultSet rs = pst.executeQuery()) {
+                if (rs.next()) return rs.getString("hoTenKH");
+            }
+        } catch (Exception ignored) {}
+        return maKH;
+    }
+
     /** Cập nhật thông tin liên lạc đầy đủ */
     public boolean suaKhachHang(KhachHang kh) {
         Connection con = ConnectDB.getInstance().getConnection();

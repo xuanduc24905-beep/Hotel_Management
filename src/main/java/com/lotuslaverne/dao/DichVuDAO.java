@@ -11,6 +11,57 @@ import java.util.List;
 
 public class DichVuDAO {
 
+    /**
+     * Sinh mã dịch vụ tiếp theo theo prefix.
+     * Query MAX(maDichVu) LIKE prefix%, tăng số thứ tự, pad 3 chữ số.
+     */
+    public String generateNextMaDV(String prefix) {
+        Connection con = ConnectDB.getInstance().getConnection();
+        int next = 1;
+        if (con != null) {
+            try (PreparedStatement pst = con.prepareStatement(
+                    "SELECT MAX(maDichVu) FROM DichVu WHERE maDichVu LIKE ?")) {
+                pst.setString(1, prefix + "%");
+                try (ResultSet rs = pst.executeQuery()) {
+                    if (rs.next()) {
+                        String maxMa = rs.getString(1);
+                        if (maxMa != null && maxMa.length() > prefix.length()) {
+                            try {
+                                next = Integer.parseInt(maxMa.substring(prefix.length())) + 1;
+                            } catch (NumberFormatException ignored) {}
+                        }
+                    }
+                }
+            } catch (Exception ignored) {}
+        }
+        return String.format("%s%03d", prefix, next);
+    }
+
+    /**
+     * Load danh sách loại dịch vụ.
+     * Trả về List của Object[] {maLoaiDichVu, tenLoaiDichVu}.
+     */
+    public List<Object[]> loadLoaiDichVu() {
+        List<Object[]> list = new ArrayList<>();
+        Connection con = ConnectDB.getInstance().getConnection();
+        if (con == null) {
+            list.add(new Object[]{"LDV01", "Đồ Ăn"});
+            list.add(new Object[]{"LDV02", "Đồ Uống"});
+            list.add(new Object[]{"LDV03", "Tiện Ích"});
+            return list;
+        }
+        try (PreparedStatement pst = con.prepareStatement(
+                "SELECT maLoaiDichVu, tenLoaiDichVu FROM LoaiDichVu ORDER BY maLoaiDichVu");
+             ResultSet rs = pst.executeQuery()) {
+            while (rs.next()) list.add(new Object[]{rs.getString(1), rs.getString(2)});
+        } catch (Exception ignored) {
+            list.add(new Object[]{"LDV01", "Đồ Ăn"});
+            list.add(new Object[]{"LDV02", "Đồ Uống"});
+            list.add(new Object[]{"LDV03", "Tiện Ích"});
+        }
+        return list;
+    }
+
     public List<DichVu> getAll() {
         List<DichVu> list = new ArrayList<>();
         Connection con = ConnectDB.getInstance().getConnection();
@@ -110,6 +161,39 @@ public class DichVuDAO {
                 return pst.executeUpdate() > 0;
             }
         } catch (Exception e) { e.printStackTrace(); return false; }
+    }
+
+    /**
+     * Load dịch vụ phát sinh theo phiếu để hiển thị trong bảng thanh toán.
+     * Mỗi Object[]: {tenDichVu, soLuong(String), donGia(formatted), thanhTien(formatted), thanhTien(double raw)}.
+     */
+    public java.util.List<Object[]> loadByPhieu(String maPDP) {
+        java.util.List<Object[]> list = new java.util.ArrayList<>();
+        Connection con = ConnectDB.getInstance().getConnection();
+        if (con == null) return list;
+        String sql = "SELECT dv.tenDichVu, ctdv.soLuong, dv.donGia, (ctdv.soLuong * dv.donGia) AS thanhTien "
+                   + "FROM ChiTietDichVu ctdv "
+                   + "JOIN DichVu dv ON dv.maDichVu = ctdv.maDichVu "
+                   + "WHERE ctdv.maPhieuDatPhong = ?";
+        java.text.DecimalFormat df = new java.text.DecimalFormat("#,###");
+        try (PreparedStatement pst = con.prepareStatement(sql)) {
+            pst.setString(1, maPDP);
+            try (ResultSet rs = pst.executeQuery()) {
+                while (rs.next()) {
+                    int sl = rs.getInt("soLuong");
+                    double gia = rs.getDouble("donGia");
+                    double tt  = rs.getDouble("thanhTien");
+                    list.add(new Object[]{
+                        rs.getString("tenDichVu"),
+                        String.valueOf(sl),
+                        df.format(gia),
+                        df.format(tt),
+                        tt
+                    });
+                }
+            }
+        } catch (Exception e) { e.printStackTrace(); }
+        return list;
     }
 
     /** Lấy danh sách dịch vụ đã dùng theo phiếu đặt phòng */

@@ -2,7 +2,7 @@ package com.lotuslaverne.fx.views;
 
 import com.lotuslaverne.dao.PhongDAO;
 import com.lotuslaverne.entity.Phong;
-import com.lotuslaverne.util.ConnectDB;
+import com.lotuslaverne.service.DoiPhongService;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -12,11 +12,6 @@ import javafx.scene.Node;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
 
-import java.sql.CallableStatement;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.Timestamp;
 import java.text.DecimalFormat;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -248,69 +243,40 @@ public class DoiPhongView {
             alert(Alert.AlertType.WARNING, "Thiếu thông tin", "Vui lòng nhập số điện thoại khách!");
             return;
         }
-        Connection con = ConnectDB.getInstance().getConnection();
-        if (con == null) {
-            alert(Alert.AlertType.ERROR, "Offline", "Không có kết nối DB, không tra cứu được.");
-            return;
-        }
-        String sql =
-            "SELECT TOP 1 kh.hoTenKH, kh.cmnd, " +
-            "       pdp.maPhieuDatPhong, pdp.thoiGianNhanThucTe, pdp.thoiGianTra, " +
-            "       ct.maPhong, lp.tenLoaiPhong, bg.donGia " +
-            "FROM KhachHang kh " +
-            "JOIN PhieuDatPhong pdp ON pdp.maKH = kh.maKH " +
-            "JOIN ChiTietPhieuDatPhong ct ON ct.maPhieuDatPhong = pdp.maPhieuDatPhong " +
-            "JOIN Phong p ON p.maPhong = ct.maPhong " +
-            "JOIN LoaiPhong lp ON lp.maLoaiPhong = p.maLoaiPhong " +
-            "LEFT JOIN BangGia bg ON bg.maLoaiPhong = p.maLoaiPhong " +
-            "   AND bg.loaiThue = 'QuaDem' " +
-            "   AND GETDATE() BETWEEN bg.ngayBatDau AND bg.ngayKetThuc " +
-            "WHERE kh.soDienThoai = ? " +
-            "  AND pdp.thoiGianNhanThucTe IS NOT NULL " +
-            "  AND pdp.thoiGianTraThucTe IS NULL " +
-            "ORDER BY pdp.thoiGianNhanThucTe DESC";
-
-        try (PreparedStatement pst = con.prepareStatement(sql)) {
-            pst.setString(1, sdt);
-            try (ResultSet rs = pst.executeQuery()) {
-                if (!rs.next()) {
-                    alert(Alert.AlertType.WARNING, "Không tìm thấy",
-                            "Không có khách nào với SĐT này đang lưu trú.");
-                    return;
-                }
-                DateTimeFormatter fmt = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
-
-                String tenKH  = rs.getString("hoTenKH");
-                String cccd   = rs.getString("cmnd");
-                resolvedMaPDP = rs.getString("maPhieuDatPhong");
-                Timestamp tsNhan = rs.getTimestamp("thoiGianNhanThucTe");
-                Timestamp tsTra  = rs.getTimestamp("thoiGianTra");
-                resolvedMaPhongCu = rs.getString("maPhong");
-                String tenLoaiCu = rs.getString("tenLoaiPhong");
-                resolvedGiaCu    = rs.getDouble("donGia");
-
-                LocalDateTime ldtNhan = tsNhan.toLocalDateTime();
-                LocalDateTime ldtTra  = tsTra.toLocalDateTime();
-                LocalDate today = LocalDate.now();
-
-                long demDaO = Math.max(0, ChronoUnit.DAYS.between(ldtNhan.toLocalDate(), today));
-                soDemConLai = Math.max(1, ChronoUnit.DAYS.between(today, ldtTra.toLocalDate()));
-
-                lblTenKH.setText(tenKH);
-                lblCCCD.setText(cccd != null ? cccd : "—");
-                lblMaPDP.setText(resolvedMaPDP);
-                lblPhongCu.setText(resolvedMaPhongCu);
-                lblLoaiCu.setText(tenLoaiCu);
-                lblGiaCu.setText(formatVND(resolvedGiaCu) + " / đêm");
-                lblNgayNhan.setText(ldtNhan.format(fmt));
-                lblNgayTra.setText(ldtTra.format(fmt));
-                lblDemDaO.setText(demDaO + " đêm");
-                lblDemConLai.setText(soDemConLai + " đêm");
-
-                // Nếu đang có phòng đang chọn ở bảng phải → tính luôn bù trừ
-                Object[] sel = phongTable.getSelectionModel().getSelectedItem();
-                if (sel != null) tinhBuTru(sel[0].toString());
+        try {
+            Object[] info = new DoiPhongService().traCuuBySdt(sdt);
+            if (info == null) {
+                alert(Alert.AlertType.WARNING, "Không tìm thấy",
+                        "Không có khách nào với SĐT này đang lưu trú.");
+                return;
             }
+            DateTimeFormatter fmt = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
+            String tenKH          = (String) info[0];
+            String cccd           = (String) info[1];
+            resolvedMaPDP         = (String) info[2];
+            LocalDateTime ldtNhan = (LocalDateTime) info[3];
+            LocalDateTime ldtTra  = (LocalDateTime) info[4];
+            resolvedMaPhongCu     = (String) info[5];
+            String tenLoaiCu      = (String) info[6];
+            resolvedGiaCu         = (double) info[7];
+
+            LocalDate today = LocalDate.now();
+            long demDaO = ldtNhan != null ? Math.max(0, ChronoUnit.DAYS.between(ldtNhan.toLocalDate(), today)) : 0;
+            soDemConLai = ldtTra  != null ? Math.max(1, ChronoUnit.DAYS.between(today, ldtTra.toLocalDate()))  : 1;
+
+            lblTenKH.setText(tenKH);
+            lblCCCD.setText(cccd != null ? cccd : "—");
+            lblMaPDP.setText(resolvedMaPDP);
+            lblPhongCu.setText(resolvedMaPhongCu);
+            lblLoaiCu.setText(tenLoaiCu);
+            lblGiaCu.setText(formatVND(resolvedGiaCu) + " / đêm");
+            lblNgayNhan.setText(ldtNhan != null ? ldtNhan.format(fmt) : "N/A");
+            lblNgayTra.setText(ldtTra  != null ? ldtTra.format(fmt)  : "N/A");
+            lblDemDaO.setText(demDaO + " đêm");
+            lblDemConLai.setText(soDemConLai + " đêm");
+
+            Object[] sel = phongTable.getSelectionModel().getSelectedItem();
+            if (sel != null) tinhBuTru(sel[0].toString());
         } catch (Exception ex) {
             alert(Alert.AlertType.ERROR, "Lỗi", "Tra cứu thất bại: " + ex.getMessage());
         }
@@ -346,21 +312,7 @@ public class DoiPhongView {
     }
 
     private double loadDonGiaPhong(String maPhong) {
-        Connection con = ConnectDB.getInstance().getConnection();
-        if (con == null) return 0;
-        String sql =
-            "SELECT bg.donGia FROM Phong p " +
-            "LEFT JOIN BangGia bg ON bg.maLoaiPhong = p.maLoaiPhong " +
-            "  AND bg.loaiThue = 'QuaDem' " +
-            "  AND GETDATE() BETWEEN bg.ngayBatDau AND bg.ngayKetThuc " +
-            "WHERE p.maPhong = ?";
-        try (PreparedStatement pst = con.prepareStatement(sql)) {
-            pst.setString(1, maPhong);
-            try (ResultSet rs = pst.executeQuery()) {
-                if (rs.next()) return rs.getDouble("donGia");
-            }
-        } catch (Exception ignored) {}
-        return 0;
+        return new com.lotuslaverne.dao.BangGiaDAO().getDonGiaQuaDem(maPhong);
     }
 
     private void handleDoiPhong() {
@@ -391,20 +343,17 @@ public class DoiPhongView {
         confirm.showAndWait().ifPresent(btn -> {
             if (btn != ButtonType.OK) return;
             try {
-                Connection con = ConnectDB.getInstance().getConnection();
-                if (con == null) throw new Exception("Không có kết nối DB");
-                try (CallableStatement cs = con.prepareCall("{call SP_DoiPhong(?,?,?)}")) {
-                    cs.setString(1, resolvedMaPDP);
-                    cs.setString(2, maPhongMoi);
-                    cs.setDouble(3, giaMoi);
-                    cs.execute();
-                    alert(Alert.AlertType.INFORMATION, "Thành công",
-                            "Đổi phòng thành công!\nPhòng mới: " + maPhongMoi
-                            + (tongBuTru != 0 ? "\n(Nhớ ghi nhận bù trừ vào hóa đơn)" : ""));
-                    phongItems.setAll(loadPhongTrong());
-                    resetInfo();
-                    txtSDT.clear();
-                }
+                double buTruGhiNhan = new com.lotuslaverne.service.DoiPhongService().doiPhong(resolvedMaPDP, maPhongMoi);
+                String buTruMsg = "";
+                if (buTruGhiNhan > 0)
+                    buTruMsg = "\n✅ Đã ghi nhận thu thêm: " + formatVND(buTruGhiNhan) + " vào ghi chú phiếu.";
+                else if (buTruGhiNhan < 0)
+                    buTruMsg = "\n✅ Đã ghi nhận hoàn lại: " + formatVND(-buTruGhiNhan) + " vào ghi chú phiếu.";
+                alert(Alert.AlertType.INFORMATION, "Thành công",
+                        "Đổi phòng thành công!\nPhòng mới: " + maPhongMoi + buTruMsg);
+                phongItems.setAll(loadPhongTrong());
+                resetInfo();
+                txtSDT.clear();
             } catch (Exception ex) {
                 alert(Alert.AlertType.ERROR, "Lỗi đổi phòng", ex.getMessage());
             }

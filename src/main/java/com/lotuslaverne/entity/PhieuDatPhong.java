@@ -15,6 +15,7 @@ public class PhieuDatPhong {
     private String trangThai;
     private String hinhThucDat;
     private String ghiChu;
+    private String maKhuyenMai;
 
     public PhieuDatPhong() {}
 
@@ -80,6 +81,10 @@ public class PhieuDatPhong {
     public void setHinhThucDat(String v) { this.hinhThucDat = v; }
 
     public String getGhiChu() { return ghiChu; }
-    
+
     public void setGhiChu(String v) { this.ghiChu = v; }
+
+    public String getMaKhuyenMai() { return maKhuyenMai; }
+
+    public void setMaKhuyenMai(String v) { this.maKhuyenMai = v; }
 }

@@ -1,7 +1,10 @@
 package com.lotuslaverne.fx.views;
 
+import com.lotuslaverne.dao.BangGiaDAO;
+import com.lotuslaverne.dao.KhachHangDAO;
 import com.lotuslaverne.dao.PhieuThuDAO;
 import com.lotuslaverne.dao.PhieuDatPhongDAO;
+import com.lotuslaverne.service.PhieuThuService;
 import com.lotuslaverne.entity.PhieuDatPhong;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
@@ -11,14 +14,8 @@ import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
-import com.lotuslaverne.util.ConnectDB;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
 import java.text.DecimalFormat;
-import java.util.List;
-import java.util.UUID;
 
 /**
  * PhieuThuView – Quản lý phiếu đặt cọc (Deposit Management).
@@ -32,11 +29,13 @@ public class PhieuThuView {
     private TextField txtSoTienCoc, txtGhiChu;
     private ComboBox<String> cbPhuongThuc;
     private Label lblKhach, lblPhong, lblNgayDat;
+    private Button btnThu;
     private TableView<Object[]> tblPhieuThu;
     private ObservableList<Object[]> tblItems;
 
-    private final PhieuThuDAO phieuThuDAO = new PhieuThuDAO();
-    private final PhieuDatPhongDAO pdpDAO  = new PhieuDatPhongDAO();
+    private final PhieuThuDAO phieuThuDAO     = new PhieuThuDAO();
+    private final PhieuDatPhongDAO pdpDAO      = new PhieuDatPhongDAO();
+    private final PhieuThuService phieuThuSvc  = new PhieuThuService();
 
     public Node build() {
         VBox root = new VBox(0);
@@ -115,12 +114,14 @@ public class PhieuThuView {
         lblPhong   = infoLabel("—");
         lblNgayDat = infoLabel("—");
 
-        // Số tiền cọc
+        // Số tiền cọc — tự động tính 50%, không cho nhập tay
         txtSoTienCoc = new TextField();
-        txtSoTienCoc.setPromptText("VD: 500000");
+        txtSoTienCoc.setPromptText("Chọn phiếu để tự động tính...");
         txtSoTienCoc.setMaxWidth(Double.MAX_VALUE);
-        txtSoTienCoc.setStyle("-fx-background-color: #FFFFFF; -fx-border-color: #D9D9D9;"
-                + "-fx-border-radius: 6; -fx-background-radius: 6; -fx-border-width: 1; -fx-padding: 7 10;");
+        txtSoTienCoc.setEditable(false);
+        txtSoTienCoc.setStyle("-fx-background-color: #F5F5F5; -fx-border-color: #D9D9D9;"
+                + "-fx-border-radius: 6; -fx-background-radius: 6; -fx-border-width: 1; -fx-padding: 7 10;"
+                + "-fx-text-fill: #1A1A2E; -fx-font-weight: bold;");
 
         // Phương thức
         cbPhuongThuc = new ComboBox<>();
@@ -145,11 +146,12 @@ public class PhieuThuView {
         form.add(lbl("Phương thức:"),     0, 5); form.add(cbPhuongThuc,   1, 5);
         form.add(lbl("Ghi chú:"),         0, 6); form.add(txtGhiChu,      1, 6);
 
-        Button btnThu = new Button("💳  Thu Tiền Cọc");
+        btnThu = new Button("💳  Thu Tiền Cọc");
         btnThu.setStyle("-fx-background-color: #1890FF; -fx-text-fill: white;"
                 + "-fx-background-radius: 8; -fx-padding: 10 20; -fx-font-size: 13px;"
                 + "-fx-font-weight: bold; -fx-cursor: hand;");
         btnThu.setMaxWidth(Double.MAX_VALUE);
+        btnThu.setDisable(true);
         btnThu.setOnAction(e -> handleThuCoc());
 
         card.getChildren().addAll(cardTitle, form, btnThu);
@@ -203,75 +205,65 @@ public class PhieuThuView {
     // ─────────────────────────── DATA LOGIC
     private void loadPhieuChuaCheckIn() {
         cbPhieu.getItems().clear();
-        // PhieuDatPhong entity has no getTrangThai() — query DB directly
-        Connection con = ConnectDB.getInstance().getConnection();
-        if (con == null) return;
-        String sql = "SELECT maPhieuDatPhong FROM PhieuDatPhong " +
-                     "WHERE trangThai IN ('DaDat','DaCheckIn') ORDER BY ngayDat DESC";
-        try (PreparedStatement pst = con.prepareStatement(sql);
-             ResultSet rs = pst.executeQuery()) {
-            while (rs.next()) {
-                cbPhieu.getItems().add(rs.getString("maPhieuDatPhong"));
-            }
-        } catch (Exception ignored) {}
+        cbPhieu.getItems().addAll(phieuThuSvc.loadPhieuChuaCheckIn());
     }
 
     private void fillPhieuInfo() {
         String maPDP = cbPhieu.getValue();
         if (maPDP == null) return;
         try {
-            List<PhieuDatPhong> all = pdpDAO.getAll();
-            for (PhieuDatPhong p : all) {
-                if (p.getMaPhieuDatPhong().equals(maPDP)) {
-                    lblKhach.setText(p.getMaKhachHang() != null ? p.getMaKhachHang() : "—");
-                    lblNgayDat.setText(p.getNgayDat() != null
-                            ? p.getNgayDat().toString().substring(0, 16) : "—");
-                    break;
-                }
+            PhieuDatPhong found = null;
+            for (PhieuDatPhong p : pdpDAO.getAll()) {
+                if (p.getMaPhieuDatPhong().equals(maPDP)) { found = p; break; }
             }
-            // Lấy thông tin phòng
-            Connection con = ConnectDB.getInstance().getConnection();
-            if (con != null) {
-                try (PreparedStatement pst = con.prepareStatement(
-                        "SELECT STRING_AGG(maPhong, ', ') AS phong FROM ChiTietPhieuDatPhong WHERE maPhieuDatPhong=?")) {
-                    pst.setString(1, maPDP);
-                    ResultSet rs = pst.executeQuery();
-                    if (rs.next()) lblPhong.setText(rs.getString("phong") != null ? rs.getString("phong") : "—");
-                } catch (Exception ex) {
-                    // STRING_AGG not supported in older SQL Server — fallback
-                    try (PreparedStatement pst = con.prepareStatement(
-                            "SELECT maPhong FROM ChiTietPhieuDatPhong WHERE maPhieuDatPhong=?")) {
-                        pst.setString(1, maPDP);
-                        ResultSet rs = pst.executeQuery();
-                        StringBuilder sb = new StringBuilder();
-                        while (rs.next()) { if (sb.length() > 0) sb.append(", "); sb.append(rs.getString("maPhong")); }
-                        lblPhong.setText(sb.length() > 0 ? sb.toString() : "—");
-                    }
-                }
+            if (found == null) return;
+
+            // Fix: tên KH thay vì mã KH
+            String maKH = found.getMaKhachHang() != null ? found.getMaKhachHang() : "—";
+            lblKhach.setText(new KhachHangDAO().getTenKhach(maKH));
+            lblNgayDat.setText(found.getNgayDat() != null
+                    ? found.getNgayDat().toString().substring(0, 16) : "—");
+            lblPhong.setText(phieuThuDAO.getPhongsByPhieu(maPDP));
+
+            // Guard: phiếu đã thu cọc
+            if (phieuThuDAO.daDuocThuCoc(maPDP)) {
+                txtSoTienCoc.setText("Đã thu cọc");
+                btnThu.setText("⚠  Phiếu đã được thu cọc");
+                btnThu.setStyle("-fx-background-color: #D9D9D9; -fx-text-fill: #595959;"
+                        + "-fx-background-radius: 8; -fx-padding: 10 20; -fx-font-size: 13px;"
+                        + "-fx-font-weight: bold;");
+                btnThu.setDisable(true);
+                return;
+            }
+
+            // Reset nút về trạng thái bình thường
+            btnThu.setText("💳  Thu Tiền Cọc");
+            btnThu.setStyle("-fx-background-color: #1890FF; -fx-text-fill: white;"
+                    + "-fx-background-radius: 8; -fx-padding: 10 20; -fx-font-size: 13px;"
+                    + "-fx-font-weight: bold; -fx-cursor: hand;");
+
+            // Auto-tính 50% cọc = 50% × donGia × số đêm
+            String maPhong = pdpDAO.getMaPhong(maPDP);
+            double donGia = maPhong.isEmpty() ? 0 : new BangGiaDAO().getDonGiaQuaDem(maPhong);
+            long soNgay = 1;
+            if (found.getThoiGianNhanDuKien() != null && found.getThoiGianTraDuKien() != null) {
+                soNgay = Math.max(1, (found.getThoiGianTraDuKien().getTime()
+                        - found.getThoiGianNhanDuKien().getTime()) / (24L * 3_600_000));
+            }
+            if (donGia > 0) {
+                long coc = (long) (0.5 * donGia * soNgay);
+                txtSoTienCoc.setText(String.valueOf(coc));
+                btnThu.setDisable(false);
+            } else {
+                txtSoTienCoc.setText("0");
+                btnThu.setDisable(true);
             }
         } catch (Exception ignored) {}
     }
 
     private void loadAllPhieuThu() {
         tblItems.clear();
-        Connection con = ConnectDB.getInstance().getConnection();
-        if (con == null) return;
-        String sql = "SELECT maPhieuThu, maPhieuDatPhong, soTienCoc, phuongThucThanhToan, ngayThu, ghiChu " +
-                     "FROM PhieuThu ORDER BY ngayThu DESC";
-        try (PreparedStatement pst = con.prepareStatement(sql);
-             ResultSet rs = pst.executeQuery()) {
-            while (rs.next()) {
-                tblItems.add(new Object[]{
-                    rs.getString("maPhieuThu"),
-                    rs.getString("maPhieuDatPhong"),
-                    MONEY.format(rs.getDouble("soTienCoc")) + "đ",
-                    rs.getString("phuongThucThanhToan"),
-                    rs.getTimestamp("ngayThu") != null
-                            ? rs.getTimestamp("ngayThu").toString().substring(0, 16) : "",
-                    rs.getString("ghiChu") != null ? rs.getString("ghiChu") : ""
-                });
-            }
-        } catch (Exception e) { e.printStackTrace(); }
+        tblItems.addAll(phieuThuDAO.loadAllPhieuThu());
     }
 
     private void handleThuCoc() {
@@ -287,7 +279,7 @@ public class PhieuThuView {
         }
 
         String phuongThucDB = "Chuyển Khoản".equals(cbPhuongThuc.getValue()) ? "ChuyenKhoan" : "TienMat";
-        String maPT = "PT" + UUID.randomUUID().toString().substring(0, 6).toUpperCase();
+        String ghiChuVal = txtGhiChu.getText().trim();
 
         Alert confirm = new Alert(Alert.AlertType.CONFIRMATION,
                 "Xác nhận thu cọc:\n"
@@ -298,9 +290,8 @@ public class PhieuThuView {
         confirm.setTitle("Thu Cọc");
         confirm.showAndWait().ifPresent(btn -> {
             if (btn != ButtonType.OK) return;
-            boolean ok = phieuThuDAO.taoPhieuThu(maPT, maPDP, "NV001",
-                    soTienCoc, phuongThucDB, txtGhiChu.getText().trim());
-            if (ok) {
+            try {
+                String maPT = phieuThuSvc.thuCoc(maPDP, soTienCoc, phuongThucDB, ghiChuVal);
                 loadAllPhieuThu();
                 txtSoTienCoc.clear(); txtGhiChu.clear();
                 Alert a = new Alert(Alert.AlertType.INFORMATION);
@@ -308,8 +299,10 @@ public class PhieuThuView {
                 a.setContentText("✅ Thu cọc thành công!\nMã phiếu thu: " + maPT
                         + "\nSố tiền: " + MONEY.format(soTienCoc) + "đ");
                 a.showAndWait();
-            } else {
-                alert("Lỗi tạo phiếu thu. Kiểm tra kết nối DB.");
+            } catch (IllegalStateException ex) {
+                alert("Lỗi: " + ex.getMessage());
+            } catch (Exception ex) {
+                alert("Lỗi tạo phiếu thu: " + ex.getMessage());
             }
         });
     }

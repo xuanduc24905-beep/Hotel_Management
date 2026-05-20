@@ -2,7 +2,6 @@ package com.lotuslaverne.fx.views;
 
 import com.lotuslaverne.dao.DichVuDAO;
 import com.lotuslaverne.entity.DichVu;
-import com.lotuslaverne.util.ConnectDB;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -15,14 +14,9 @@ import javafx.scene.layout.*;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 
 public class DichVuView {
 
@@ -53,66 +47,6 @@ public class DichVuView {
             case "LDV03" -> "TI";  // Tiện Ích
             default       -> "DV";
         };
-    }
-
-    /** Sinh mã DV tiếp theo theo prefix: query MAX(mã) trong DB rồi +1, padded 3 chữ số */
-    private String generateNextMaDV(String maLoai) {
-        String prefix = prefixForLoai(maLoai);
-        Connection con = ConnectDB.getInstance().getConnection();
-        int next = 1;
-        if (con != null) {
-            try (PreparedStatement pst = con.prepareStatement(
-                    "SELECT MAX(maDichVu) FROM DichVu WHERE maDichVu LIKE ?")) {
-                pst.setString(1, prefix + "%");
-                try (ResultSet rs = pst.executeQuery()) {
-                    if (rs.next()) {
-                        String maxMa = rs.getString(1);
-                        if (maxMa != null && maxMa.length() > prefix.length()) {
-                            try {
-                                next = Integer.parseInt(maxMa.substring(prefix.length())) + 1;
-                            } catch (NumberFormatException ignored) {}
-                        }
-                    }
-                }
-            } catch (Exception ignored) {}
-        } else {
-            // Offline: đếm trong DEMO_DV
-            for (Object[] r : DEMO_DV) {
-                String ma = r[0].toString();
-                if (ma.startsWith(prefix) && ma.length() > prefix.length()) {
-                    try {
-                        int n = Integer.parseInt(ma.substring(prefix.length()));
-                        if (n >= next) next = n + 1;
-                    } catch (NumberFormatException ignored) {}
-                }
-            }
-        }
-        return String.format("%s%03d", prefix, next);
-    }
-
-    /** Load các loại DV từ DB → Map<maLoai, tenLoai> */
-    private Map<String, String> loadLoaiDichVu() {
-        Map<String, String> map = new LinkedHashMap<>();
-        Connection con = ConnectDB.getInstance().getConnection();
-        if (con == null) {
-            // Fallback hardcode khớp seed SQL
-            map.put("LDV01", "Đồ Ăn");
-            map.put("LDV02", "Đồ Uống");
-            map.put("LDV03", "Tiện Ích");
-            return map;
-        }
-        try (PreparedStatement pst = con.prepareStatement(
-                "SELECT maLoaiDichVu, tenLoaiDichVu FROM LoaiDichVu ORDER BY maLoaiDichVu");
-             ResultSet rs = pst.executeQuery()) {
-            while (rs.next()) {
-                map.put(rs.getString(1), rs.getString(2));
-            }
-        } catch (Exception ignored) {
-            map.put("LDV01", "Đồ Ăn");
-            map.put("LDV02", "Đồ Uống");
-            map.put("LDV03", "Tiện Ích");
-        }
-        return map;
     }
 
     private ObservableList<Object[]> items;
@@ -219,10 +153,12 @@ public class DichVuView {
         TextField txtGia   = field("0"); txtGia.setPromptText("Đơn giá");
 
         // Loại dịch vụ: ComboBox load từ DB
-        Map<String, String> loaiMap = loadLoaiDichVu();
+        List<Object[]> loaiList = new DichVuDAO().loadLoaiDichVu();
         ComboBox<String> cbLoai = new ComboBox<>();
-        for (Map.Entry<String, String> e : loaiMap.entrySet()) {
-            cbLoai.getItems().add(e.getValue() + " (" + e.getKey() + ") → " + prefixForLoai(e.getKey()));
+        for (Object[] loai : loaiList) {
+            String maLoaiDV = loai[0].toString();
+            String tenLoaiDV = loai[1].toString();
+            cbLoai.getItems().add(tenLoaiDV + " (" + maLoaiDV + ") → " + prefixForLoai(maLoaiDV));
         }
         cbLoai.setMaxWidth(Double.MAX_VALUE);
         cbLoai.setStyle("-fx-background-color: #FFFFFF; -fx-border-color: #D9D9D9;"
@@ -232,7 +168,7 @@ public class DichVuView {
         // Khi chọn loại → cập nhật mã DV preview
         cbLoai.valueProperty().addListener((obs, o, n) -> {
             String maLoai = parseMaLoai(n);
-            if (maLoai != null) lblMaDV.setText(generateNextMaDV(maLoai));
+            if (maLoai != null) lblMaDV.setText(new DichVuDAO().generateNextMaDV(prefixForLoai(maLoai)));
         });
 
         ComboBox<String> cbTT = new ComboBox<>();
@@ -259,17 +195,18 @@ public class DichVuView {
             if (txtTen.getText().trim().isEmpty() || txtGia.getText().trim().isEmpty()) {
                 new Alert(Alert.AlertType.WARNING, "Vui lòng nhập tên và đơn giá!").showAndWait(); return;
             }
-            String maDV = generateNextMaDV(maLoai);
+            DichVuDAO dichVuDAO = new DichVuDAO();
+            String maDV = dichVuDAO.generateNextMaDV(prefixForLoai(maLoai));
             try {
                 DichVu dv = new DichVu(maDV, txtTen.getText().trim(),
                         maLoai,
                         Double.parseDouble(txtGia.getText().trim()),
                         // Map hiển thị → DB
                         "Đang Kinh Doanh".equals(cbTT.getValue()) ? "DangKinhDoanh" : "NgungKinhDoanh");
-                if (new DichVuDAO().themDichVu(dv)) {
+                if (dichVuDAO.themDichVu(dv)) {
                     refresh();
                     txtTen.clear(); txtGia.setText("0");
-                    lblMaDV.setText(generateNextMaDV(maLoai));  // preview kế tiếp
+                    lblMaDV.setText(dichVuDAO.generateNextMaDV(prefixForLoai(maLoai)));  // preview kế tiếp
                 } else {
                     new Alert(Alert.AlertType.ERROR, "Trùng mã DV hoặc sai mã loại!").showAndWait();
                 }

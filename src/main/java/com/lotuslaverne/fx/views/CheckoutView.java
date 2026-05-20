@@ -1,5 +1,6 @@
 package com.lotuslaverne.fx.views;
 
+import com.lotuslaverne.service.CheckoutService;
 import com.lotuslaverne.util.ConnectDB;
 import com.lotuslaverne.util.SessionContext;
 import javafx.beans.property.SimpleStringProperty;
@@ -193,9 +194,8 @@ public class CheckoutView {
                 btn.setOnAction(ev -> {
                     soTienNhap[0] += val;
                     programmatic[0] = true;
-                    tfManual.setText(FMT.format((long) soTienNhap[0]));
-                    programmatic[0] = false;
                     lblSoTienNhap.setText(FMT.format((long) soTienNhap[0]));
+                    programmatic[0] = false;
                     updateTienThua(soTienNhap, lblRows, step3);
                 });
                 GridPane.setHgrow(btn, Priority.ALWAYS);
@@ -215,9 +215,8 @@ public class CheckoutView {
         btnXoa.setOnAction(ev -> {
             soTienNhap[0] = 0;
             programmatic[0] = true;
-            tfManual.setText("");
-            programmatic[0] = false;
             lblSoTienNhap.setText("0");
+            programmatic[0] = false;
             updateTienThua(soTienNhap, lblRows, step3);
         });
 
@@ -244,8 +243,6 @@ public class CheckoutView {
                 btnXoa.setVisible(isCash); btnXoa.setManaged(isCash);
                 lblNhapTitle.setVisible(isCash); lblNhapTitle.setManaged(isCash);
                 lblSoTienNhap.setVisible(isCash); lblSoTienNhap.setManaged(isCash);
-                lblNhapTayTitle.setVisible(isCash); lblNhapTayTitle.setManaged(isCash);
-                tfManual.setVisible(isCash); tfManual.setManaged(isCash);
                 if (!isCash) { soTienNhap[0] = Math.max(0, tongTienFinal - datCocFinal); updateTienThua(soTienNhap, lblRows, step3); }
             });
             htBtns[idx] = btn;
@@ -258,7 +255,7 @@ public class CheckoutView {
         HBox goiYRow = new HBox(8);
 
         leftCol.getChildren().addAll(lblHTTitle, htRow, lblNhapTitle, lblSoTienNhap,
-                lblNhapTayTitle, tfManual, lblMenhGia, gridDenom, btnXoa, lblGoiY, goiYRow);
+                lblMenhGia, gridDenom, btnXoa, lblGoiY, goiYRow);
 
         // ── Cột phải: tóm tắt ───────────────────────────────────────────────
         VBox rightCol = new VBox(12);
@@ -354,8 +351,7 @@ public class CheckoutView {
             // Gợi ý tiền mặt: exact + 2 mức làm tròn lên
             goiYRow.getChildren().clear();
             soTienNhap[0] = 0;
-            programmatic[0] = true; tfManual.setText(""); programmatic[0] = false;
-            lblSoTienNhap.setText("0");
+            programmatic[0] = true; lblSoTienNhap.setText(""); programmatic[0] = false;
             long exact = (long) tongPhaiThu;
             long r1 = roundUp(exact, 10_000);
             long r2 = roundUp(exact, 50_000);
@@ -367,8 +363,7 @@ public class CheckoutView {
                         + "-fx-font-weight:bold;-fx-cursor:hand;");
                 b.setOnAction(ev -> {
                     soTienNhap[0] = hint;
-                    programmatic[0] = true; tfManual.setText(FMT.format(hint)); programmatic[0] = false;
-                    lblSoTienNhap.setText(FMT.format(hint));
+                    programmatic[0] = true; lblSoTienNhap.setText(FMT.format(hint)); programmatic[0] = false;
                     long thua = hint - exact;
                     lblTienThua.setText(FMT.format(Math.max(0, thua)));
                     lblConThuVal.setText(thua >= 0 ? "0 đ" : FMT.format(-thua) + " đ");
@@ -397,8 +392,13 @@ public class CheckoutView {
                 return;
             }
             errLbl3.setVisible(false); errLbl3.setManaged(false);
-            boolean ok = doCheckout(selectedPhieu[0], selectedHT[0]);
-            if (!ok) {
+            try {
+                String maNV = SessionContext.getInstance().getMaNhanVien();
+                new CheckoutService().checkout(selectedPhieu[0], maNV, selectedHT[0], "");
+            } catch (IllegalArgumentException ex) {
+                alert(Alert.AlertType.ERROR, "Lỗi Checkout", "❌ " + ex.getMessage());
+                return;
+            } catch (Exception ex) {
                 alert(Alert.AlertType.ERROR, "Lỗi Checkout",
                         "❌ Checkout thất bại!\nVui lòng kiểm tra kết nối database và thử lại.");
                 return;
@@ -599,117 +599,6 @@ public class CheckoutView {
             } catch (Exception ignored) {}
         }
         return 0;
-    }
-
-    private boolean doCheckout(String maPDP, String hinhThuc) {
-        Connection con = ConnectDB.getInstance().getConnection();
-        if (con == null) return false;
-        try {
-            con.setAutoCommit(false);
-
-            // 1. Load tiền cọc đã thu
-            double datCoc = 0;
-            try (PreparedStatement pst = con.prepareStatement(
-                    "SELECT ISNULL(SUM(soTienCoc),0) FROM PhieuThu WHERE maPhieuDatPhong=?")) {
-                pst.setString(1, maPDP);
-                ResultSet rs = pst.executeQuery();
-                if (rs.next()) datCoc = rs.getDouble(1);
-            }
-
-            String maNV = SessionContext.getInstance().getMaNhanVien();
-            double tienThanhToan = Math.max(0, tongTienFinal - datCoc);
-            String maHD = "HD" + java.util.UUID.randomUUID().toString().replace("-", "").substring(0, 8).toUpperCase();
-
-            // 2. Cập nhật phiếu đặt phòng
-            try (PreparedStatement pst = con.prepareStatement(
-                    "UPDATE PhieuDatPhong SET trangThai=N'DaCheckOut', thoiGianTraThucTe=GETDATE() WHERE maPhieuDatPhong=?")) {
-                pst.setString(1, maPDP);
-                pst.executeUpdate();
-            }
-
-            // 3. Cập nhật trạng thái phòng
-            try (PreparedStatement pst = con.prepareStatement(
-                    "UPDATE Phong SET trangThai=N'PhongCanDon' WHERE maPhong IN "
-                    + "(SELECT maPhong FROM ChiTietPhieuDatPhong WHERE maPhieuDatPhong=?)")) {
-                pst.setString(1, maPDP);
-                pst.executeUpdate();
-            }
-
-            // 4. Tạo hóa đơn
-            try (PreparedStatement pst = con.prepareStatement(
-                    "INSERT INTO HoaDon (maHoaDon,ngayLap,maNhanVienLap,maPhieuDatPhong,"
-                    + "ngayThanhToan,tienKhuyenMai,tienThanhToan,phuongThucThanhToan,ghiChu) "
-                    + "VALUES (?,GETDATE(),?,?,GETDATE(),0,?,?,N'')")) {
-                pst.setString(1, maHD);
-                pst.setString(2, maNV);
-                pst.setString(3, maPDP);
-                pst.setDouble(4, tienThanhToan);
-                pst.setString(5, hinhThuc);
-                pst.executeUpdate();
-            }
-
-            // 5. Chi tiết hóa đơn — tiền phòng
-            if (tienPhongFinal > 0) {
-                try (PreparedStatement pst = con.prepareStatement(
-                        "INSERT INTO ChiTietHoaDon (maHoaDon,loaiTien,moTa,donGia,soLuong,thanhTien) VALUES (?,N'TienPhong',?,?,?,?)")) {
-                    double donGia = soNgayFinal > 0 ? tienPhongFinal / soNgayFinal : tienPhongFinal;
-                    pst.setString(1, maHD);
-                    pst.setString(2, "Tiền phòng (" + soNgayFinal + " đêm)");
-                    pst.setDouble(3, donGia);
-                    pst.setInt(4, (int) soNgayFinal);
-                    pst.setDouble(5, tienPhongFinal);
-                    pst.executeUpdate();
-                }
-            }
-
-            // 6. Chi tiết hóa đơn — từng dịch vụ
-            try (PreparedStatement qry = con.prepareStatement(
-                    "SELECT dv.tenDichVu, ctdv.soLuong, dv.donGia, (ctdv.soLuong*dv.donGia) "
-                    + "FROM ChiTietDichVu ctdv JOIN DichVu dv ON dv.maDichVu=ctdv.maDichVu "
-                    + "WHERE ctdv.maPhieuDatPhong=?")) {
-                qry.setString(1, maPDP);
-                ResultSet rs = qry.executeQuery();
-                while (rs.next()) {
-                    try (PreparedStatement ins = con.prepareStatement(
-                            "INSERT INTO ChiTietHoaDon (maHoaDon,loaiTien,moTa,donGia,soLuong,thanhTien) VALUES (?,N'TienDichVu',?,?,?,?)")) {
-                        ins.setString(1, maHD);
-                        ins.setString(2, rs.getString(1));
-                        ins.setDouble(3, rs.getDouble(3));
-                        ins.setInt(4, rs.getInt(2));
-                        ins.setDouble(5, rs.getDouble(4));
-                        ins.executeUpdate();
-                    }
-                }
-            }
-
-            // 7. Chi tiết hóa đơn — tiền cọc (ghi âm để trừ)
-            if (datCoc > 0) {
-                try (PreparedStatement pst = con.prepareStatement(
-                        "INSERT INTO ChiTietHoaDon (maHoaDon,loaiTien,moTa,donGia,soLuong,thanhTien) VALUES (?,N'TienCoc',N'Tiền cọc đã thu',?,1,?)")) {
-                    pst.setString(1, maHD);
-                    pst.setDouble(2, -datCoc);
-                    pst.setDouble(3, -datCoc);
-                    pst.executeUpdate();
-                }
-            }
-
-            // 8. Liên kết PhieuThu với HoaDon vừa tạo
-            try (PreparedStatement pst = con.prepareStatement(
-                    "UPDATE PhieuThu SET maHoaDon=? WHERE maPhieuDatPhong=? AND maHoaDon IS NULL")) {
-                pst.setString(1, maHD);
-                pst.setString(2, maPDP);
-                pst.executeUpdate();
-            }
-
-            con.commit();
-            return true;
-        } catch (Exception e) {
-            try { con.rollback(); } catch (Exception ignored) {}
-            e.printStackTrace();
-            return false;
-        } finally {
-            try { con.setAutoCommit(true); } catch (Exception ignored) {}
-        }
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────

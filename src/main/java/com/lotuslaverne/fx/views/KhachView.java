@@ -151,10 +151,6 @@ public class KhachView {
                 // Chế độ THÊM
                 String maKH = "KH" + UUID.randomUUID().toString().substring(0,4).toUpperCase();
                 KhachHang kh = buildFromForm(maKH);
-                System.out.println("[DEBUG] Thêm KH: ma=" + kh.getMaKH()
-                    + ", ten=" + kh.getHoTenKH()
-                    + ", cmnd=" + kh.getCmnd()
-                    + ", sdt=" + kh.getSoDienThoai());
                 KhachHangDAO dao = new KhachHangDAO();
                 try {
                     boolean ok = dao.themKhachHang(kh);
@@ -162,6 +158,7 @@ public class KhachView {
                         Object[] row = {maKH, ten, sdt, cccd, cbGioiTinh.getValue(),
                             tfNgaySinh.getText().trim(), tfDiaChi.getText().trim(), tfQuocTich.getText().trim()};
                         items.add(row);
+
                         refreshCards(); resetForm(); updateCount();
                         new Alert(Alert.AlertType.INFORMATION, "Thêm khách hàng thành công!\nMã: " + maKH).showAndWait();
                     } else {

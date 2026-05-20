@@ -239,10 +239,13 @@ public class DichVuPhongView {
         try {
             List<Object[]> rows = dichVuDAO.getChiTietDichVuByPhieu(maPDP);
             chiTietItems.addAll(rows);
-            // Tính tổng
+            // Tính tổng trực tiếp từ soLuong (int) × đơn giá (formatted string)
             double tong = rows.stream().mapToDouble(r -> {
-                try { return Double.parseDouble(r[4].toString().replace(",", "")); }
-                catch (Exception ex) { return 0; }
+                try {
+                    int sl = ((Number) r[2]).intValue();
+                    double dg = Double.parseDouble(r[3].toString().replace(",", ""));
+                    return sl * dg;
+                } catch (Exception ex) { return 0; }
             }).sum();
             lblTongPhatSinh.setText("Tổng phát sinh: " + MONEY.format(tong) + "đ");
         } catch (Exception ignored) {}

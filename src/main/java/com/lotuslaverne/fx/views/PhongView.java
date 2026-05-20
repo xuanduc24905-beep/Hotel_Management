@@ -2,13 +2,16 @@ package com.lotuslaverne.fx.views;
 
 import com.lotuslaverne.dao.KhachHangDAO;
 import com.lotuslaverne.dao.LoaiPhongDAO;
-import com.lotuslaverne.dao.PhieuDatPhongDAO;
 import com.lotuslaverne.dao.PhongDAO;
 import com.lotuslaverne.entity.KhachHang;
 import com.lotuslaverne.entity.LoaiPhong;
 import com.lotuslaverne.entity.Phong;
 import com.lotuslaverne.fx.MainLayout;
+import com.lotuslaverne.service.CheckInService;
+import com.lotuslaverne.service.DatPhongService;
+import com.lotuslaverne.service.HuyDatService;
 import com.lotuslaverne.util.ConnectDB;
+import com.lotuslaverne.util.SessionContext;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -24,7 +27,6 @@ import javafx.scene.layout.*;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
 
-import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -60,21 +62,6 @@ public class PhongView {
         return list;
     }
 
-    // col[9] = tienNghi (String)
-    private static final Object[][] DEMO_ROOMS = {
-        {"P101","101","Standard","Phòng Đơn",    550_000,"Trống",    "",               "",          1,"WiFi,TV"},
-        {"P102","102","Standard","Phòng Đôi",    750_000,"Đang Thuê","Nguyễn Văn An",  "25/04/2026",1,"WiFi,TV,Điều Hòa"},
-        {"P103","103","Deluxe",  "Phòng Đôi",    950_000,"Cần Dọn",  "",               "",          1,"WiFi,TV,Điều Hòa,Bồn Tắm"},
-        {"P104","104","Suite",   "Phòng Suite",1_500_000,"Đang Dọn", "",               "",          1,"WiFi,TV,Điều Hòa,Bồn Tắm,Ban Công,Mini Bar"},
-        {"P201","201","Standard","Phòng Đơn",    550_000,"Trống",    "",               "",          2,"WiFi"},
-        {"P202","202","Deluxe",  "Phòng Đôi",    950_000,"Đang Thuê","Trần Thị Bình",  "26/04/2026",2,"WiFi,TV,Điều Hòa"},
-        {"P203","203","Family",  "Phòng Gia Đình",1_200_000,"Trống", "",               "",          2,"WiFi,TV,Bồn Tắm"},
-        {"P204","204","Suite",   "Phòng Suite",1_500_000,"Đang Thuê","Lê Hoàng Cường", "27/04/2026",2,"WiFi,TV,Điều Hòa,Mini Bar"},
-        {"P301","301","Standard","Phòng Đơn",    550_000,"Cần Dọn",  "",               "",          3,"WiFi"},
-        {"P302","302","Deluxe",  "Phòng Đôi",    950_000,"Trống",    "",               "",          3,"WiFi,TV,Điều Hòa,Ban Công"},
-        {"P303","303","Family",  "Phòng Gia Đình",1_200_000,"Đang Thuê","Phạm Thị Dung","28/04/2026",3,"WiFi,TV,Bồn Tắm"},
-        {"P304","304","Suite",   "Phòng Suite",1_500_000,"Trống",    "",               "",          3,"WiFi,TV,Điều Hòa,Bồn Tắm,Ban Công,Mini Bar"},
-    };
 
     // Instance fields for refresh
     private ScrollPane roomsScroll;
@@ -673,25 +660,19 @@ public class PhongView {
         confirm.showAndWait().ifPresent(btn -> {
             if (btn != ButtonType.OK) return;
             try {
-                boolean ok = new PhieuDatPhongDAO().checkIn(finalMaPDP);
-                if (ok) {
-                    refreshRoomCards();
-                    refreshTable();
-                    Alert success = new Alert(Alert.AlertType.INFORMATION,
-                            "✅ Check-in thành công!\nKhách: " + finalTenKH
-                            + "\nPhiếu: " + finalMaPDP
-                            + "\nTrạng thái phòng → Đang có khách.");
-                    success.setHeaderText(null); success.setTitle("Check-in Thành Công");
-                    success.showAndWait();
-                } else {
-                    Alert err = new Alert(Alert.AlertType.ERROR,
-                            "Check-in thất bại!\nPhiếu có thể đã được xử lý hoặc không hợp lệ.");
-                    err.setHeaderText(null); err.setTitle("Lỗi Check-in"); err.showAndWait();
-                }
+                new CheckInService().checkIn(finalMaPDP);
+                refreshRoomCards();
+                refreshTable();
+                Alert success = new Alert(Alert.AlertType.INFORMATION,
+                        "✅ Check-in thành công!\nKhách: " + finalTenKH
+                        + "\nPhiếu: " + finalMaPDP
+                        + "\nTrạng thái phòng → Đang có khách.");
+                success.setHeaderText(null); success.setTitle("Check-in Thành Công");
+                success.showAndWait();
             } catch (Exception ex) {
                 Alert err = new Alert(Alert.AlertType.ERROR,
-                        "Lỗi kết nối: " + ex.getMessage());
-                err.setHeaderText(null); err.setTitle("Lỗi Kết Nối"); err.showAndWait();
+                        "Check-in thất bại: " + ex.getMessage());
+                err.setHeaderText(null); err.setTitle("Lỗi Check-in"); err.showAndWait();
             }
         });
     }
@@ -830,42 +811,16 @@ public class PhongView {
 
             try {
                 String maPDP = "PDP" + UUID.randomUUID().toString().substring(0, 5).toUpperCase();
-                com.lotuslaverne.entity.PhieuDatPhong pdp = new com.lotuslaverne.entity.PhieuDatPhong(
-                    maPDP, maKH, "NV001", soNguoi,
-                    Timestamp.valueOf(dpNhan.getValue().atStartOfDay()),
-                    Timestamp.valueOf(dpTra.getValue().atStartOfDay()), ""
-                );
-                if (new PhieuDatPhongDAO().lapPhieuDat(pdp)) {
-                    Connection ctCon = ConnectDB.getInstance().getConnection();
-                    if (ctCon != null) {
-                        double donGia = 0;
-                        try (PreparedStatement pstGia = ctCon.prepareStatement(
-                                "SELECT ISNULL(bg.donGia,0) FROM Phong p "
-                                + "LEFT JOIN BangGia bg ON bg.maLoaiPhong=p.maLoaiPhong "
-                                + "AND bg.loaiThue='QuaDem' AND GETDATE() BETWEEN bg.ngayBatDau AND bg.ngayKetThuc "
-                                + "WHERE p.maPhong=?")) {
-                            pstGia.setString(1, maPhong);
-                            ResultSet rsGia = pstGia.executeQuery();
-                            if (rsGia.next()) donGia = rsGia.getDouble(1);
-                        } catch (Exception exGia) { exGia.printStackTrace(); }
-                        try (PreparedStatement pstCT = ctCon.prepareStatement(
-                                "INSERT INTO ChiTietPhieuDatPhong (maPhieuDatPhong, maPhong, donGia) VALUES (?,?,?)")) {
-                            pstCT.setString(1, maPDP);
-                            pstCT.setString(2, maPhong);
-                            pstCT.setDouble(3, donGia);
-                            pstCT.executeUpdate();
-                        } catch (Exception exCT) { exCT.printStackTrace(); }
-                    }
-                    dialog.close();
-                    refreshRoomCards();
-                    refreshTable();
-                    alert("Thành công", "Đặt phòng thành công!\nMã phiếu: " + maPDP + "\nKhách: " + maKH);
-                } else {
-                    errLbl.setText("Lỗi! Kiểm tra mã phòng hoặc lịch trùng.");
-                    errLbl.setVisible(true); errLbl.setManaged(true);
-                }
+                new DatPhongService().datPhong(
+                    maPDP, maKH, soNguoi, maPhong,
+                    dpNhan.getValue(), dpTra.getValue(), "", "TrucTiep",
+                    null, null, null);
+                dialog.close();
+                refreshRoomCards();
+                refreshTable();
+                alert("Thành công", "Đặt phòng thành công!\nMã phiếu: " + maPDP + "\nKhách: " + maKH);
             } catch (Exception ex) {
-                errLbl.setText("Lỗi kết nối DB. Kiểm tra máy chủ.");
+                errLbl.setText("Lỗi: " + ex.getMessage());
                 errLbl.setVisible(true); errLbl.setManaged(true);
             }
         });
@@ -882,19 +837,7 @@ public class PhongView {
 
     /** Tra cứu khách theo SĐT từ DB */
     private KhachHang lookupKhachBySDT(String sdt) {
-        Connection con = ConnectDB.getInstance().getConnection();
-        if (con == null || sdt == null || sdt.isEmpty()) return null;
-        try (PreparedStatement pst = con.prepareStatement(
-                "SELECT maKH, hoTenKH, soDienThoai, cmnd FROM KhachHang WHERE soDienThoai = ?")) {
-            pst.setString(1, sdt);
-            try (ResultSet rs = pst.executeQuery()) {
-                if (rs.next()) {
-                    return new KhachHang(rs.getString("maKH"), rs.getString("hoTenKH"),
-                            rs.getString("soDienThoai"), rs.getString("cmnd"));
-                }
-            }
-        } catch (Exception ignored) {}
-        return null;
+        return new KhachHangDAO().findBySdt(sdt);
     }
 
     /** Dialog sửa thông tin phòng */
@@ -939,14 +882,14 @@ public class PhongView {
             String dbStatus = switch (cbTT.getValue()) {
                 case "Trống"        -> "PhongTrong";
                 case "Chờ Check-in" -> "PhongTrong";
-                case "Đang Thuê"    -> "PhongDat";
+                case "Đang Thuê"    -> "DangSuDung";
                 case "Cần Dọn"     -> "PhongCanDon";
-                case "Đang Dọn"    -> "DangDon";
-                case "Bảo Trì"     -> "BaoTri";
-                default             -> cbTT.getValue();
+                case "Đang Dọn"    -> "PhongCanDon";
+                case "Bảo Trì"     -> "BaoDuong";
+                default             -> "PhongTrong";
             };
             try {
-                new PhongDAO().capNhatTrangThai(maPhong, dbStatus);
+                new com.lotuslaverne.service.PhongService().capNhatTrangThai(maPhong, dbStatus);
             } catch (Exception ignored) {}
             dialog.close();
             refreshRoomCards();
@@ -1353,7 +1296,7 @@ public class PhongView {
             phong.setSoNguoiToiDa(sucChua);
             phong.setMoTa        (taMotA.getText().trim());
             try {
-                new PhongDAO().themPhong(phong);
+                new com.lotuslaverne.service.PhongService().themPhong(phong);
             } catch (Exception ex) {
                 errLbl.setText("Lỗi DB: " + ex.getMessage());
                 errLbl.setVisible(true); errLbl.setManaged(true); return;
@@ -1456,7 +1399,6 @@ public class PhongView {
                 return result;
             }
         } catch (Exception ignored) {}
-        for (Object[] r : DEMO_ROOMS) result.add(r);
         return result;
     }
 
@@ -1678,14 +1620,12 @@ public class PhongView {
         dlg.getButtonTypes().setAll(btnXacNhan, btnHuy, btnCancel);
 
         final String fMaPDP = maPDP, fTenKH = tenKH;
+        com.lotuslaverne.service.PhongService phongSvc = new com.lotuslaverne.service.PhongService();
         dlg.showAndWait().ifPresent(btn -> {
             if (btn == btnXacNhan) {
-                Connection c = ConnectDB.getInstance().getConnection();
-                if (c == null) { alert("Lỗi", "Không kết nối DB."); return; }
-                try (PreparedStatement pst = c.prepareStatement(
-                        "UPDATE PhieuDatPhong SET trangThai=N'DaDat' WHERE maPhieuDatPhong=?")) {
-                    pst.setString(1, fMaPDP); pst.executeUpdate();
-                } catch (Exception ex) { alert("Lỗi", ex.getMessage()); return; }
+                if (!phongSvc.xacNhanChuyenKhoan(fMaPDP)) {
+                    alert("Lỗi", "Không thể xác nhận, kiểm tra kết nối DB."); return;
+                }
                 refreshRoomCards(); refreshTable();
                 Alert ok = new Alert(Alert.AlertType.INFORMATION,
                         "✅ Xác nhận thành công!\nKhách: " + fTenKH + "\nPhiếu: " + fMaPDP
@@ -1696,12 +1636,12 @@ public class PhongView {
                         "Hủy giữ chỗ phòng " + maPhong + " cho khách " + fTenKH + "?\nPhòng sẽ trở về trạng thái Trống.");
                 confirmHuy.showAndWait().ifPresent(b2 -> {
                     if (b2 != ButtonType.OK) return;
-                    Connection c = ConnectDB.getInstance().getConnection();
-                    if (c == null) { alert("Lỗi", "Không kết nối DB."); return; }
-                    try (PreparedStatement pst = c.prepareStatement(
-                            "UPDATE PhieuDatPhong SET trangThai=N'HuyDat' WHERE maPhieuDatPhong=?")) {
-                        pst.setString(1, fMaPDP); pst.executeUpdate();
-                    } catch (Exception ex) { alert("Lỗi", ex.getMessage()); return; }
+                    try {
+                        new HuyDatService().huyDat(fMaPDP,
+                                SessionContext.getInstance().getMaNhanVien());
+                    } catch (Exception ex) {
+                        alert("Lỗi", "Không thể hủy: " + ex.getMessage()); return;
+                    }
                     refreshRoomCards(); refreshTable();
                 });
             }
@@ -1834,12 +1774,6 @@ public class PhongView {
                 while (rs.next())
                     result.add(new Object[]{rs.getString(1), rs.getString(2), rs.getString(3), rs.getString(4)});
             } catch (Exception ignored) {}
-        }
-        if (result.isEmpty()) {
-            for (Object[] r : DEMO_ROOMS) {
-                if ("Cần Dọn".equals(r[5]))
-                    result.add(new Object[]{r[0], r[1], r[2], "—"});
-            }
         }
         return result;
     }

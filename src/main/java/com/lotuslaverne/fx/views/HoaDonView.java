@@ -2,6 +2,7 @@ package com.lotuslaverne.fx.views;
 
 import com.lotuslaverne.dao.HoaDonDAO;
 import com.lotuslaverne.entity.HoaDon;
+import com.lotuslaverne.service.HoaDonService;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -13,9 +14,6 @@ import javafx.scene.layout.*;
 
 import java.io.File;
 import java.io.FileWriter;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
 import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
 import java.time.LocalDateTime;
@@ -24,13 +22,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class HoaDonView {
-
-    private static final Object[][] DEMO_HD = {
-        {"HD001","24/04/2026 08:00","NV001","PDP001","24/04/2026 10:00","100.000","850.000","Tiền Mặt","Checkout"},
-        {"HD002","23/04/2026 11:30","NV002","PDP002","23/04/2026 12:00","200.000","1.500.000","Chuyển Khoản","Checkout"},
-        {"HD003","22/04/2026 09:00","NV001","PDP003","22/04/2026 09:30","0","750.000","Tiền Mặt",""},
-        {"HD004","21/04/2026 14:00","NV003","PDP004","21/04/2026 15:00","300.000","2.700.000","Chuyển Khoản","Checkout"},
-    };
 
     private ObservableList<Object[]> items;
     private TableView<Object[]> table;
@@ -339,6 +330,7 @@ public class HoaDonView {
 
     private List<Object[]> loadData() {
         List<Object[]> result = new ArrayList<>();
+        HoaDonService hoaDonService = new HoaDonService();
         try {
             HoaDonDAO dao = new HoaDonDAO();
             List<HoaDon> list = dao.getAll();
@@ -346,14 +338,7 @@ public class HoaDonView {
                 SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy HH:mm");
                 DecimalFormat df = new DecimalFormat("#,###");
                 for (HoaDon hd : list) {
-                    // Dịch phương thức sang tiếng Việt khi hiển thị
-                    String phuongThuc = switch (hd.getPhuongThucThanhToan() != null
-                            ? hd.getPhuongThucThanhToan() : "") {
-                        case "TienMat"    -> "Tiền Mặt";
-                        case "ChuyenKhoan"-> "Chuyển Khoản";
-                        default -> hd.getPhuongThucThanhToan() != null
-                                ? hd.getPhuongThucThanhToan() : "—";
-                    };
+                    String phuongThuc = hoaDonService.dichPhuongThuc(hd.getPhuongThucThanhToan());
                     result.add(new Object[]{
                         hd.getMaHoaDon(),
                         hd.getNgayLap()       != null ? sdf.format(hd.getNgayLap())       : "—",
@@ -369,7 +354,6 @@ public class HoaDonView {
                 return result;
             }
         } catch (Exception ignored) {}
-        for (Object[] r : DEMO_HD) result.add(r);
         return result;
     }
 
@@ -379,6 +363,7 @@ public class HoaDonView {
     }
 
     // ─── Xuất PDF từ hóa đơn đã lưu trong DB ───────────────────────
+    @SuppressWarnings("unchecked")
     private void handleExportPdf() {
         Object[] sel = table.getSelectionModel().getSelectedItem();
         if (sel == null) {
@@ -387,84 +372,28 @@ public class HoaDonView {
         }
         String maHD = sel[0].toString();
         try {
-            Connection con = com.lotuslaverne.util.ConnectDB.getInstance().getConnection();
-            if (con == null) {
-                new Alert(Alert.AlertType.ERROR, "Không kết nối được CSDL!").showAndWait(); return;
+            Object[] d = new HoaDonService().layChiTietHoaDon(maHD);
+            if (d == null) {
+                new Alert(Alert.AlertType.ERROR, "Không tìm thấy hóa đơn hoặc mất kết nối DB!").showAndWait();
+                return;
             }
+            String maPDP      = (String)  d[0];
+            String tenKH      = (String)  d[1];
+            String maPhong    = (String)  d[2];
+            String tenPhong   = (String)  d[3];
+            String loaiPhong  = (String)  d[4];
+            String tgNhan     = (String)  d[5];
+            String tgTra      = (String)  d[6];
+            long   soNgay     = (long)    d[7];
+            double donGia     = (double)  d[8];
+            double tamTinh    = (double)  d[9];
+            double khuyenMai  = (double)  d[10];
+            double tongTien   = (double)  d[11];
+            String phuongThuc = (String)  d[12];
+            String tenNV      = (String)  d[14];
+            List<Object[]> dvList   = (List<Object[]>) d[15];
+            double phatSinhDV       = (double) d[16];
 
-            // Query thông tin chi tiết hóa đơn
-            String sql = "SELECT hd.maHoaDon, hd.maPhieuDatPhong, hd.tienKhuyenMai, hd.tienThanhToan, "
-                + "hd.phuongThucThanhToan, hd.ghiChu, hd.maNhanVienLap, "
-                + "kh.hoTenKH, ct.maPhong, p.tenPhong, lp.tenLoaiPhong, ct.donGia, "
-                + "pdp.thoiGianNhanThucTe, pdp.thoiGianNhanDuKien, pdp.thoiGianTraThucTe "
-                + "FROM HoaDon hd "
-                + "JOIN PhieuDatPhong pdp ON hd.maPhieuDatPhong = pdp.maPhieuDatPhong "
-                + "JOIN KhachHang kh ON pdp.maKhachHang = kh.maKH "
-                + "JOIN ChiTietPhieuDatPhong ct ON pdp.maPhieuDatPhong = ct.maPhieuDatPhong "
-                + "JOIN Phong p ON ct.maPhong = p.maPhong "
-                + "JOIN LoaiPhong lp ON p.maLoaiPhong = lp.maLoaiPhong "
-                + "WHERE hd.maHoaDon = ?";
-
-            String maPDP = "", tenKH = "Khách lẻ", maPhong = "", tenPhong = "", loaiPhong = "";
-            String tgNhan = "", tgTra = "", tenNV = "";
-            long soNgay = 1; double donGia = 0, tamTinhPhong = 0, khuyenMai = 0, tongTien = 0;
-            String phuongThuc = "", ghiChu = "";
-            SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy HH:mm");
-
-            try (PreparedStatement pst = con.prepareStatement(sql)) {
-                pst.setString(1, maHD);
-                try (ResultSet rs = pst.executeQuery()) {
-                    if (rs.next()) {
-                        maPDP = rs.getString("maPhieuDatPhong");
-                        tenKH = rs.getString("hoTenKH");
-                        maPhong = rs.getString("maPhong");
-                        tenPhong = rs.getString("tenPhong");
-                        loaiPhong = rs.getString("tenLoaiPhong");
-                        donGia = rs.getDouble("donGia");
-                        khuyenMai = rs.getDouble("tienKhuyenMai");
-                        tongTien = rs.getDouble("tienThanhToan");
-                        phuongThuc = rs.getString("phuongThucThanhToan");
-                        ghiChu = rs.getString("ghiChu") != null ? rs.getString("ghiChu") : "";
-                        tenNV = rs.getString("maNhanVienLap");
-
-                        java.sql.Timestamp tsNhan = rs.getTimestamp("thoiGianNhanThucTe");
-                        if (tsNhan == null) tsNhan = rs.getTimestamp("thoiGianNhanDuKien");
-                        java.sql.Timestamp tsTra = rs.getTimestamp("thoiGianTraThucTe");
-                        tgNhan = tsNhan != null ? sdf.format(tsNhan) : "N/A";
-                        tgTra = tsTra != null ? sdf.format(tsTra) : "N/A";
-                        if (tsNhan != null && tsTra != null) {
-                            long ms = tsTra.getTime() - tsNhan.getTime();
-                            soNgay = Math.max(1, ms / (24 * 3600000));
-                        }
-                        tamTinhPhong = donGia * soNgay;
-                    }
-                }
-            }
-
-            // Query dịch vụ phát sinh
-            double phatSinhDV = 0;
-            List<Object[]> dvList = new ArrayList<>();
-            String sqlDV = "SELECT dv.tenDichVu, ctdv.soLuong, dv.donGia, (ctdv.soLuong * dv.donGia) AS thanhTien "
-                + "FROM ChiTietDichVu ctdv JOIN DichVu dv ON ctdv.maDichVu = dv.maDichVu "
-                + "WHERE ctdv.maPhieuDatPhong = ?";
-            try (PreparedStatement pst2 = con.prepareStatement(sqlDV)) {
-                pst2.setString(1, maPDP);
-                try (ResultSet rs2 = pst2.executeQuery()) {
-                    DecimalFormat df = new DecimalFormat("#,###");
-                    while (rs2.next()) {
-                        double tt = rs2.getDouble("thanhTien");
-                        phatSinhDV += tt;
-                        dvList.add(new Object[]{
-                            rs2.getString("tenDichVu"),
-                            String.valueOf(rs2.getInt("soLuong")),
-                            df.format(rs2.getDouble("donGia")),
-                            df.format(tt)
-                        });
-                    }
-                }
-            }
-
-            // Hiển FileChooser để chọn nơi lưu
             javafx.stage.FileChooser fc = new javafx.stage.FileChooser();
             fc.setTitle("Lưu Hóa Đơn PDF");
             fc.setInitialFileName(maHD + ".pdf");
@@ -473,14 +402,13 @@ public class HoaDonView {
             File file = fc.showSaveDialog(null);
             if (file == null) return;
 
-            // Map phương thức sang tiếng Việt
             String ptDisplay = "TienMat".equals(phuongThuc) ? "Tiền Mặt"
                              : "ChuyenKhoan".equals(phuongThuc) ? "Chuyển Khoản" : phuongThuc;
 
             com.lotuslaverne.util.PdfExporter.xuatHoaDon(
                 file.getAbsolutePath(), maHD, maPDP,
                 tenKH, maPhong, tenPhong, loaiPhong, tgNhan, tgTra, soNgay, donGia,
-                tamTinhPhong, dvList, phatSinhDV, khuyenMai, tongTien, ptDisplay, tenNV);
+                tamTinh, dvList, phatSinhDV, khuyenMai, tongTien, ptDisplay, tenNV);
 
             if (java.awt.Desktop.isDesktopSupported()) java.awt.Desktop.getDesktop().open(file);
 

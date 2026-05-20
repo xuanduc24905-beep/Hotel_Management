@@ -1,6 +1,6 @@
 package com.lotuslaverne.fx.views;
 
-import com.lotuslaverne.util.ConnectDB;
+import com.lotuslaverne.service.BaoCaoService;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
@@ -8,13 +8,8 @@ import javafx.scene.chart.*;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
 
-import java.sql.Connection;
-import java.sql.Date;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
 import java.text.DecimalFormat;
 import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 
@@ -159,50 +154,17 @@ public class BaoCaoView {
         HBox row = new HBox(16);
         row.setAlignment(Pos.TOP_LEFT);
 
-        Date sqlFrom = Date.valueOf(from);
-        Date sqlTo   = Date.valueOf(to);
+        double[] stats = new BaoCaoService().getStatCards(from, to);
+        double doanhThu      = stats[0];
+        double doanhThuTruoc = stats[1];
+        int    tongPhieu     = (int) stats[2];
+        int    soHuy         = (int) stats[3];
+        int    luotKhach     = (int) stats[4];
+        double avgStay       = stats[5];
 
-        // Doanh thu kỳ này
-        double doanhThu = querySum(
-            "SELECT ISNULL(SUM(tienThanhToan),0) FROM HoaDon "
-            + "WHERE CAST(ngayLap AS DATE) BETWEEN ? AND ?",
-            sqlFrom, sqlTo);
-
-        // Doanh thu kỳ trước (cùng độ dài)
-        long kDays = ChronoUnit.DAYS.between(from, to) + 1;
-        double doanhThuTruoc = querySum(
-            "SELECT ISNULL(SUM(tienThanhToan),0) FROM HoaDon "
-            + "WHERE CAST(ngayLap AS DATE) BETWEEN ? AND ?",
-            Date.valueOf(from.minusDays(kDays)), Date.valueOf(from.minusDays(1)));
-        String dtDelta = pctChange(doanhThu, doanhThuTruoc);
-
-        // Tổng phiếu đặt và số hủy
-        int tongPhieu = (int) querySum(
-            "SELECT COUNT(*) FROM PhieuDatPhong "
-            + "WHERE CAST(thoiGianNhanDuKien AS DATE) BETWEEN ? AND ?",
-            sqlFrom, sqlTo);
-        int soHuy = (int) querySum(
-            "SELECT COUNT(*) FROM PhieuDatPhong "
-            + "WHERE trangThai=N'HuyDat' AND CAST(thoiGianNhanDuKien AS DATE) BETWEEN ? AND ?",
-            sqlFrom, sqlTo);
-        String huyRate = tongPhieu == 0 ? "0 hủy" :
+        String dtDelta  = pctChange(doanhThu, doanhThuTruoc);
+        String huyRate  = tongPhieu == 0 ? "0 hủy" :
             soHuy + " hủy (" + String.format("%.0f%%", soHuy * 100.0 / tongPhieu) + ")";
-
-        // Lượt khách check-in thực tế
-        int luotKhach = (int) querySum(
-            "SELECT COUNT(DISTINCT maKH) FROM PhieuDatPhong "
-            + "WHERE trangThai IN (N'DaCheckIn',N'DaCheckOut') "
-            + "AND CAST(thoiGianNhanThucTe AS DATE) BETWEEN ? AND ?",
-            sqlFrom, sqlTo);
-
-        // Số đêm lưu trú trung bình
-        double avgStay = querySum(
-            "SELECT ISNULL(AVG(CAST(DATEDIFF(day, thoiGianNhanThucTe, "
-            + "ISNULL(thoiGianTraThucTe, GETDATE())) AS FLOAT)), 0) "
-            + "FROM PhieuDatPhong "
-            + "WHERE trangThai IN (N'DaCheckIn',N'DaCheckOut') "
-            + "AND CAST(thoiGianNhanThucTe AS DATE) BETWEEN ? AND ?",
-            sqlFrom, sqlTo);
 
         row.getChildren().addAll(
             makeStatCard("Doanh Thu Kỳ",   MONEY.format((long) doanhThu) + "đ",
@@ -240,9 +202,10 @@ public class BaoCaoView {
         Label title = new Label(byMonth ? "Doanh Thu Theo Tháng" : "Doanh Thu Theo Ngày");
         title.setStyle("-fx-font-size:14px;-fx-font-weight:bold;-fx-text-fill:#1A1A2E;");
 
+        BaoCaoService svc = new BaoCaoService();
         Map<String, Double> data = byMonth
-                ? queryRevenueByMonth(from, to)
-                : queryRevenueByDay(from, to);
+                ? svc.getRevenueByMonth(from, to)
+                : svc.getRevenueByDay(from, to);
 
         double max = data.values().stream().mapToDouble(Double::doubleValue).max().orElse(1_000_000);
         double upperBound = Math.max(1, Math.ceil(max / 1_000_000.0 / 5) * 5);
@@ -272,7 +235,7 @@ public class BaoCaoView {
         Label title = new Label("Lượt Đặt Theo Loại Phòng");
         title.setStyle("-fx-font-size:14px;-fx-font-weight:bold;-fx-text-fill:#1A1A2E;");
 
-        Map<String, Integer> data = queryTopLoaiPhong(from, to);
+        Map<String, Integer> data = new BaoCaoService().getTopLoaiPhong(from, to);
         if (data.isEmpty()) {
             Label empty = new Label("Chưa có dữ liệu đặt phòng trong kỳ");
             empty.setStyle("-fx-text-fill:#8C8C8C;-fx-padding:40;");
@@ -308,7 +271,7 @@ public class BaoCaoView {
         Label title = new Label("Doanh Thu Theo Hình Thức Thanh Toán");
         title.setStyle("-fx-font-size:14px;-fx-font-weight:bold;-fx-text-fill:#1A1A2E;");
 
-        Map<String, Double> data = queryRevenueByPayment(from, to);
+        Map<String, Double> data = new BaoCaoService().getRevenueByPayment(from, to);
         if (data.isEmpty()) {
             Label empty = new Label("Chưa có hóa đơn nào trong kỳ này");
             empty.setStyle("-fx-text-fill:#8C8C8C;-fx-padding:20;");
@@ -365,118 +328,6 @@ public class BaoCaoView {
 
         card.getChildren().addAll(title, rows, totalRow);
         return card;
-    }
-
-    // ─── DB QUERIES ──────────────────────────────────────────────────────────
-
-    /** Doanh thu từng ngày trong khoảng [from, to] — dùng khi ≤ 31 ngày. */
-    private Map<String, Double> queryRevenueByDay(LocalDate from, LocalDate to) {
-        Map<String, Double> result = new LinkedHashMap<>();
-        DateTimeFormatter fmt = DateTimeFormatter.ofPattern("dd/MM");
-        for (long i = 0; i <= ChronoUnit.DAYS.between(from, to); i++)
-            result.put(from.plusDays(i).format(fmt), 0.0);
-
-        Connection con = ConnectDB.getInstance().getConnection();
-        if (con == null) return result;
-        String sql = "SELECT CAST(ngayLap AS DATE), ISNULL(SUM(tienThanhToan),0) "
-                   + "FROM HoaDon "
-                   + "WHERE CAST(ngayLap AS DATE) BETWEEN ? AND ? "
-                   + "GROUP BY CAST(ngayLap AS DATE) "
-                   + "ORDER BY 1";
-        try (PreparedStatement pst = con.prepareStatement(sql)) {
-            pst.setDate(1, Date.valueOf(from));
-            pst.setDate(2, Date.valueOf(to));
-            try (ResultSet rs = pst.executeQuery()) {
-                while (rs.next())
-                    result.put(rs.getDate(1).toLocalDate().format(fmt), rs.getDouble(2));
-            }
-        } catch (Exception ignored) {}
-        return result;
-    }
-
-    /** Doanh thu từng tháng trong khoảng [from, to] — dùng khi > 31 ngày. */
-    private Map<String, Double> queryRevenueByMonth(LocalDate from, LocalDate to) {
-        Map<String, Double> result = new LinkedHashMap<>();
-        DateTimeFormatter fmt = DateTimeFormatter.ofPattern("MM/yyyy");
-        LocalDate cur = from.withDayOfMonth(1);
-        while (!cur.isAfter(to)) { result.put(cur.format(fmt), 0.0); cur = cur.plusMonths(1); }
-
-        Connection con = ConnectDB.getInstance().getConnection();
-        if (con == null) return result;
-        String sql = "SELECT YEAR(ngayLap), MONTH(ngayLap), ISNULL(SUM(tienThanhToan),0) "
-                   + "FROM HoaDon "
-                   + "WHERE CAST(ngayLap AS DATE) BETWEEN ? AND ? "
-                   + "GROUP BY YEAR(ngayLap), MONTH(ngayLap) "
-                   + "ORDER BY 1, 2";
-        try (PreparedStatement pst = con.prepareStatement(sql)) {
-            pst.setDate(1, Date.valueOf(from));
-            pst.setDate(2, Date.valueOf(to));
-            try (ResultSet rs = pst.executeQuery()) {
-                while (rs.next())
-                    result.put(String.format("%02d/%04d", rs.getInt(2), rs.getInt(1)), rs.getDouble(3));
-            }
-        } catch (Exception ignored) {}
-        return result;
-    }
-
-    /** Top 5 loại phòng được đặt nhiều nhất trong kỳ. */
-    private Map<String, Integer> queryTopLoaiPhong(LocalDate from, LocalDate to) {
-        Map<String, Integer> result = new LinkedHashMap<>();
-        Connection con = ConnectDB.getInstance().getConnection();
-        if (con == null) return result;
-        String sql = "SELECT TOP 5 lp.tenLoaiPhong, COUNT(*) "
-                   + "FROM ChiTietPhieuDatPhong ct "
-                   + "JOIN Phong p         ON p.maPhong         = ct.maPhong "
-                   + "JOIN LoaiPhong lp    ON lp.maLoaiPhong     = p.maLoaiPhong "
-                   + "JOIN PhieuDatPhong pdp ON pdp.maPhieuDatPhong = ct.maPhieuDatPhong "
-                   + "WHERE CAST(pdp.thoiGianNhanDuKien AS DATE) BETWEEN ? AND ? "
-                   + "GROUP BY lp.tenLoaiPhong "
-                   + "ORDER BY 2 DESC";
-        try (PreparedStatement pst = con.prepareStatement(sql)) {
-            pst.setDate(1, Date.valueOf(from));
-            pst.setDate(2, Date.valueOf(to));
-            try (ResultSet rs = pst.executeQuery()) {
-                while (rs.next()) result.put(rs.getString(1), rs.getInt(2));
-            }
-        } catch (Exception ignored) {}
-        return result;
-    }
-
-    /** Tổng doanh thu theo từng hình thức thanh toán trong kỳ. */
-    private Map<String, Double> queryRevenueByPayment(LocalDate from, LocalDate to) {
-        Map<String, Double> result = new LinkedHashMap<>();
-        Connection con = ConnectDB.getInstance().getConnection();
-        if (con == null) return result;
-        String sql = "SELECT ISNULL(phuongThucThanhToan, N'Khác'), ISNULL(SUM(tienThanhToan),0) "
-                   + "FROM HoaDon "
-                   + "WHERE CAST(ngayLap AS DATE) BETWEEN ? AND ? "
-                   + "GROUP BY phuongThucThanhToan "
-                   + "ORDER BY 2 DESC";
-        try (PreparedStatement pst = con.prepareStatement(sql)) {
-            pst.setDate(1, Date.valueOf(from));
-            pst.setDate(2, Date.valueOf(to));
-            try (ResultSet rs = pst.executeQuery()) {
-                while (rs.next()) result.put(rs.getString(1), rs.getDouble(2));
-            }
-        } catch (Exception ignored) {}
-        return result;
-    }
-
-    /**
-     * Query trả về 1 số (SUM, COUNT, AVG...) với 2 tham số Date.
-     * Dùng cho tất cả stat card queries để tránh lặp code.
-     */
-    private double querySum(String sql, Date from, Date to) {
-        Connection con = ConnectDB.getInstance().getConnection();
-        if (con == null) return 0;
-        try (PreparedStatement pst = con.prepareStatement(sql)) {
-            pst.setDate(1, from);
-            pst.setDate(2, to);
-            try (ResultSet rs = pst.executeQuery()) {
-                if (rs.next()) return rs.getDouble(1);
-            }
-        } catch (Exception ignored) {}
-        return 0;
     }
 
     // ─── STYLE HELPERS ───────────────────────────────────────────────────────

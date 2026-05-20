@@ -1,14 +1,14 @@
 package com.lotuslaverne.fx.views;
 
 import com.lotuslaverne.dao.BangGiaDAO;
-import com.lotuslaverne.dao.HoaDonDAO;
+import com.lotuslaverne.dao.DichVuDAO;
 import com.lotuslaverne.dao.KhuyenMaiDAO;
 import com.lotuslaverne.dao.PhieuDatPhongDAO;
-import com.lotuslaverne.dao.PhongDAO;
 import com.lotuslaverne.entity.HoaDon;
 import com.lotuslaverne.entity.KhuyenMai;
 import com.lotuslaverne.entity.PhieuDatPhong;
-import com.lotuslaverne.util.ConnectDB;
+import com.lotuslaverne.service.CheckoutService;
+import com.lotuslaverne.util.SessionContext;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.geometry.Insets;
@@ -17,13 +17,9 @@ import javafx.scene.Node;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
 import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
 import java.util.List;
-import java.util.UUID;
 
 public class ThanhToanView {
 
@@ -228,31 +224,10 @@ public class ThanhToanView {
     private double loadDichVuPhatSinh(String maPDP) {
         dvItems.clear();
         double total = 0;
-        Connection con = ConnectDB.getInstance().getConnection();
-        if (con == null) return 0;
-        String sql =
-            "SELECT dv.tenDichVu, ctdv.soLuong, dv.donGia, (ctdv.soLuong * dv.donGia) AS thanhTien " +
-            "FROM ChiTietDichVu ctdv " +
-            "JOIN DichVu dv ON dv.maDichVu = ctdv.maDichVu " +
-            "WHERE ctdv.maPhieuDatPhong = ?";
-        DecimalFormat df = new DecimalFormat("#,###");
-        try (PreparedStatement pst = con.prepareStatement(sql)) {
-            pst.setString(1, maPDP);
-            try (ResultSet rs = pst.executeQuery()) {
-                while (rs.next()) {
-                    int sl = rs.getInt("soLuong");
-                    double gia = rs.getDouble("donGia");
-                    double tt  = rs.getDouble("thanhTien");
-                    total += tt;
-                    dvItems.add(new Object[]{
-                        rs.getString("tenDichVu"),
-                        String.valueOf(sl),
-                        df.format(gia),
-                        df.format(tt)
-                    });
-                }
-            }
-        } catch (Exception ignored) {}
+        for (Object[] row : new DichVuDAO().loadByPhieu(maPDP)) {
+            total += (double) row[4];
+            dvItems.add(new Object[]{row[0], row[1], row[2], row[3]});
+        }
         return total;
     }
 
@@ -299,24 +274,10 @@ public class ThanhToanView {
 
             double donGia = 0;
             try {
-                Connection con = ConnectDB.getInstance().getConnection();
-                if (con != null) {
-                    try (PreparedStatement pst = con.prepareStatement(
-                            "SELECT ph.maLoaiPhong FROM ChiTietPhieuDatPhong ct "
-                            + "JOIN Phong ph ON ct.maPhong=ph.maPhong WHERE ct.maPhieuDatPhong=?")) {
-                        pst.setString(1, maPDP);
-                        try (ResultSet rs = pst.executeQuery()) {
-                            if (rs.next()) {
-                                String maLP = rs.getString("maLoaiPhong");
-                                BangGiaDAO bgDAO = new BangGiaDAO();
-                                donGia = bgDAO.getGiaHienTai(maLP, "QuaDem");
-                                if (donGia == 0) donGia = bgDAO.getGiaHienTai(maLP, "TheoNgay");
-                            }
-                        }
-                    }
-                }
+                String maPhongTinh = new PhieuDatPhongDAO().getMaPhong(maPDP);
+                if (!maPhongTinh.isEmpty()) donGia = new BangGiaDAO().getDonGiaQuaDem(maPhongTinh);
             } catch (Exception ignored) {}
-            if (donGia == 0) donGia = 200_000;
+            if (donGia == 0) throw new IllegalStateException("Không tìm thấy giá phòng hiệu lực cho phòng này!");
 
             tamTinhPhong  = soNgay * donGia;
             phatSinhDV    = loadDichVuPhatSinh(maPDP);
@@ -369,7 +330,6 @@ public class ThanhToanView {
         if (maPDP.isEmpty()) {
             alert(Alert.AlertType.WARNING, "Thiếu Thông Tin", "Vui lòng nhập mã phiếu đặt phòng!"); return;
         }
-        String maHD = "HD" + UUID.randomUUID().toString().substring(0, 6).toUpperCase();
         String phuongThucDB = switch (cbPhuongThuc.getValue()) {
             case "Chuyển Khoản" -> "ChuyenKhoan";
             default -> "TienMat";
@@ -384,26 +344,22 @@ public class ThanhToanView {
         confirm.setTitle("Thanh Toán");
         confirm.showAndWait().ifPresent(btn -> {
             if (btn != ButtonType.OK) return;
-            HoaDon hd = new HoaDon(maHD, "NV001", maPDP, discountAmount, currentTotal,
-                    phuongThucDB, "Checkout - " + cbPhuongThuc.getValue());
             try {
-                boolean hdOk = new HoaDonDAO().taoHoaDon(hd);
-                if (hdOk) {
-                    new PhieuDatPhongDAO().checkOut(maPDP);
-                    String maPhong = layMaPhong(maPDP);
-                    if (!maPhong.isEmpty()) new PhongDAO().capNhatTrangThai(maPhong, "PhongCanDon");
-                    xuatPDF(maHD, maPDP, maPhong);
-                    alert(Alert.AlertType.INFORMATION, "Thanh Toán Hoàn Tất ✅",
-                            "Thanh toán thành công!\nMã hóa đơn: " + maHD
-                            + "\nTổng tiền: " + new DecimalFormat("#,###").format(currentTotal) + " VNĐ"
-                            + "\nPhiếu đặt phòng: Đã Check-out"
-                            + "\nTrạng thái phòng → Cần dọn."
-                            + "\n\n📄 Hóa đơn PDF đã được lưu!");
-                    resetForm();
-                } else {
-                    alert(Alert.AlertType.ERROR, "Lỗi",
-                            "Lỗi tạo hóa đơn!\nKiểm tra mã phiếu hoặc cấu hình Database.");
-                }
+                String maNV = SessionContext.getInstance().getMaNhanVien();
+                HoaDon hd = new CheckoutService().checkout(
+                        maPDP, maNV, phuongThucDB, "Checkout - " + cbPhuongThuc.getValue());
+                String maHD    = hd.getMaHoaDon();
+                String maPhong = layMaPhong(maPDP);
+                xuatPDF(maHD, maPDP, maPhong);
+                alert(Alert.AlertType.INFORMATION, "Thanh Toán Hoàn Tất ✅",
+                        "Thanh toán thành công!\nMã hóa đơn: " + maHD
+                        + "\nTổng tiền: " + new DecimalFormat("#,###").format(hd.getTienThanhToan()) + " VNĐ"
+                        + "\nPhiếu đặt phòng: Đã Check-out"
+                        + "\nTrạng thái phòng → Cần dọn."
+                        + "\n\n📄 Hóa đơn PDF đã được lưu!");
+                resetForm();
+            } catch (IllegalArgumentException ex) {
+                alert(Alert.AlertType.ERROR, "Lỗi", ex.getMessage());
             } catch (Exception ex) {
                 alert(Alert.AlertType.ERROR, "Lỗi Kết Nối", "Lỗi kết nối cơ sở dữ liệu: " + ex.getMessage());
             }
@@ -414,34 +370,18 @@ public class ThanhToanView {
         try {
             String tenKH = "Khach le", tenPhong = maPhong, loaiPhong = "", tgNhan = "", tgTra = "";
             long soNgay = 1; double donGia = 0;
-            Connection con = ConnectDB.getInstance().getConnection();
-            if (con != null) {
-                String sql = "SELECT kh.hoTenKH, p.tenPhong, lp.tenLoaiPhong, "
-                    + "pdp.thoiGianNhanThucTe, pdp.thoiGianNhanDuKien, pdp.thoiGianTraThucTe, ct.donGia "
-                    + "FROM PhieuDatPhong pdp "
-                    + "JOIN KhachHang kh ON pdp.maKhachHang = kh.maKH "
-                    + "JOIN ChiTietPhieuDatPhong ct ON pdp.maPhieuDatPhong = ct.maPhieuDatPhong "
-                    + "JOIN Phong p ON ct.maPhong = p.maPhong "
-                    + "JOIN LoaiPhong lp ON p.maLoaiPhong = lp.maLoaiPhong "
-                    + "WHERE pdp.maPhieuDatPhong = ?";
-                try (PreparedStatement pst = con.prepareStatement(sql)) {
-                    pst.setString(1, maPDP);
-                    try (ResultSet rs = pst.executeQuery()) {
-                        if (rs.next()) {
-                            tenKH = rs.getString("hoTenKH");
-                            tenPhong = rs.getString("tenPhong");
-                            loaiPhong = rs.getString("tenLoaiPhong");
-                            java.sql.Timestamp tsNhan = rs.getTimestamp("thoiGianNhanThucTe");
-                            if (tsNhan == null) tsNhan = rs.getTimestamp("thoiGianNhanDuKien");
-                            java.sql.Timestamp tsTra = rs.getTimestamp("thoiGianTraThucTe");
-                            SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy HH:mm");
-                            tgNhan = tsNhan != null ? sdf.format(tsNhan) : "N/A";
-                            tgTra = tsTra != null ? sdf.format(tsTra) : sdf.format(new java.util.Date());
-                            donGia = rs.getDouble("donGia");
-                            if (tsNhan != null) { long ms = System.currentTimeMillis() - tsNhan.getTime(); soNgay = Math.max(1, ms / (24 * 3600000)); }
-                        }
-                    }
-                }
+            Object[] info = new PhieuDatPhongDAO().getInfoForPdf(maPDP);
+            if (info != null) {
+                tenKH    = (String) info[0];
+                tenPhong = (String) info[1];
+                loaiPhong = (String) info[2];
+                java.sql.Timestamp tsNhan = (java.sql.Timestamp) info[3];
+                java.sql.Timestamp tsTra  = (java.sql.Timestamp) info[4];
+                donGia = (double) info[5];
+                SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy HH:mm");
+                tgNhan = tsNhan != null ? sdf.format(tsNhan) : "N/A";
+                tgTra  = tsTra  != null ? sdf.format(tsTra)  : sdf.format(new java.util.Date());
+                if (tsNhan != null) { long ms = System.currentTimeMillis() - tsNhan.getTime(); soNgay = Math.max(1, ms / (24 * 3600000)); }
             }
             if (donGia == 0 && tamTinhPhong > 0 && soNgay > 0) donGia = tamTinhPhong / soNgay;
             javafx.stage.FileChooser fc = new javafx.stage.FileChooser();
@@ -456,7 +396,7 @@ public class ThanhToanView {
             com.lotuslaverne.util.PdfExporter.xuatHoaDon(file.getAbsolutePath(), maHD, maPDP,
                 tenKH, maPhong, tenPhong, loaiPhong, tgNhan, tgTra, soNgay, donGia,
                 tamTinhPhong, dvList, phatSinhDV, discountAmount, currentTotal,
-                cbPhuongThuc.getValue(), "NV001");
+                cbPhuongThuc.getValue(), SessionContext.getInstance().getMaNhanVien());
             if (java.awt.Desktop.isDesktopSupported()) java.awt.Desktop.getDesktop().open(file);
         } catch (Exception ex) {
             ex.printStackTrace();
@@ -477,18 +417,7 @@ public class ThanhToanView {
     }
 
     private String layMaPhong(String maPDP) {
-        try {
-            Connection con = ConnectDB.getInstance().getConnection();
-            if (con == null) return "";
-            try (PreparedStatement pst = con.prepareStatement(
-                    "SELECT maPhong FROM ChiTietPhieuDatPhong WHERE maPhieuDatPhong=?")) {
-                pst.setString(1, maPDP);
-                try (ResultSet rs = pst.executeQuery()) {
-                    if (rs.next()) return rs.getString("maPhong");
-                }
-            }
-        } catch (Exception ignored) {}
-        return "";
+        return new PhieuDatPhongDAO().getMaPhong(maPDP);
     }
 
     private TextField field(String val) {

@@ -1,6 +1,7 @@
 package com.lotuslaverne.fx.views;
 
 import com.lotuslaverne.dao.PhieuDatPhongDAO;
+import com.lotuslaverne.service.CheckInService;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -15,13 +16,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class CheckInView {
-
-    /** Dữ liệu demo khi DB offline */
-    private static final Object[][] DEMO_DATA = {
-        {"PDP001", "Phạm Minh Đức",  "NV002", "2", "24/04/2026 14:00", "27/04/2026 12:00", "", "P101"},
-        {"PDP002", "Hoàng Thị Em",   "NV002", "1", "25/04/2026 13:00", "28/04/2026 12:00", "Phòng nhìn ra biển", "P102"},
-        {"PDP003", "Vũ Quốc Phong",  "NV001", "3", "25/04/2026 15:00", "30/04/2026 12:00", "Thêm giường phụ", "P201"},
-    };
 
     private ObservableList<Object[]> items;
     private TableView<Object[]> table;
@@ -185,17 +179,14 @@ public class CheckInView {
         confirm.showAndWait().ifPresent(btn -> {
             if (btn == ButtonType.OK) {
                 try {
-                    boolean ok = new PhieuDatPhongDAO().checkIn(maPDP);
-                    if (ok) {
-                        alert(Alert.AlertType.INFORMATION, "Check-in Thành Công",
-                                "✅ Check-in thành công!\nKhách: " + tenKhach
-                                + "\nTrạng thái phòng → Đang có khách.\nPhiếu: " + maPDP);
-                        items.setAll(loadData());
-                        table.setItems(items);
-                    } else {
-                        alert(Alert.AlertType.ERROR, "Lỗi Check-in",
-                                "Check-in thất bại!\nPhiếu có thể đã được check-in hoặc không hợp lệ.\nKiểm tra lại trạng thái phiếu.");
-                    }
+                    new CheckInService().checkIn(maPDP);
+                    alert(Alert.AlertType.INFORMATION, "Check-in Thành Công",
+                            "✅ Check-in thành công!\nKhách: " + tenKhach
+                            + "\nTrạng thái phòng → Đang có khách.\nPhiếu: " + maPDP);
+                    items.setAll(loadData());
+                    table.setItems(items);
+                } catch (IllegalStateException ex) {
+                    alert(Alert.AlertType.ERROR, "Lỗi Check-in", ex.getMessage());
                 } catch (Exception ex) {
                     alert(Alert.AlertType.ERROR, "Lỗi Kết Nối", "Không thể kết nối cơ sở dữ liệu!\n" + ex.getMessage());
                 }
@@ -203,30 +194,23 @@ public class CheckInView {
         });
     }
 
-    /** Load dữ liệu từ DB (JOIN sẵn KhachHang), fallback về demo nếu offline */
     private List<Object[]> loadData() {
         List<Object[]> result = new ArrayList<>();
         SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy HH:mm");
-        List<Object[]> joined = new PhieuDatPhongDAO().getChuaCheckInJoined();
-        if (!joined.isEmpty()) {
-            for (Object[] row : joined) {
-                java.sql.Timestamp tNhan = (java.sql.Timestamp) row[4];
-                java.sql.Timestamp tTra  = (java.sql.Timestamp) row[5];
-                result.add(new Object[]{
-                    row[0],
-                    row[1] != null ? row[1] : "—",
-                    row[2],
-                    String.valueOf(row[3]),
-                    tNhan != null ? sdf.format(tNhan) : "—",
-                    tTra  != null ? sdf.format(tTra)  : "—",
-                    row[6] != null ? row[6] : "",
-                    row.length > 7 && row[7] != null ? row[7] : "—"
-                });
-            }
-            return result;
+        for (Object[] row : new PhieuDatPhongDAO().getChuaCheckInJoined()) {
+            java.sql.Timestamp tNhan = (java.sql.Timestamp) row[4];
+            java.sql.Timestamp tTra  = (java.sql.Timestamp) row[5];
+            result.add(new Object[]{
+                row[0],
+                row[1] != null ? row[1] : "—",
+                row[2],
+                String.valueOf(row[3]),
+                tNhan != null ? sdf.format(tNhan) : "—",
+                tTra  != null ? sdf.format(tTra)  : "—",
+                row[6] != null ? row[6] : "",
+                row.length > 7 && row[7] != null ? row[7] : "—"
+            });
         }
-        // Demo khi DB offline
-        for (Object[] r : DEMO_DATA) result.add(r);
         return result;
     }
 

@@ -15,9 +15,9 @@ public class HoaDon {
 
     public HoaDon() {}
 
-    public HoaDon(String maHoaDon, String maNhanVienLap, String maPhieuDatPhong,
-                  double tienKhuyenMai, double tienThanhToan,
-                  String phuongThucThanhToan, String ghiChu) {
+    HoaDon(String maHoaDon, String maNhanVienLap, String maPhieuDatPhong,
+           double tienKhuyenMai, double tienThanhToan,
+           String phuongThucThanhToan, String ghiChu) {
         this.maHoaDon = maHoaDon;
         this.ngayLap = new Timestamp(System.currentTimeMillis());
         this.ngayThanhToan = this.ngayLap;
@@ -27,6 +27,15 @@ public class HoaDon {
         this.tienThanhToan = tienThanhToan;
         this.phuongThucThanhToan = phuongThucThanhToan;
         this.ghiChu = ghiChu;
+    }
+
+    public static HoaDon taoTuCheckout(String maPhieuDatPhong, String maNhanVien,
+            double tienKhuyenMai, double tienThanhToan,
+            String phuongThuc, String ghiChu) {
+        String maHoaDon = "HD" + java.util.UUID.randomUUID()
+                .toString().replace("-", "").substring(0, 8).toUpperCase();
+        return new HoaDon(maHoaDon, maNhanVien, maPhieuDatPhong,
+                tienKhuyenMai, tienThanhToan, phuongThuc, ghiChu);
     }
 
     public String getMaHoaDon() { return maHoaDon; }

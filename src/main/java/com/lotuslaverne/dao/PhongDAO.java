@@ -6,6 +6,7 @@ import com.lotuslaverne.util.ConnectDB;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -26,6 +27,73 @@ public class PhongDAO {
             System.err.println("Load Phòng lỗi: " + e.getMessage());
         }
         return list;
+    }
+
+    /**
+     * Lấy tất cả phòng cho calendar gantt (chỉ cần maPhong và tenPhong).
+     * Trả về List của String[] {maPhong, tenPhong}.
+     */
+    public List<String[]> loadAllForCalendar() {
+        List<String[]> list = new ArrayList<>();
+        Connection con = ConnectDB.getInstance().getConnection();
+        if (con == null) return list;
+        try (PreparedStatement pst = con.prepareStatement(
+                "SELECT maPhong, ISNULL(tenPhong, maPhong) FROM Phong ORDER BY maPhong");
+             ResultSet rs = pst.executeQuery()) {
+            while (rs.next()) list.add(new String[]{rs.getString(1), rs.getString(2)});
+        } catch (Exception ignored) {}
+        return list;
+    }
+
+    /**
+     * Tìm phòng trống theo tiêu chí tìm kiếm.
+     * Trả về List của String[] {maPhong, tenPhong, tenLoaiPhong, donGia(formatted), tienNghi}.
+     */
+    public List<String[]> searchAvailable(String loai, LocalDate nd, LocalDate nt,
+                                          boolean wifi, boolean tv, boolean dh,
+                                          boolean bt, boolean bc, boolean mb) {
+        List<String[]> result = new ArrayList<>();
+        Connection con = ConnectDB.getInstance().getConnection();
+        if (con == null) return result;
+
+        StringBuilder sql = new StringBuilder(
+            "SELECT p.maPhong, ISNULL(p.tenPhong,p.maPhong), lp.tenLoaiPhong, "
+            + "ISNULL(bg.donGia,0), ISNULL(p.tienNghi,'') "
+            + "FROM Phong p "
+            + "LEFT JOIN LoaiPhong lp ON lp.maLoaiPhong=p.maLoaiPhong "
+            + "LEFT JOIN BangGia bg ON bg.maLoaiPhong=p.maLoaiPhong "
+            + "  AND bg.loaiThue=N'QuaDem' AND GETDATE() BETWEEN bg.ngayBatDau AND bg.ngayKetThuc "
+            + "WHERE p.trangThai=N'PhongTrong' "
+            + "AND p.maPhong NOT IN ("
+            + "  SELECT ct.maPhong FROM ChiTietPhieuDatPhong ct "
+            + "  JOIN PhieuDatPhong pdp ON pdp.maPhieuDatPhong=ct.maPhieuDatPhong "
+            + "  WHERE pdp.trangThai NOT IN (N'DaCheckOut',N'HuyDat') "
+            + "  AND pdp.thoiGianNhanDuKien<? AND pdp.thoiGianTraDuKien>?) ");
+        if (loai != null && !loai.equals("Tất cả")) sql.append("AND lp.tenLoaiPhong=? ");
+        if (wifi) sql.append("AND p.tienNghi LIKE N'%WiFi%' ");
+        if (tv)   sql.append("AND p.tienNghi LIKE N'%TV%' ");
+        if (dh)   sql.append("AND p.tienNghi LIKE N'%Điều Hòa%' ");
+        if (bt)   sql.append("AND p.tienNghi LIKE N'%Bồn Tắm%' ");
+        if (bc)   sql.append("AND p.tienNghi LIKE N'%Ban Công%' ");
+        if (mb)   sql.append("AND p.tienNghi LIKE N'%Mini Bar%' ");
+        sql.append("ORDER BY bg.donGia ASC");
+
+        try (PreparedStatement pst = con.prepareStatement(sql.toString())) {
+            pst.setTimestamp(1, java.sql.Timestamp.valueOf(nt.atStartOfDay()));
+            pst.setTimestamp(2, java.sql.Timestamp.valueOf(nd.atStartOfDay()));
+            if (loai != null && !loai.equals("Tất cả")) pst.setString(3, loai);
+            try (ResultSet rs = pst.executeQuery()) {
+                java.text.DecimalFormat df = new java.text.DecimalFormat("#,###");
+                while (rs.next()) {
+                    double gia = rs.getDouble(4);
+                    result.add(new String[]{
+                        rs.getString(1), rs.getString(2), rs.getString(3),
+                        df.format(gia), rs.getString(5) != null ? rs.getString(5) : ""
+                    });
+                }
+            }
+        } catch (Exception e) { e.printStackTrace(); }
+        return result;
     }
 
     /** Lọc phòng có chứa tiện nghi cụ thể (VD: "WiFi") */

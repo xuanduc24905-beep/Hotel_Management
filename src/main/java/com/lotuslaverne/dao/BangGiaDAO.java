@@ -102,6 +102,27 @@ public class BangGiaDAO {
         return list;
     }
 
+    /**
+     * Lấy đơn giá QuaDem hiện tại của một phòng (tra qua maLoaiPhong).
+     * Trả về 0 nếu không tìm thấy hoặc DB offline.
+     */
+    public double getDonGiaQuaDem(String maPhong) {
+        Connection con = ConnectDB.getInstance().getConnection();
+        if (con == null) return 0;
+        String sql = "SELECT bg.donGia FROM Phong p "
+                   + "LEFT JOIN BangGia bg ON bg.maLoaiPhong = p.maLoaiPhong "
+                   + "  AND bg.loaiThue = 'QuaDem' "
+                   + "  AND GETDATE() BETWEEN bg.ngayBatDau AND bg.ngayKetThuc "
+                   + "WHERE p.maPhong = ?";
+        try (PreparedStatement pst = con.prepareStatement(sql)) {
+            pst.setString(1, maPhong);
+            try (ResultSet rs = pst.executeQuery()) {
+                if (rs.next()) return rs.getDouble("donGia");
+            }
+        } catch (Exception ignored) {}
+        return 0;
+    }
+
     // ─────────────────── CREATE / UPDATE / DELETE ───────────────────
 
     public boolean them(BangGia bg) {

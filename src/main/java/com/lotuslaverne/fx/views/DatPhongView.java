@@ -1,10 +1,13 @@
 package com.lotuslaverne.fx.views;
 
+import com.lotuslaverne.dao.BangGiaDAO;
 import com.lotuslaverne.dao.KhachHangDAO;
+import com.lotuslaverne.dao.KhuyenMaiDAO;
+import com.lotuslaverne.dao.PhieuDatPhongDAO;
+import com.lotuslaverne.dao.PhieuThuDAO;
+import com.lotuslaverne.dao.PhongDAO;
 import com.lotuslaverne.entity.KhachHang;
-import com.lotuslaverne.entity.PhieuDatPhong;
-import com.lotuslaverne.util.ConnectDB;
-import com.lotuslaverne.util.SessionContext;
+import com.lotuslaverne.service.DatPhongService;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -14,17 +17,12 @@ import javafx.scene.Node;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.Timestamp;
 import java.text.DecimalFormat;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 
 public class DatPhongView {
 
@@ -240,45 +238,11 @@ public class DatPhongView {
     }
 
     private List<String[]> loadRoomsForCalendar() {
-        List<String[]> list = new ArrayList<>();
-        Connection con = ConnectDB.getInstance().getConnection();
-        if (con != null) {
-            try (PreparedStatement p = con.prepareStatement(
-                    "SELECT maPhong,tenPhong FROM Phong ORDER BY maPhong");
-                 ResultSet rs = p.executeQuery()) {
-                while (rs.next()) list.add(new String[]{rs.getString(1), rs.getString(2)});
-            } catch (Exception ignored) {}
-        }
-        if (list.isEmpty()) {
-            for (String[] d : new String[][]{{"P101","101"},{"P102","102"},{"P103","103"},
-                {"P201","201"},{"P202","202"},{"P301","301"}}) list.add(d);
-        }
-        return list;
+        return new PhongDAO().loadAllForCalendar();
     }
 
     private List<String[]> loadBookings(LocalDate from, LocalDate to) {
-        List<String[]> list = new ArrayList<>();
-        Connection con = ConnectDB.getInstance().getConnection();
-        if (con == null) return list;
-        String sql = "SELECT pdp.maPhieuDatPhong,ct.maPhong,kh.hoTenKH,"
-            +"pdp.thoiGianNhanDuKien,pdp.thoiGianTraDuKien,pdp.trangThai "
-            +"FROM PhieuDatPhong pdp "
-            +"JOIN ChiTietPhieuDatPhong ct ON ct.maPhieuDatPhong=pdp.maPhieuDatPhong "
-            +"JOIN KhachHang kh ON kh.maKH=pdp.maKhachHang "
-            +"WHERE pdp.trangThai NOT IN ('DaCheckOut','HuyDat') "
-            +"AND pdp.thoiGianNhanDuKien<? AND pdp.thoiGianTraDuKien>?";
-        try (PreparedStatement p = con.prepareStatement(sql)) {
-            p.setTimestamp(1, Timestamp.valueOf(to.atStartOfDay()));
-            p.setTimestamp(2, Timestamp.valueOf(from.atStartOfDay()));
-            try (ResultSet rs = p.executeQuery()) {
-                while (rs.next()) list.add(new String[]{
-                    rs.getString(1), rs.getString(2), rs.getString(3),
-                    rs.getTimestamp(4)!=null?rs.getTimestamp(4).toString().substring(0,10):"",
-                    rs.getTimestamp(5)!=null?rs.getTimestamp(5).toString().substring(0,10):"",
-                    rs.getString(6)});
-            }
-        } catch (Exception ignored) {}
-        return list;
+        return new PhieuDatPhongDAO().loadBookingsForCalendar(from, to);
     }
 
     private String[] findBooking(List<String[]> bks, String maPhong, LocalDate date) {
@@ -703,6 +667,10 @@ public class DatPhongView {
                     || !dpTra.getValue().isAfter(dpNhan.getValue())) {
                 showError(errLbl, "Ngày trả phải sau ngày nhận!"); return;
             }
+            if (!new PhieuDatPhongDAO().isPhongTrong(maPhong, dpNhan.getValue(), dpTra.getValue())) {
+                showError(errLbl, "Phòng " + maPhong + " đã có lịch đặt trùng khoảng ngày này!");
+                return;
+            }
             int soNguoi;
             try { soNguoi = Math.max(1, Integer.parseInt(txtSoKhach.getText().trim())); }
             catch (Exception ex) { soNguoi = 1; }
@@ -736,80 +704,34 @@ public class DatPhongView {
             final String finalMaKH2 = maKH;
             final String finalTenKH = txtTenKH.getText().trim().isEmpty() ? maKH : txtTenKH.getText().trim();
             try {
-                Timestamp tNhan = Timestamp.valueOf(dpNhan.getValue().atStartOfDay());
-                Timestamp tTra  = Timestamp.valueOf(dpTra.getValue().atStartOfDay());
-                String maPDP = "PDP" + UUID.randomUUID().toString().substring(0,5).toUpperCase();
-                String maNV = SessionContext.getInstance().getMaNhanVien();
-                PhieuDatPhong pdp = new PhieuDatPhong(maPDP, finalMaKH2, maNV,
-                        soNguoi, tNhan, tTra, txtGhiChu.getText().trim());
-                Connection ctCon = ConnectDB.getInstance().getConnection();
-                boolean datPhongOk = false;
-                if (ctCon != null) {
-                    try {
-                        ctCon.setAutoCommit(false);
-                        // INSERT PhieuDatPhong
-                        try (PreparedStatement pstPDP = ctCon.prepareStatement(
-                                "INSERT INTO PhieuDatPhong "
-                                + "(maPhieuDatPhong,ngayDat,maKhachHang,maNhanVien,soNguoi,"
-                                + "thoiGianNhanDuKien,thoiGianTraDuKien,hinhThucDat,trangThai,ghiChu) "
-                                + "VALUES (?,GETDATE(),?,?,?,?,?,N'TrucTiep',N'DaDat',?)")) {
-                            pstPDP.setString(1, pdp.getMaPhieuDatPhong());
-                            pstPDP.setString(2, pdp.getMaKhachHang());
-                            pstPDP.setString(3, pdp.getMaNhanVien());
-                            pstPDP.setInt(4, pdp.getSoNguoi());
-                            pstPDP.setTimestamp(5, pdp.getThoiGianNhanDuKien());
-                            pstPDP.setTimestamp(6, pdp.getThoiGianTraDuKien());
-                            pstPDP.setString(7, pdp.getGhiChu());
-                            pstPDP.executeUpdate();
-                        }
-                        // INSERT ChiTietPhieuDatPhong trong cùng transaction
-                        try (PreparedStatement pstCT = ctCon.prepareStatement(
-                                "INSERT INTO ChiTietPhieuDatPhong (maPhieuDatPhong, maPhong, donGia) VALUES (?,?,?)")) {
-                            pstCT.setString(1, maPDP);
-                            pstCT.setString(2, maPhong);
-                            pstCT.setDouble(3, selectedDonGia[0]);
-                            pstCT.executeUpdate();
-                        }
-                        // Nếu chờ chuyển khoản → cập nhật trạng thái phiếu
-                        if (isPending) {
-                            try (PreparedStatement pstS = ctCon.prepareStatement(
-                                    "UPDATE PhieuDatPhong SET trangThai=N'ChoThanhToan' WHERE maPhieuDatPhong=?")) {
-                                pstS.setString(1, maPDP); pstS.executeUpdate();
-                            }
-                        }
-                        ctCon.commit();
-                        datPhongOk = true;
-                    } catch (Exception exTx) {
-                        try { ctCon.rollback(); } catch (Exception ignored) {}
-                        exTx.printStackTrace();
-                    } finally {
-                        try { ctCon.setAutoCommit(true); } catch (Exception ignored) {}
-                    }
-                }
-                if (datPhongOk) {
-                    // Tính tổng cho phiếu thu
-                    long soDem = ChronoUnit.DAYS.between(dpNhan.getValue(), dpTra.getValue());
-                    double total = soDem * selectedDonGia[0];
-                    if (discountPct[0] > 0) total = total * (1 - discountPct[0]);
-                    final String fMaPDP   = maPDP;
-                    final String fMaPhong = maPhong;
-                    final long   fSoDem   = soDem;
-                    final double fTotal   = total;
-                    // Hiện phiếu thu cọc
-                    showPhieuThuCoc(fMaPDP, fMaPhong, finalTenKH, fSoDem,
-                            dpNhan.getValue(), dpTra.getValue(),
-                            selectedDonGia[0], fTotal, payMethod, isPending);
-                    // Reset về bước 1
-                    selectedMaPhong[0] = null; resolvedMaKH[0] = null;
-                    txtSDT.clear(); txtTenKH.clear(); txtCmnd.clear(); txtGhiChu.clear();
-                    txtSoKhach.setText("2"); cbLoai.setValue("Tất cả");
-                    dpNhan.setValue(LocalDate.now()); dpTra.setValue(LocalDate.now().plusDays(1));
-                    if (historyItems != null) historyItems.setAll(loadHistory());
-                    javafx.application.Platform.runLater(() -> scrollToStep(outer, step1));
-                } else {
-                    showError(errLbl, "Lỗi! Kiểm tra DB hoặc phòng đã bị đặt.");
-                }
-            } catch (Exception ex) { showError(errLbl, "Lỗi kết nối DB: " + ex.getMessage()); }
+                String maPDP = "PDP" + java.util.UUID.randomUUID().toString().substring(0, 5).toUpperCase();
+                long   soDem = Math.max(1, ChronoUnit.DAYS.between(dpNhan.getValue(), dpTra.getValue()));
+                double total = soDem * selectedDonGia[0];
+                if (discountPct[0] > 0) total = total * (1 - discountPct[0]);
+                String maPT   = new PhieuThuDAO().generateMaPT();
+
+                new DatPhongService().datPhong(
+                        maPDP, finalMaKH2, soNguoi,
+                        maPhong,
+                        dpNhan.getValue(), dpTra.getValue(),
+                        txtGhiChu.getText().trim(), "TrucTiep",
+                        maPT, payMethod, appliedKM[0]);
+
+                final long   fSoDem = soDem;
+                final double fTotal = total;
+                showPhieuThuCoc(maPDP, maPhong, finalTenKH, fSoDem,
+                        dpNhan.getValue(), dpTra.getValue(),
+                        selectedDonGia[0], fTotal, payMethod, isPending);
+                // Reset về bước 1
+                selectedMaPhong[0] = null; resolvedMaKH[0] = null;
+                txtSDT.clear(); txtTenKH.clear(); txtCmnd.clear(); txtGhiChu.clear();
+                txtSoKhach.setText("2"); cbLoai.setValue("Tất cả");
+                dpNhan.setValue(LocalDate.now()); dpTra.setValue(LocalDate.now().plusDays(1));
+                if (historyItems != null) historyItems.setAll(loadHistory());
+                javafx.application.Platform.runLater(() -> scrollToStep(outer, step1));
+            } catch (Exception ex) {
+                showError(errLbl, "Lỗi: " + ex.getMessage());
+            }
         });
 
         outer.getChildren().addAll(step1, step2, step3);
@@ -838,52 +760,7 @@ public class DatPhongView {
     private List<String[]> searchAvailableRooms(String loai, int soKhach,
             LocalDate nd, LocalDate nt,
             boolean wifi, boolean tv, boolean dh, boolean bt, boolean bc, boolean mb) {
-        List<String[]> result = new ArrayList<>();
-        Connection con = ConnectDB.getInstance().getConnection();
-        if (con == null) {
-            // Demo khi không có kết nối DB
-            result.add(new String[]{"P101","Phòng 101","Standard","500,000","WiFi, TV"});
-            result.add(new String[]{"P201","Phòng 201","Deluxe","750,000","WiFi, TV, Bồn Tắm"});
-            result.add(new String[]{"P301","Suite Hoàng Gia","Suite","1,500,000","WiFi, TV, Bồn Tắm, Ban Công"});
-            return result;
-        }
-        StringBuilder sql = new StringBuilder(
-            "SELECT p.maPhong, ISNULL(p.tenPhong,p.maPhong), lp.tenLoaiPhong, "
-            + "ISNULL(bg.donGia,0), ISNULL(p.tienNghi,'') "
-            + "FROM Phong p "
-            + "LEFT JOIN LoaiPhong lp ON lp.maLoaiPhong=p.maLoaiPhong "
-            + "LEFT JOIN BangGia bg ON bg.maLoaiPhong=p.maLoaiPhong "
-            + "  AND bg.loaiThue=N'QuaDem' AND GETDATE() BETWEEN bg.ngayBatDau AND bg.ngayKetThuc "
-            + "WHERE p.trangThai=N'PhongTrong' "
-            + "AND p.maPhong NOT IN ("
-            + "  SELECT ct.maPhong FROM ChiTietPhieuDatPhong ct "
-            + "  JOIN PhieuDatPhong pdp ON pdp.maPhieuDatPhong=ct.maPhieuDatPhong "
-            + "  WHERE pdp.trangThai NOT IN (N'DaCheckOut',N'HuyDat') "
-            + "  AND pdp.thoiGianNhanDuKien<? AND pdp.thoiGianTraDuKien>?) ");
-        if (loai != null && !loai.equals("Tất cả")) sql.append("AND lp.tenLoaiPhong=? ");
-        if (wifi) sql.append("AND p.tienNghi LIKE N'%WiFi%' ");
-        if (tv)   sql.append("AND p.tienNghi LIKE N'%TV%' ");
-        if (dh)   sql.append("AND p.tienNghi LIKE N'%Điều Hòa%' ");
-        if (bt)   sql.append("AND p.tienNghi LIKE N'%Bồn Tắm%' ");
-        if (bc)   sql.append("AND p.tienNghi LIKE N'%Ban Công%' ");
-        if (mb)   sql.append("AND p.tienNghi LIKE N'%Mini Bar%' ");
-        sql.append("ORDER BY bg.donGia ASC");
-        try (PreparedStatement pst = con.prepareStatement(sql.toString())) {
-            pst.setTimestamp(1, Timestamp.valueOf(nt.atStartOfDay()));
-            pst.setTimestamp(2, Timestamp.valueOf(nd.atStartOfDay()));
-            if (loai != null && !loai.equals("Tất cả")) pst.setString(3, loai);
-            try (ResultSet rs = pst.executeQuery()) {
-                DecimalFormat df = new DecimalFormat("#,###");
-                while (rs.next()) {
-                    double gia = rs.getDouble(4);
-                    result.add(new String[]{
-                        rs.getString(1), rs.getString(2), rs.getString(3),
-                        df.format(gia), rs.getString(5) != null ? rs.getString(5) : ""
-                    });
-                }
-            }
-        } catch (Exception e) { e.printStackTrace(); }
-        return result;
+        return new PhongDAO().searchAvailable(loai, nd, nt, wifi, tv, dh, bt, bc, mb);
     }
 
     private CheckBox amenity(String label) {
@@ -896,48 +773,19 @@ public class DatPhongView {
 
     /** Tra cứu mã khuyến mãi. Return [pct] >= 0 nếu hợp lệ, [-1] nếu không tìm thấy/hết hạn. */
     private double[] lookupKhuyenMai(String ma) {
-        Connection con = ConnectDB.getInstance().getConnection();
-        if (con != null) {
-            String sql = "SELECT phanTramGiam FROM KhuyenMai "
-                    + "WHERE maKhuyenMai=? AND GETDATE() BETWEEN ngayApDung AND ngayKetThuc";
-            try (PreparedStatement pst = con.prepareStatement(sql)) {
-                pst.setString(1, ma);
-                ResultSet rs = pst.executeQuery();
-                if (rs.next()) return new double[]{rs.getDouble(1) / 100.0};
-            } catch (Exception ignored) {}
-        }
-        // Demo offline: các mã thử
-        return switch (ma) {
-            case "SUMMER10" -> new double[]{0.10};
-            case "LOTUS20"  -> new double[]{0.20};
-            case "VIP30"    -> new double[]{0.30};
-            default         -> new double[]{-1};
-        };
+        double pct = new KhuyenMaiDAO().lookupByMa(ma);
+        return pct >= 0 ? new double[]{pct} : new double[]{-1};
     }
 
     /** Tra cứu khách hàng theo SĐT, trả về null nếu không tìm thấy. */
     private KhachHang lookupKhachBySDT(String sdt) {
-        Connection con = ConnectDB.getInstance().getConnection();
-        if (con == null || sdt == null || sdt.isEmpty()) return null;
-        try (PreparedStatement pst = con.prepareStatement(
-                "SELECT maKH, hoTenKH, soDienThoai, cmnd FROM KhachHang WHERE soDienThoai = ?")) {
-            pst.setString(1, sdt);
-            try (ResultSet rs = pst.executeQuery()) {
-                if (rs.next()) {
-                    return new KhachHang(rs.getString("maKH"), rs.getString("hoTenKH"),
-                            rs.getString("soDienThoai"), rs.getString("cmnd"));
-                }
-            }
-        } catch (Exception ignored) {}
-        return null;
+        return new KhachHangDAO().findBySdt(sdt);
     }
 
-    /** Tính chi phí ước tính: query BangGia QuaDem theo loại của phòng × số đêm */
+    /** Tính chi phí ước tính: BangGiaDAO.getDonGiaQuaDem × số đêm */
     private void tinhUocTinh(String maPhong, LocalDate ngayNhan, LocalDate ngayTra,
                               Label lblGia, Label lblDem, Label lblTong) {
         DecimalFormat money = new DecimalFormat("#,###");
-
-        // Validate cơ bản
         if (maPhong == null || maPhong.isEmpty()
                 || ngayNhan == null || ngayTra == null || !ngayTra.isAfter(ngayNhan)) {
             lblGia.setText("Đơn giá phòng: —");
@@ -945,36 +793,16 @@ public class DatPhongView {
             lblTong.setText("Tổng: —");
             return;
         }
-
         long soDem = Math.max(1, ChronoUnit.DAYS.between(ngayNhan, ngayTra));
         lblDem.setText("Số đêm: " + soDem);
-
-        // Query đơn giá QuaDem từ BangGia theo loại phòng
-        double donGia = 0;
-        Connection con = ConnectDB.getInstance().getConnection();
-        if (con != null) {
-            String sql = "SELECT bg.donGia FROM Phong p "
-                    + "LEFT JOIN BangGia bg ON bg.maLoaiPhong = p.maLoaiPhong "
-                    + "  AND bg.loaiThue = 'QuaDem' "
-                    + "  AND GETDATE() BETWEEN bg.ngayBatDau AND bg.ngayKetThuc "
-                    + "WHERE p.maPhong = ?";
-            try (PreparedStatement pst = con.prepareStatement(sql)) {
-                pst.setString(1, maPhong);
-                try (ResultSet rs = pst.executeQuery()) {
-                    if (rs.next()) donGia = rs.getDouble("donGia");
-                }
-            } catch (Exception ignored) {}
-        }
-
+        double donGia = new BangGiaDAO().getDonGiaQuaDem(maPhong);
         if (donGia == 0) {
             lblGia.setText("Đơn giá phòng: (không tìm thấy phòng " + maPhong + ")");
             lblTong.setText("Tổng: —");
             return;
         }
-
-        double tong = donGia * soDem;
         lblGia.setText("Đơn giá phòng: " + money.format(donGia) + " VNĐ / đêm");
-        lblTong.setText("Tổng ước tính: " + money.format(tong) + " VNĐ");
+        lblTong.setText("Tổng ước tính: " + money.format(donGia * soDem) + " VNĐ");
     }
 
     // ── Bảng lịch sử đặt phòng ──────────────────────────────────────────────
@@ -1106,41 +934,7 @@ public class DatPhongView {
     }
 
     private List<Object[]> loadHistory() {
-        List<Object[]> result = new ArrayList<>();
-        Connection con = ConnectDB.getInstance().getConnection();
-        if (con != null) {
-            String sql = "SELECT TOP 100 pdp.maPhieuDatPhong, kh.hoTenKH, "
-                    + "ct.maPhong, "
-                    + "CONVERT(varchar,pdp.thoiGianNhanDuKien,103) AS ngayNhan, "
-                    + "CONVERT(varchar,pdp.thoiGianTraDuKien,103) AS ngayTra, "
-                    + "pdp.trangThai, pdp.ghiChu "
-                    + "FROM PhieuDatPhong pdp "
-                    + "LEFT JOIN KhachHang kh ON kh.maKH = pdp.maKhachHang "
-                    + "LEFT JOIN ChiTietPhieuDatPhong ct ON ct.maPhieuDatPhong = pdp.maPhieuDatPhong "
-                    + "ORDER BY pdp.thoiGianNhanDuKien DESC";
-            try (PreparedStatement pst = con.prepareStatement(sql);
-                 ResultSet rs = pst.executeQuery()) {
-                while (rs.next()) {
-                    result.add(new Object[]{
-                        rs.getString(1),
-                        rs.getString(2) != null ? rs.getString(2) : "—",
-                        rs.getString(3) != null ? rs.getString(3) : "—",
-                        rs.getString(4) != null ? rs.getString(4) : "—",
-                        rs.getString(5) != null ? rs.getString(5) : "—",
-                        rs.getString(6) != null ? rs.getString(6) : "—",
-                        rs.getString(7) != null ? rs.getString(7) : ""
-                    });
-                }
-            } catch (Exception ignored) {}
-        }
-        // Demo khi DB offline
-        if (result.isEmpty()) {
-            result.add(new Object[]{"PDP001", "Nguyễn Văn A", "P101", "24/04/2026", "27/04/2026", "DaCheckIn", ""});
-            result.add(new Object[]{"PDP002", "Trần Thị B",   "P102", "25/04/2026", "28/04/2026", "DaDat",     "Phòng view biển"});
-            result.add(new Object[]{"PDP003", "Lê Văn C",     "P201", "20/04/2026", "22/04/2026", "DaCheckOut", ""});
-            result.add(new Object[]{"PDP004", "Phạm Thị D",   "P301", "10/04/2026", "12/04/2026", "HuyDat",    "Khách hủy"});
-        }
-        return result;
+        return new PhieuDatPhongDAO().loadHistoryForView();
     }
 
     private String trangThaiDisplay(String tt) {
@@ -1329,14 +1123,6 @@ public class DatPhongView {
         javafx.scene.Scene scene = new javafx.scene.Scene(root);
         dialog.setScene(scene);
         dialog.showAndWait();
-
-        // Lưu tiền cọc vào PhieuThu để checkout có thể trừ đúng
-        if (tienCoc > 0) {
-            String maPT = "PT" + java.util.UUID.randomUUID().toString().replace("-", "").substring(0, 8).toUpperCase();
-            String maNV = SessionContext.getInstance().getMaNhanVien();
-            new com.lotuslaverne.dao.PhieuThuDAO().taoPhieuThu(
-                maPT, maPDP, maNV, tienCoc, payMethod, "Tiền cọc đặt phòng");
-        }
     }
 
     private GridPane makeReceiptGrid() {

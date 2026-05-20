@@ -33,6 +33,24 @@ public class KhuyenMaiDAO {
         return list;
     }
 
+    /**
+     * Tra cứu mã khuyến mãi. Trả về phanTramGiam/100.0 (0.0–1.0) nếu hợp lệ,
+     * hoặc -1 nếu không tìm thấy / hết hạn.
+     */
+    public double lookupByMa(String ma) {
+        Connection con = ConnectDB.getInstance().getConnection();
+        if (con == null) return -1;
+        String sql = "SELECT phanTramGiam FROM KhuyenMai "
+                   + "WHERE maKhuyenMai=? AND GETDATE() BETWEEN ngayApDung AND ngayKetThuc";
+        try (PreparedStatement pst = con.prepareStatement(sql)) {
+            pst.setString(1, ma);
+            try (ResultSet rs = pst.executeQuery()) {
+                if (rs.next()) return rs.getDouble(1) / 100.0;
+            }
+        } catch (Exception ignored) {}
+        return -1;
+    }
+
     public boolean them(KhuyenMai km) {
         Connection con = ConnectDB.getInstance().getConnection();
         if (con == null) return false;
