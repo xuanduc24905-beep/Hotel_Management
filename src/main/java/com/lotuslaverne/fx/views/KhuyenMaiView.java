@@ -2,6 +2,7 @@ package com.lotuslaverne.fx.views;
 
 import com.lotuslaverne.dao.KhuyenMaiDAO;
 import com.lotuslaverne.entity.KhuyenMai;
+import com.lotuslaverne.util.SessionContext;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -32,6 +33,12 @@ public class KhuyenMaiView {
     private ObservableList<Object[]> items;
     private TableView<Object[]> table;
 
+    /** Kiểm tra người dùng hiện tại có quyền chỉnh sửa không (chỉ Quản lý / Admin) */
+    private boolean canEdit() {
+        String role = SessionContext.getInstance().getVaiTro();
+        return "QuanLy".equalsIgnoreCase(role) || "Admin".equalsIgnoreCase(role);
+    }
+
     public Node build() {
         VBox root = new VBox(0);
         root.setStyle("-fx-background-color: #F0F2F5;");
@@ -48,6 +55,16 @@ public class KhuyenMaiView {
         Label sub = new Label("Quản lý chương trình khuyến mãi và mã giảm giá");
         sub.setStyle("-fx-font-size: 13px; -fx-text-fill: #8C8C8C;");
         header.getChildren().addAll(title, sub);
+
+        // Badge phân quyền — chỉ hiện với lễ tân
+        if (!canEdit()) {
+            Label readOnly = new Label("🔒  Chỉ xem — Liên hệ Quản lý để thêm / chỉnh sửa khuyến mãi");
+            readOnly.setStyle("-fx-background-color: #FFFBE6; -fx-text-fill: #AD6800;"
+                    + "-fx-padding: 6 14; -fx-background-radius: 6;"
+                    + "-fx-border-color: #FFD666; -fx-border-width: 1; -fx-border-radius: 6;"
+                    + "-fx-font-size: 12px; -fx-font-weight: bold;");
+            header.getChildren().add(readOnly);
+        }
 
         // Toolbar
         HBox toolbar = new HBox(10);
@@ -66,12 +83,16 @@ public class KhuyenMaiView {
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
-        Label hint = new Label("💡 Double-click để sửa");
+        Label hint = new Label(canEdit() ? "💡 Double-click để sửa" : "👁  Chế độ chỉ xem");
         hint.setStyle("-fx-font-size: 11px; -fx-text-fill: #BFBFBF; -fx-font-style: italic;");
 
         Button btnThem    = actionBtn("＋ Thêm Mới", "#52C41A");
         Button btnXoa     = actionBtn("🗑 Xóa",       "#FF4D4F");
         Button btnRefresh = actionBtn("↻ Làm Mới",    "#8C8C8C");
+
+        // Ẩn nút Thêm Mới / Xóa với lễ tân
+        btnThem.setVisible(canEdit()); btnThem.setManaged(canEdit());
+        btnXoa.setVisible(canEdit());  btnXoa.setManaged(canEdit());
 
         toolbar.getChildren().addAll(search, hint, spacer, btnRefresh, btnThem, btnXoa);
 
@@ -81,9 +102,16 @@ public class KhuyenMaiView {
         VBox.setVgrow(table, Priority.ALWAYS);
 
         search.textProperty().addListener((obs, o, n) -> filterTable(n));
+
+        // Double-click chỉ mở dialog sửa nếu có quyền
         table.setOnMouseClicked(e -> {
             if (e.getClickCount() == 2 && table.getSelectionModel().getSelectedItem() != null) {
-                openDialog(table.getSelectionModel().getSelectedItem(), false);
+                if (canEdit()) {
+                    openDialog(table.getSelectionModel().getSelectedItem(), false);
+                } else {
+                    new Alert(Alert.AlertType.INFORMATION,
+                            "Bạn không có quyền chỉnh sửa khuyến mãi.\nChỉ Quản lý mới được thực hiện thao tác này.").showAndWait();
+                }
             }
         });
         btnThem.setOnAction(e -> openDialog(null, true));

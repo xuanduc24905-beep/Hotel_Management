@@ -5,6 +5,7 @@ import com.lotuslaverne.dao.LoaiPhongDAO;
 import com.lotuslaverne.entity.BangGia;
 import com.lotuslaverne.entity.LoaiPhong;
 import com.lotuslaverne.util.ConnectDB;
+import com.lotuslaverne.util.SessionContext;
 import java.sql.*;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.*;
@@ -34,6 +35,12 @@ public class BangGiaView {
     private boolean sAsc=true;
     private double kmPct=0; private String kmMa=null, kmTen=null;
     private Button btnClear;
+
+    /** Kiểm tra người dùng hiện tại có quyền chỉnh sửa không (chỉ Quản lý / Admin) */
+    private boolean canEdit() {
+        String role = SessionContext.getInstance().getVaiTro();
+        return "QuanLy".equalsIgnoreCase(role) || "Admin".equalsIgnoreCase(role);
+    }
 
     private static final String CB_STYLE="-fx-background-color:#FFFFFF;-fx-border-color:#D9D9D9;-fx-border-radius:5;-fx-background-radius:5;-fx-border-width:1;-fx-padding:5 8;-fx-pref-height:32;-fx-min-width:120;";
     private static final String CB_LABEL="-fx-font-size:11px;-fx-text-fill:#8C8C8C;-fx-padding:0 0 2 2;";
@@ -68,7 +75,13 @@ public class BangGiaView {
         Label t=new Label("Bảng Giá Phòng"); t.setStyle("-fx-font-size:22px;-fx-font-weight:bold;-fx-text-fill:#1A1A2E;");
         Label s=new Label("Quản lý đơn giá theo loại phòng, loại thuê và kỳ giá"); s.setStyle("-fx-font-size:13px;-fx-text-fill:#8C8C8C;");
         hdr.getChildren().addAll(t,s);
-        if(kmPct>0){Label km=new Label(String.format("🎁  KM: %s (%s) — Giảm %.0f%%",kmTen,kmMa,kmPct));km.setStyle("-fx-background-color:#FFF7E6;-fx-text-fill:#D48806;-fx-padding:8 14;-fx-background-radius:8;-fx-border-color:#FFD591;-fx-border-width:1;-fx-border-radius:8;-fx-font-size:12px;-fx-font-weight:bold;");hdr.getChildren().add(km);}
+
+        // Badge phân quyền — chỉ hiện với lễ tân
+        if (!canEdit()) {
+            Label readOnly = new Label("🔒  Chỉ xem — Liên hệ Quản lý để thêm / chỉnh sửa bảng giá");
+            readOnly.setStyle("-fx-background-color:#FFFBE6;-fx-text-fill:#AD6800;-fx-padding:6 14;-fx-background-radius:6;-fx-border-color:#FFD666;-fx-border-width:1;-fx-border-radius:6;-fx-font-size:12px;-fx-font-weight:bold;");
+            hdr.getChildren().add(readOnly);
+        }
 
         // ── FLAT FILTER/SORT BAR ──
         HBox bar=new HBox(); bar.setAlignment(Pos.CENTER_LEFT); bar.setPadding(new Insets(12,20,12,20));
@@ -107,13 +120,26 @@ public class BangGiaView {
         bar.getChildren().addAll(filterGrp,spacer,sortGrp);
 
         HBox actRow=new HBox(10); actRow.setAlignment(Pos.CENTER_LEFT); actRow.setPadding(new Insets(4,0,0,0));
-        Label hint=new Label("💡 Double-click dòng để sửa"); hint.setStyle("-fx-font-size:12px;-fx-text-fill:#8C8C8C;-fx-font-style:italic;");
+        Label hint=new Label(canEdit() ? "💡 Double-click dòng để sửa" : "👁  Chế độ chỉ xem");
+        hint.setStyle("-fx-font-size:12px;-fx-text-fill:#8C8C8C;-fx-font-style:italic;");
         Region sp2=new Region(); HBox.setHgrow(sp2,Priority.ALWAYS);
         Button bR=actBtn("↻ Làm Mới","#8C8C8C"),bT=actBtn("＋ Thêm Mới","#52C41A"),bX=actBtn("🗑 Xóa","#FF4D4F");
+
+        // Ẩn nút Thêm / Xóa với lễ tân
+        bT.setVisible(canEdit()); bT.setManaged(canEdit());
+        bX.setVisible(canEdit()); bX.setManaged(canEdit());
+
         actRow.getChildren().addAll(hint,sp2,bR,bT,bX);
 
         items=FXCollections.observableArrayList(loadData()); table=buildTbl(); VBox.setVgrow(table,Priority.ALWAYS);
-        table.setOnMouseClicked(e->{if(e.getClickCount()==2&&table.getSelectionModel().getSelectedItem()!=null)openDlg(table.getSelectionModel().getSelectedItem(),false);});
+
+        // Double-click chỉ mở dialog sửa nếu có quyền
+        table.setOnMouseClicked(e->{
+            if(e.getClickCount()==2&&table.getSelectionModel().getSelectedItem()!=null){
+                if(canEdit()) openDlg(table.getSelectionModel().getSelectedItem(),false);
+                else new Alert(Alert.AlertType.INFORMATION,"Bạn không có quyền chỉnh sửa bảng giá.\nChỉ Quản lý mới được thực hiện thao tác này.").showAndWait();
+            }
+        });
         bT.setOnAction(e->openDlg(null,true));
         bX.setOnAction(e->handleXoa());
         bR.setOnAction(e->{loadKM();refresh();com.lotuslaverne.fx.UiUtils.flashButton(bR,"✓ OK");});

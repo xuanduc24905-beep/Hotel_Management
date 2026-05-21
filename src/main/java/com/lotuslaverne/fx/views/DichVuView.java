@@ -2,6 +2,7 @@ package com.lotuslaverne.fx.views;
 
 import com.lotuslaverne.dao.DichVuDAO;
 import com.lotuslaverne.entity.DichVu;
+import com.lotuslaverne.util.SessionContext;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -52,6 +53,12 @@ public class DichVuView {
     private ObservableList<Object[]> items;
     private TableView<Object[]> table;
 
+    /** Kiểm tra người dùng hiện tại có quyền chỉnh sửa không (chỉ Quản lý / Admin) */
+    private boolean canEdit() {
+        String role = SessionContext.getInstance().getVaiTro();
+        return "QuanLy".equalsIgnoreCase(role) || "Admin".equalsIgnoreCase(role);
+    }
+
     public Node build() {
         VBox root = new VBox(0);
         root.setStyle("-fx-background-color: #F0F2F5;");
@@ -67,10 +74,23 @@ public class DichVuView {
         title.setStyle("-fx-font-size: 22px; -fx-font-weight: bold; -fx-text-fill: #1A1A2E;");
         Label sub = new Label("Danh mục dịch vụ và món ăn cung cấp cho khách");
         sub.setStyle("-fx-font-size: 13px; -fx-text-fill: #8C8C8C;");
-        header.getChildren().addAll(title, sub);
 
-        // Add form card
+        // Nhãn phân quyền — hiển thị khi lễ tân vào xem
+        if (!canEdit()) {
+            Label readOnlyBadge = new Label("🔒  Chỉ xem — Liên hệ Quản lý để thêm / chỉnh sửa dịch vụ");
+            readOnlyBadge.setStyle("-fx-background-color: #FFFBE6; -fx-text-fill: #AD6800;"
+                    + "-fx-padding: 6 14; -fx-background-radius: 6;"
+                    + "-fx-border-color: #FFD666; -fx-border-width: 1; -fx-border-radius: 6;"
+                    + "-fx-font-size: 12px; -fx-font-weight: bold;");
+            header.getChildren().addAll(title, sub, readOnlyBadge);
+        } else {
+            header.getChildren().addAll(title, sub);
+        }
+
+        // Add form card — chỉ hiển thị cho Quản lý / Admin
         VBox formCard = buildAddCard();
+        formCard.setVisible(canEdit());
+        formCard.setManaged(canEdit());
 
         // Toolbar
         HBox toolbar = new HBox(10);
@@ -89,9 +109,14 @@ public class DichVuView {
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
-        Button btnEdit    = actionBtn("✏ Sửa",            "#1890FF");
-        Button btnStop    = actionBtn("⛔ Ngừng KD",       "#FAAD14");
-        Button btnRefresh = actionBtn("↻ Làm Mới",         "#8C8C8C");
+        Button btnEdit    = actionBtn("✏ Sửa",    "#1890FF");
+        Button btnStop    = actionBtn("⛔ Ngừng KD", "#FAAD14");
+        Button btnRefresh = actionBtn("↻ Làm Mới",  "#8C8C8C");
+
+        // Ẩn nút Sửa / Ngừng KD với lễ tân
+        btnEdit.setVisible(canEdit());  btnEdit.setManaged(canEdit());
+        btnStop.setVisible(canEdit());  btnStop.setManaged(canEdit());
+
         toolbar.getChildren().addAll(search, spacer, btnRefresh, btnEdit, btnStop);
 
         // Table
@@ -100,11 +125,19 @@ public class DichVuView {
         VBox.setVgrow(table, Priority.ALWAYS);
 
         search.textProperty().addListener((obs, o, n) -> filterTable(n));
+
+        // Double-click chỉ mở dialog sửa nếu có quyền
         table.setOnMouseClicked(e -> {
             if (e.getClickCount() == 2 && table.getSelectionModel().getSelectedItem() != null) {
-                openEditDialog(table.getSelectionModel().getSelectedItem());
+                if (canEdit()) {
+                    openEditDialog(table.getSelectionModel().getSelectedItem());
+                } else {
+                    new Alert(Alert.AlertType.INFORMATION,
+                            "Bạn không có quyền chỉnh sửa dịch vụ.\nChỉ Quản lý mới được thực hiện thao tác này.").showAndWait();
+                }
             }
         });
+
         btnEdit.setOnAction(e -> {
             Object[] sel = table.getSelectionModel().getSelectedItem();
             if (sel != null) openEditDialog(sel);

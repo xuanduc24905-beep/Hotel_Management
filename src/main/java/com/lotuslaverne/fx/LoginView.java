@@ -204,6 +204,9 @@ public class LoginView {
 
         // Vai trò xác định từ DB, KHÔNG cho user tự chọn
         String resolvedRole = tk.getVaiTro().equalsIgnoreCase("QuanLy") ? "Quản Lý" : "Lễ Tân";
+        // Lưu phiên đăng nhập vào SessionContext để các View kiểm tra phân quyền
+        com.lotuslaverne.util.SessionContext.getInstance().init(
+                tk.getMaNhanVien(), username, tk.getVaiTro());
         new MainLayout(stage, username, resolvedRole).show();
     }
 
